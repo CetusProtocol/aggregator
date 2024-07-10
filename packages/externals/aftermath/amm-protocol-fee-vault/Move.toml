@@ -1,0 +1,25 @@
+[package]
+name = "ProtocolFeeVault"
+version = "0.0.1"
+published-at = "0x2d9316f1f1a95f6d7c85a4e690ef7c359e6649773ef2c37ad7d9857adb6bef06"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "mainnet-v1.24.1"
+override = true
+
+[dependencies.InsuranceFund]
+local = "../amm-insurance-fund"
+
+[dependencies.ReferralVault]
+local = "../amm-referral-vault"
+
+[dependencies.Treasury]
+local = "../amm-treasury"
+
+[dependencies.utilities]
+local = "../utility/utilities"
+
+[addresses]
+protocol_fee_vault = "0x2d9316f1f1a95f6d7c85a4e690ef7c359e6649773ef2c37ad7d9857adb6bef06"

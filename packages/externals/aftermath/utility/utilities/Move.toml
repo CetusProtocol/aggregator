@@ -1,0 +1,14 @@
+[package]
+name = "utilities"
+version = "0.0.1"
+published-at = "0x73baa782c55003b3a359dec04b189312565d18e7309d4a51f5f112f891e3b2ab"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "mainnet-v1.24.1"
+override = true
+
+
+[addresses]
+utilities = "0x73baa782c55003b3a359dec04b189312565d18e7309d4a51f5f112f891e3b2ab"

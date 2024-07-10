@@ -1,0 +1,13 @@
+[package]
+name = "Treasury"
+version = "0.0.1"
+published-at = "0x64213b0e4a52bac468d4ac3f140242f70714381653a1919a6d57cd49c628207a"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "mainnet-v1.24.1"
+override = true
+
+[addresses]
+treasury = "0x64213b0e4a52bac468d4ac3f140242f70714381653a1919a6d57cd49c628207a"

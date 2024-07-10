@@ -1,0 +1,22 @@
+// tsconfig.json
+{
+  "compilerOptions": {
+    "target": "es6",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "rootDir": "./",
+    "baseUrl": ".",
+    "paths": {
+      "~/*": ["src/*"]
+    },
+    "allowJs": true,
+    "outDir": "dist/",
+  },
+  "include": ["src", "tests"],
+  "exclude": [
+    "node_modules/**/*",
+    "dist/**/*",
+  ],
+}

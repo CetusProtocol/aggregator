@@ -1,0 +1,13 @@
+[package]
+name = "AmmMath"
+version = "0.0.1"
+published-at = "0x712579292f80c11a0c9de4ff553d6e5c4757105e83a8a3129823d2b39e65d062"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "mainnet-v1.24.1"
+override = true
+
+[addresses]
+amm_math = "0x712579292f80c11a0c9de4ff553d6e5c4757105e83a8a3129823d2b39e65d062"

@@ -1,0 +1,13 @@
+[package]
+name = "InsuranceFund"
+version = "0.0.1"
+published-at = "0xa6baab1e668c7868991c1c3c11e144100f5734c407d020f72a01b9d1a8bcb97f"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "mainnet-v1.24.1"
+override = true
+
+[addresses]
+insurance_fund = "0xa6baab1e668c7868991c1c3c11e144100f5734c407d020f72a01b9d1a8bcb97f"

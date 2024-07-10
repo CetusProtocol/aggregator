@@ -1,0 +1,14 @@
+[package]
+name = "LinkedSet"
+version = "0.0.1"
+published-at = "0xdb982f402a039f196f3e13cd73795db441393b5bc6eef7a0295a333808982a7d"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "mainnet-v1.24.1"
+override = true
+
+
+[addresses]
+linked_set = "0xdb982f402a039f196f3e13cd73795db441393b5bc6eef7a0295a333808982a7d"

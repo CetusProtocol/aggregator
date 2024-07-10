@@ -1,0 +1,12 @@
+[package]
+name = "AftermathAMM"
+version = "0.1.1"
+published-at = "0xc4049b2d1cc0f6e017fda8260e4377cecd236bd7f56a54fee120816e72e2e0dd"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.24.1", override = true }
+ProtocolFeeVault = { local = "../amm-protocol-fee-vault" }
+AmmMath = { local = "../amm-math" }
+
+[addresses]
+aftermath_amm = "0xefe170ec0be4d762196bedecd7a065816576198a6527c99282a2551aaa7da38c"

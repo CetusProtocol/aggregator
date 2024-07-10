@@ -1,0 +1,10 @@
+[package]
+name = "FlowxAMM"
+version = "0.1.1"
+published-at = "0xba153169476e8c3114962261d1edc70de5ad9781b83cc617ecc8c1923191cae0"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.24.1", override = true }
+
+[addresses]
+flowx_amm = "0xba153169476e8c3114962261d1edc70de5ad9781b83cc617ecc8c1923191cae0"

@@ -1,0 +1,21 @@
+[package]
+name = "SuiSystemUtils"
+version = "0.0.1"
+published-at = "0x8e6adb40c50cf2ce81d7dd12d240fb881df715343ab61233124aadb87a9fd1fd"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "mainnet-v1.24.1"
+override = true
+
+
+[dependencies.SuiSystem]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-system"
+rev = "mainnet-v1.24.1"
+override = true
+
+
+[addresses]
+sui_system_utils = "0x8e6adb40c50cf2ce81d7dd12d240fb881df715343ab61233124aadb87a9fd1fd"
