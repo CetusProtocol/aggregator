@@ -8,9 +8,9 @@
   <h3 align="center">Cetus Plus Swap Aggregator</h3>
 
   <p align="center">
-    Integrating Cetus-CLMM-SUI-SDK: A Comprehensive Guide, Please see details in document.
+    Integrating Cetus-Aggregator-SDK: A Comprehensive Guide, Please see details in document.
     <br />
-    <a href="https://cetus-1.gitbook.io/cetus-developer-docs/developer/dev-overview"><strong>Explore the document »</strong>
+    <a href="https://cetus-1.gitbook.io/cetus-developer-docs/developer/cetus-plus-aggregator"><strong>Explore the document »</strong>
     </a>
   </p>
 </div>
@@ -31,10 +31,10 @@ By using our aggregator, you can trade more efficiently and securely on the Sui 
 
 # Install
 
-The SDK is published to npm registry with experimental version. To use the SDK in your project, you can
+The SDK is published to npm registry. To use the SDK in your project, you can
 
 ```
-npm install aggregator-sdk@0.0.0-experimental-20240521171554
+npm install @cetusprotocol/aggregator-sdk
 ```
 
 # Usage
@@ -102,15 +102,7 @@ const routerRes = await client.findRouter({
   splitAlgorithm: null, // select split algotirhm, recommended default set null
   splitFactor: null,
   splitCount: 100, // set max expect split count
-  providers: [
-    "AFTERMATH",
-    "CETUS",
-    "DEEPBOOK",
-    "KRIYA",
-    "FLOWX",
-    "AFTERMATH",
-    "TRUBOS",
-  ], //  now max support above seven platform.
+  providers: ["AFTERMATH", "CETUS", "DEEPBOOK", "KRIYA", "FLOWX", "TRUBOS"], //  now max support above six platform.
 })
 
 if (routerRes != null) {
