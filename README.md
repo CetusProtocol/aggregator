@@ -25,7 +25,7 @@ High-Speed Transactions: Thanks to advanced algorithms and efficient architectur
 
 Easy Integration: The aggregator is designed to be simple and easy to integrate. Whether you are an individual developer or a large project team, you can quickly connect and deploy.
 
-Multi-Platform Support: Currently, we have integrated multiple mainstream DEXs on the Sui chain, including cetus, deepbook, kriya, flowx, aftermath, turbos etc, allowing users to enjoy a diversified trading experience on a single platform.
+Multi-Platform Support: Currently, we have integrated multiple mainstream DEXs on the Sui chain, including cetus, deepbook, kriya, flowx, aftermath, afsui, haedal, volo, turbos etc, allowing users to enjoy a diversified trading experience on a single platform.
 
 By using our aggregator, you can trade more efficiently and securely on the Sui blockchain, fully leveraging the various opportunities brought by decentralized finance (DeFi).
 
@@ -43,46 +43,28 @@ npm install @cetusprotocol/aggregator-sdk
 
 ```typescript
 // used to do simulate swap and swap
+// https://fullnode.mainnet.sui.io:443
 const fullNodeURL = process.env.SUI_RPC!
 
-// used to do swap
-const secret = process.env.SUI_WALLET_SECRET!
+const suiClient = new SuiClient({
+  url: fullNodeURL,
+})
 
 // provider by cetus
 const aggregatorURL = "https://api-sui.cetus.zone/router_v2"
 
-// process wallet secret
-const byte = Buffer.from(secret, "base64")
-const u8Array = new Uint8Array(byte)
-keypair = secret
-  ? Ed25519Keypair.fromSecretKey(u8Array.slice(1, 33))
-  : buildTestAccount()
-const wallet = keypair.getPublicKey().toSuiAddress()
+// set your wallet address, used to do simulate
+const wallet = "0x..."
 
-const aggregatorPackage = {
-  packageName: "aggregator",
-  packageId:
-    "0x640d44dbdc0ede165c7cc417d7f57f1b09648083109de7132c6b3fb15861f5ee",
-  publishedAt:
-    "0x640d44dbdc0ede165c7cc417d7f57f1b09648083109de7132c6b3fb15861f5ee",
-}
-
-const integratePackage = {
-  packageName: "integrate",
-  packageId:
-    "0x996c4d9480708fb8b92aa7acf819fb0497b5ec8e65ba06601cae2fb6db3312c3",
-  publishedAt:
-    "0x8faab90228e4c4df91c41626bbaefa19fc25c514405ac64de54578dec9e6f5ee",
-}
-
-const config = new AggregatorConfig(
+// import { Env } from "@cetusprotocol/aggregator-sdk"
+// Currently, we provide full support for Mainnet,
+// while Testnet is only supported for Cetus and DeepBook providers.
+const client = new AggregatorClient(
   aggregatorURL,
-  fullNodeURL,
   wallet,
-  [aggregatorPackage, integratePackage],
-  ENV.MAINNET
+  sui.Client,
+  Env.Mainnet
 )
-const client = new AggregatorClient(config)
 ```
 
 ## 2. Get best router swap result from aggregator service
@@ -93,16 +75,28 @@ const amount = new BN(1000000)
 const from = M_SUI // 0x2::sui::SUI
 const target = M_CETUS // 0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS
 
-const routerRes = await client.findRouter({
+const routerRes = await client.findRouters({
   from,
   target,
   amount,
   byAmountIn: true, // true means fix input amount, false means fix output amount
   depth: 3, // max allow 3, means 3 hops
-  splitAlgorithm: null, // select split algotirhm, recommended default set null
-  splitFactor: null,
-  splitCount: 100, // set max expect split count
-  providers: ["AFTERMATH", "CETUS", "DEEPBOOK", "KRIYA", "FLOWX", "TRUBOS"], //  now max support above six platform.
+  providers: [
+    "CETUS",
+    "DEEPBOOK",
+    "KRIYA",
+    "KRIYAV3",
+    "FLOWX",
+    "FLOWXV3",
+    "AFTERMATH",
+    "TRUBOS",
+    "HADEAL",
+    "VOLO",
+    "AFSUI",
+  ], //  now max support above 11 platforms.
+  // splitAlgorithm: null, // select split algotirhm, recommended default set null
+  // splitFactor: null,
+  // splitCount: 100, // set max expect split count
 })
 
 if (routerRes != null) {
@@ -110,21 +104,52 @@ if (routerRes != null) {
 }
 ```
 
-## 3. Confirm and do swap
+## 3. Confirm and do fast swap
 
 ```typescript
+const routerTx = new Transaction()
+
 if (routerRes != null) {
-  const routerTx = await client.routerSwap({
-    routers: res.routes,
-    amountIn: res.amountIn,
-    amountOut: res.amountOut,
+  await client.fastRouterSwap({
+    routers: routerRes.routes,
     byAmountIn,
+    txb: routerTx,
     slippage: 0.01,
-    fromCoinType: from,
-    targetCoinType: target,
-    partner: undefined,
     isMergeTragetCoin: true,
+    refreshAllCoins: true,
   })
+
+  let result = await client.devInspectTransactionBlock(routerTx, keypair)
+
+  if (result.effects.status.status === "success") {
+    console.log("Sim exec transaction success")
+    const result = await client.signAndExecuteTransaction(routerTx, keypair)
+  }
+  console.log("result", result)
+}
+```
+
+## 4. Build PTB and return target coin
+
+```typescript
+const routerTx = new Transaction()
+const byAmountIn = true;
+
+if (routerRes != null) {
+  const targetCoin = await client.routerSwap({
+    routers: routerRes.routes,
+    byAmountIn,
+    txb: routerTx,
+    inputCoin,
+    slippage: 0.01,
+  })
+
+  // you can use this target coin object argument to build your ptb.
+  const client.transferOrDestoryCoin(
+      txb,
+      targetCoinRes.targetCoin,
+      targetCoinType
+  )
 
   let result = await client.devInspectTransactionBlock(routerTx, keypair)
 
