@@ -1,20 +1,22 @@
 import {
   Transaction,
-  TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
 import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
 
-export class Turbos implements Dex {
+export class FlowxV3 implements Dex {
   private versioned: string
+  private poolRegistry: string
 
   constructor(env: Env) {
     if (env !== Env.Mainnet) {
-      throw new Error("Turbos only supported on mainnet")
+      throw new Error("Flowx clmm only supported on mainnet")
     }
 
     this.versioned =
-      "0xf1cf0e81048df168ebeb1b8030fad24b3e0b53ae827c25053fff0779c1445b6f"
+      "0x67624a1533b5aff5d0dfcf5e598684350efd38134d2d245f475524c03a64e656"
+    this.poolRegistry =
+      "0x27565d24a4cd51127ac90e4074a841bbe356cca7bf5759ddc14a975be1632abc"
   }
 
   async swap(
@@ -29,24 +31,17 @@ export class Turbos implements Dex {
       ? ["swap_a2b", from, target]
       : ["swap_b2a", target, from]
 
-    if (path.extendedDetails == null) {
-      throw new Error("Extended details not supported")
-    } else {
-      if (path.extendedDetails.turbosFeeType == null) {
-        throw new Error("Turbos fee type not supported")
-      }
-    }
-
     const args = [
-      txb.object(path.id),
+      txb.object(this.poolRegistry),
+      txb.pure.u64(path.feeRate * 1000000),
       inputCoin,
-      txb.object(CLOCK_ADDRESS),
       txb.object(this.versioned),
+      txb.object(CLOCK_ADDRESS),
     ]
 
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::turbos::${func}`,
-      typeArguments: [coinAType, coinBType, path.extendedDetails.turbosFeeType],
+      target: `${client.publishedAt()}::flowx_clmm::${func}`,
+      typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionObjectArgument
 

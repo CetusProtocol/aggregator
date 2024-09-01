@@ -1,84 +1,66 @@
-import type { AggregatorConfig } from "./config"
 import Decimal from "decimal.js"
 import { SuiClient } from "@mysten/sui/client"
-import { CoinAsset } from "./types/sui"
-import { createTarget, extractStructTagFromType } from "./utils"
-import { Transaction } from "@mysten/sui/transactions"
 import {
-  buildInputCoin,
-  checkCoinThresholdAndMergeCoin,
-  transferOrDestoryCoin,
-} from "./transaction/common"
-import { expectInputRouterSwap, expectOutputRouterSwap } from "./transaction"
-import { CalculateAmountLimit } from "./math"
-import { Signer } from "@mysten/sui/dist/cjs/cryptography"
+  Transaction,
+  TransactionObjectArgument,
+} from "@mysten/sui/transactions"
+import { Signer } from "@mysten/sui/cryptography"
 import BN from "bn.js"
-import { swapInPools } from "./transaction/swap"
-import { completionCoin } from "./utils/coin"
 import { SUI_FRAMEWORK_ADDRESS } from "@mysten/sui/utils"
-import { AFTERMATH_AMM, JOIN_FUNC, PAY_MODULE } from "./const"
+import {
+  Dex,
+  Env,
+  extractStructTagFromType,
+  FindRouterParams,
+  getRouterResult,
+  Router,
+  RouterData,
+} from "."
+import { Aftermath } from "./transaction/aftermath"
+import { DeepbookV2 } from "./transaction/deepbook_v2"
+import { KriyaV2 } from "./transaction/kriya_v2"
+import { FlowxV2 } from "./transaction/flowx_v2"
+import { Turbos } from "./transaction/turbos"
+import { Cetus } from "./transaction/cetus"
+import { swapInPools } from "./transaction/swap"
+import { CalculateAmountLimit } from "./math"
+import { buildInputCoin } from "./utils/coin"
+import { CoinAsset } from "./types/sui"
+import { KriyaV3 } from "./transaction/kriya_v3"
+import { Haedal } from "./transaction/haedal"
+import { Afsui } from "./transaction/afsui"
+import { Volo } from "./transaction/volo"
+import { FlowxV3 } from "./transaction/flowx_v3"
 
-export type ExtendedDetails = {
-  aftermathPoolFlatness?: number
-  aftermathLpSupplyType?: string
-  turbosFeeType?: string
-}
-
-export type Path = {
-  id: string
-  a2b: boolean
-  provider: string
-  from: string
-  target: string
-  feeRate: number
-  amountIn: number
-  amountOut: number
-  extendedDetails?: ExtendedDetails
-  version?: string
-}
-
-export type Router = {
-  path: Path[]
-  amountIn: BN
-  amountOut: BN
-  initialPrice: Decimal
-}
-
-export type RouterData = {
-  amountIn: BN
-  amountOut: BN
-  routes: Router[]
-}
-
-export type AggregatorResponse = {
-  code: number
-  msg: string
-  data: RouterData
-}
+export const CETUS = "CETUS"
+export const DEEPBOOKV2 = "DEEPBOOK"
+export const KRIYA = "KRIYA"
+export const FLOWXV2 = "FLOWX"
+export const FLOWXV3 = "FLOWXV3"
+export const KRIYAV3 = "KRIYAV3"
+export const TURBOS = "TURBOS"
+export const AFTERMATH = "AFTERMATH"
+export const HAEDAL = "HAEDAL"
+export const VOLO = "VOLO"
+export const AFSUI = "AFSUI"
 
 export type BuildRouterSwapParams = {
   routers: Router[]
-  amountIn: BN
-  amountOut: BN
+  byAmountIn: boolean
+  inputCoin: TransactionObjectArgument
+  slippage: number
+  txb: Transaction
+  partner?: string
+}
+
+export type BuildFastRouterSwapParams = {
+  routers: Router[]
   byAmountIn: boolean
   slippage: number
-  fromCoinType: string
-  targetCoinType: string
+  txb: Transaction
   partner?: string
   isMergeTragetCoin?: boolean
   refreshAllCoins?: boolean
-}
-
-export interface FindRouterParams {
-  from: string
-  target: string
-  amount: BN
-  byAmountIn: boolean
-  depth: number | null
-  splitAlgorithm: string | null
-  splitFactor: number | null
-  splitCount: number | null
-  providers: string[] | null
 }
 
 export interface SwapInPoolsParams {
@@ -95,30 +77,27 @@ export interface SwapInPoolsResult {
 }
 
 export class AggregatorClient {
-  private config: AggregatorConfig
-
-  private wallet: string
-
-  private client: SuiClient
-
+  public endpoint: string
+  public signer: string
+  public client: SuiClient
+  public env: Env
   private allCoins: CoinAsset[]
 
-  constructor(config: AggregatorConfig) {
-    this.config = config
-    this.client = new SuiClient({ url: config.getFullNodeUrl() })
-    this.wallet = config.getWallet()
+  constructor(endpoint: string, signer: string, client: SuiClient, env: Env) {
+    this.endpoint = endpoint
+    this.client = client
+    this.signer = signer
+    this.env = env
     this.allCoins = []
   }
 
   async getAllCoins(): Promise<CoinAsset[]> {
     let cursor = null
     let limit = 50
-
     const allCoins: CoinAsset[] = []
-
     while (true) {
       const gotAllCoins = await this.client.getAllCoins({
-        owner: this.wallet,
+        owner: this.signer,
         cursor,
         limit,
       })
@@ -129,68 +108,107 @@ export class AggregatorClient {
           balance: BigInt(coin.balance),
         })
       }
-
       if (gotAllCoins.data.length < limit) {
         break
       }
       cursor = gotAllCoins.data[limit - 1].coinObjectId
     }
-
     return allCoins
   }
 
-  async findRouter(
-    fromRouterParams: FindRouterParams
-  ): Promise<RouterData | null> {
-    const {
-      from,
-      target,
-      amount,
-      byAmountIn,
-      depth,
-      splitAlgorithm,
-      splitFactor,
-      splitCount,
-      providers,
-    } = fromRouterParams
-    const fromCoin = completionCoin(from)
-    const targetCoin = completionCoin(target)
+  async findRouters(params: FindRouterParams): Promise<RouterData | null> {
+    return getRouterResult(this.endpoint, params)
+  }
 
-    let url =
-      this.config.getAggregatorUrl() +
-      `/find_routes?from=${fromCoin}&target=${targetCoin}&amount=${amount.toString()}&by_amount_in=${byAmountIn}`
-
-    if (depth) {
-      url += `&depth=${depth}`
+  async expectInputSwap(
+    txb: Transaction,
+    inputCoin: TransactionObjectArgument,
+    routers: Router[],
+    amountOutLimit: BN,
+    partner?: string
+  ) {
+    if (routers.length === 0) {
+      throw new Error("No router found")
     }
+    const splitAmounts = routers.map((router) => router.amountIn.toString())
+    const inputCoinType = routers[0].path[0].from
+    const outputCoinType = routers[0].path[routers[0].path.length - 1].target
+    const inputCoins = txb.splitCoins(inputCoin, splitAmounts)
+    const outputCoins = []
+    for (let i = 0; i < routers.length; i++) {
+      if (routers[i].path.length === 0) {
+        throw new Error("Empty path")
+      }
+      let nextCoin = inputCoins[i] as TransactionObjectArgument
+      for (const path of routers[i].path) {
+        const dex = this.newDex(path.provider, partner)
+        nextCoin = await dex.swap(this, txb, path, nextCoin)
+      }
 
-    if (splitAlgorithm) {
-      url += `&split_algorithm=${splitAlgorithm}`
+      outputCoins.push(nextCoin)
     }
+    this.transferOrDestoryCoin(txb, inputCoin, inputCoinType)
+    const mergedTargetCointhis = this.checkCoinThresholdAndMergeCoin(
+      txb,
+      outputCoins,
+      outputCoinType,
+      amountOutLimit
+    )
+    return mergedTargetCointhis
+  }
 
-    if (splitFactor) {
-      url += `&split_factor=${splitFactor}`
-    }
+  async expectOutputSwap(
+    txb: Transaction,
+    inputCoin: TransactionObjectArgument,
+    routers: Router[],
+    partner?: string
+  ): Promise<TransactionObjectArgument> {
+    const returnCoins: TransactionObjectArgument[] = []
+    const receipts: TransactionObjectArgument[] = []
+    const targetCoins = []
+    const dex = new Cetus(this.env, partner)
+    for (let i = 0; i < routers.length; i++) {
+      const router = routers[i]
+      for (let j = router.path.length - 1; j >= 0; j--) {
+        const path = router.path[j]
+        const flashSwapResult = dex.flash_swap(this, txb, path, false)
+        returnCoins.unshift(flashSwapResult.targetCoin)
+        receipts.unshift(flashSwapResult.flashReceipt)
+      }
 
-    if (splitCount) {
-      url += `&split_count=${splitCount}`
-    }
-
-    if (providers) {
-      if (providers.length > 0) {
-        url += `&providers=${providers.join(",")}`
+      let nextRepayCoin = inputCoin
+      for (let j = 0; j < router.path.length; j++) {
+        const path = router.path[j]
+        const repayResult = dex.repay_flash_swap(
+          this,
+          txb,
+          path,
+          nextRepayCoin,
+          receipts[j]
+        )
+        nextRepayCoin = returnCoins[j]
+        if (j === 0) {
+          inputCoin = repayResult
+        } else {
+          this.transferOrDestoryCoin(txb, repayResult, path.from)
+        }
+        if (j === router.path.length - 1) {
+          targetCoins.push(nextRepayCoin)
+        }
       }
     }
-
-    const response = await fetch(url)
-    const data = await response.json()
-
-    if (data.data != null) {
-      const res = parseRouterResponse(data.data)
-      return res
+    const inputCoinType = routers[0].path[0].from
+    this.transferOrDestoryCoin(txb, inputCoin, inputCoinType)
+    if (targetCoins.length > 1) {
+      const vec = txb.makeMoveVec({ elements: targetCoins.slice(1) })
+      txb.moveCall({
+        target: `${SUI_FRAMEWORK_ADDRESS}::pay::join_vec`,
+        typeArguments: [routers[0].path[routers[0].path.length - 1].target],
+        arguments: [targetCoins[0], vec],
+      })
     }
 
-    return null
+    return targetCoins[0]
   }
 
   async swapInPools(
@@ -198,112 +216,195 @@ export class AggregatorClient {
   ): Promise<SwapInPoolsResult | null> {
     let result
     try {
-      result = await swapInPools(this.client, params, this.config)
+      result = await swapInPools(this.client, params, this.signer)
     } catch (e) {
+      console.error("swapInPools error:", e)
       return null
     }
-
     return result
   }
 
-  async routerSwap(params: BuildRouterSwapParams): Promise<Transaction> {
-    const {
-      routers: _,
-      amountIn,
-      amountOut,
-      byAmountIn,
-      slippage,
-      fromCoinType,
-      targetCoinType,
-      partner,
-      isMergeTragetCoin,
-      refreshAllCoins,
-    } = params
+  async routerSwap(
+    params: BuildRouterSwapParams
+  ): Promise<TransactionObjectArgument> {
+    const { routers, inputCoin, slippage, byAmountIn, txb, partner } = params
+    const amountIn = routers.reduce(
+      (acc, router) => acc.add(router.amountIn),
+      new BN(0)
+    )
+    const amountOut = routers.reduce(
+      (acc, router) => acc.add(router.amountOut),
+      new BN(0)
+    )
     const amountLimit = CalculateAmountLimit(
       byAmountIn ? amountOut : amountIn,
       byAmountIn,
       slippage
     )
 
-    const txb = new Transaction()
+    if (byAmountIn) {
+      const targetCoin = await this.expectInputSwap(
+        txb,
+        inputCoin,
+        routers,
+        new BN(amountLimit),
+        partner
+      )
+      return targetCoin
+    }
 
+    // When exact output, we will set slippage limit in split coin.
+    const splitedInputCoins = txb.splitCoins(inputCoin, [
+      amountLimit.toString(),
+    ])
+    this.transferOrDestoryCoin(txb, inputCoin, routers[0].path[0].from)
+    const targetCoin = await this.expectOutputSwap(
+      txb,
+      splitedInputCoins[0],
+      routers,
+      partner
+    )
+    return targetCoin
+  }
+
+  // auto build input coin
+  // auto merge, transfer or destory target coin.
+  async fastRouterSwap(params: BuildFastRouterSwapParams) {
+    const {
+      routers,
+      byAmountIn,
+      slippage,
+      txb,
+      partner,
+      isMergeTragetCoin,
+      refreshAllCoins,
+    } = params
     if (refreshAllCoins || this.allCoins.length === 0) {
       this.allCoins = await this.getAllCoins()
     }
-
-    const allCoins = this.allCoins
-    let targetCoins = []
-
-    if (byAmountIn) {
-      const buildFromCoinRes = buildInputCoin(
-        txb,
-        allCoins,
-        BigInt(amountIn.toString()),
-        fromCoinType
-      )
-      const fromCoin = buildFromCoinRes.targetCoin
-      const swapedCoins = await expectInputRouterSwap(
-        this.client,
-        params,
-        txb,
-        fromCoin,
-        this.config,
-        partner
-      )
-      const mergedCoin = checkCoinThresholdAndMergeCoin(
-        txb,
-        swapedCoins,
-        targetCoinType,
-        amountLimit,
-        this.config
-      )
-      targetCoins.push(mergedCoin)
-    } else {
-      const fromCoin = buildInputCoin(
-        txb,
-        allCoins,
-        BigInt(amountLimit),
-        fromCoinType
-      ).targetCoin
-      const swapedCoins = await expectOutputRouterSwap(
-        params,
-        txb,
-        fromCoin,
-        this.config,
-        partner
-      )
-      targetCoins.push(...swapedCoins)
-    }
+    const fromCoinType = routers[0].path[0].from
+    const targetCoinType = routers[0].path[routers[0].path.length - 1].target
+    const amountIn = routers.reduce(
+      (acc, router) => acc.add(router.amountIn),
+      new BN(0)
+    )
+    const amountOut = routers.reduce(
+      (acc, router) => acc.add(router.amountOut),
+      new BN(0)
+    )
+    const amountLimit = CalculateAmountLimit(
+      byAmountIn ? amountOut : amountIn,
+      byAmountIn,
+      slippage
+    )
+    const amount = byAmountIn ? amountIn : amountLimit
+    const buildFromCoinRes = buildInputCoin(
+      txb,
+      this.allCoins,
+      BigInt(amount.toString()),
+      fromCoinType
+    )
+    const targetCoin = await this.routerSwap({
+      routers,
+      inputCoin: buildFromCoinRes.targetCoin,
+      slippage,
+      byAmountIn,
+      txb,
+      partner,
+    })
 
     if (isMergeTragetCoin) {
       const targetCoinRes = buildInputCoin(
         txb,
-        allCoins,
+        this.allCoins,
         BigInt(0),
         targetCoinType
       )
-      txb.mergeCoins(targetCoinRes.targetCoin, targetCoins)
+      txb.mergeCoins(targetCoinRes.targetCoin, [targetCoin])
       if (targetCoinRes.isMintZeroCoin) {
-        transferOrDestoryCoin(
+        this.transferOrDestoryCoin(
           txb,
           targetCoinRes.targetCoin,
-          targetCoinType,
-          this.config
+          targetCoinType
         )
       }
     } else {
-      if (targetCoins.length > 1) {
-        const vec = txb.makeMoveVec({ elements: targetCoins.slice(1) })
-        txb.moveCall({
-          target: createTarget(SUI_FRAMEWORK_ADDRESS, PAY_MODULE, JOIN_FUNC),
-          typeArguments: [targetCoinType],
-          arguments: [targetCoins[0], vec],
-        })
-      }
-      transferOrDestoryCoin(txb, targetCoins[0], targetCoinType, this.config)
+      this.transferOrDestoryCoin(txb, targetCoin, targetCoinType)
+    }
+  }
+
+  publishedAt(): string {
+    if (this.env === Env.Mainnet) {
+      return "0xeffc8ae61f439bb34c9b905ff8f29ec56873dcedf81c7123ff2f1f67c45ec302"
+    } else {
+      return "0x0"
+    }
+  }
+
+  transferOrDestoryCoin(
+    txb: Transaction,
+    coin: TransactionObjectArgument,
+    coinType: string
+  ) {
+    txb.moveCall({
+      target: `${this.publishedAt()}::utils::transfer_or_destroy_coin`,
+      typeArguments: [coinType],
+      arguments: [coin],
+    })
+  }
+
+  checkCoinThresholdAndMergeCoin(
+    txb: Transaction,
+    coins: TransactionObjectArgument[],
+    coinType: string,
+    amountLimit: BN
+  ) {
+    let targetCoin = coins[0]
+    if (coins.length > 1) {
+      let vec = txb.makeMoveVec({ elements: coins.slice(1) })
+      txb.moveCall({
+        target: `${SUI_FRAMEWORK_ADDRESS}::pay::join_vec`,
+        typeArguments: [coinType],
+        arguments: [coins[0], vec],
+      })
+      targetCoin = coins[0]
     }
 
-    return txb
+    const res = txb.moveCall({
+      target: `${this.publishedAt()}::utils::check_coin_threshold`,
+      typeArguments: [coinType],
+      arguments: [targetCoin, txb.pure.u64(amountLimit.toString())],
+    })
+    return targetCoin
+  }
+
+  newDex(provider: string, partner?: string): Dex {
+    switch (provider) {
+      case CETUS:
+        return new Cetus(this.env, partner)
+      case DEEPBOOKV2:
+        return new DeepbookV2(this.env)
+      case KRIYA:
+        return new KriyaV2(this.env)
+      case KRIYAV3:
+        return new KriyaV3(this.env)
+      case FLOWXV2:
+        return new FlowxV2(this.env)
+      case FLOWXV3:
+        return new FlowxV3(this.env)
+      case TURBOS:
+        return new Turbos(this.env)
+      case AFTERMATH:
+        return new Aftermath(this.env)
+      case HAEDAL:
+        return new Haedal(this.env)
+      case AFSUI:
+        return new Afsui(this.env)
+      case VOLO:
+        return new Volo(this.env)
+      default:
+        throw new Error(`Unsupported dex ${provider}`)
+    }
   }
 
   async signAndExecuteTransaction(txb: Transaction, signer: Signer) {
@@ -320,10 +421,10 @@ export class AggregatorClient {
     return res
   }
 
-  async devInspectTransactionBlock(txb: Transaction, signer: Signer) {
+  async devInspectTransactionBlock(txb: Transaction) {
     const res = await this.client.devInspectTransactionBlock({
       transactionBlock: txb,
-      sender: signer.getPublicKey().toSuiAddress(),
+      sender: this.signer,
     })
 
     return res
@@ -334,37 +435,43 @@ export class AggregatorClient {
       transaction: txb,
       signer,
     })
-
     return res
   }
 }
 
-function parseRouterResponse(data: any): RouterData {
+export function parseRouterResponse(data: any): RouterData {
   return {
     amountIn: new BN(data.amount_in.toString()),
     amountOut: new BN(data.amount_out.toString()),
+    insufficientLiquidity: false,
     routes: data.routes.map((route: any) => {
       return {
         path: route.path.map((path: any) => {
           let version
-          if (path.provider === AFTERMATH_AMM) {
+          if (path.provider === AFTERMATH) {
             version =
               path.extended_details.aftermath_pool_flatness === 0 ? "v2" : "v3"
           }
+
+          let extendedDetails
+          if (path.provider === TURBOS || path.provider === AFTERMATH) {
+            extendedDetails = {
+              aftermathLpSupplyType:
+                path.extended_details?.aftermath_lp_supply_type,
+              turbosFeeType: path.extended_details?.turbos_fee_type,
+            }
+          }
+
           return {
             id: path.id,
-            a2b: path.direction,
+            direction: path.direction,
             provider: path.provider,
             from: path.from,
             target: path.target,
             feeRate: path.fee_rate,
             amountIn: path.amount_in,
             amountOut: path.amount_out,
-            extendedDetails: {
-              aftermathLpSupplyType:
-                path.extended_details.aftermath_lp_supply_type,
-              turbosFeeType: path.extended_details.turbos_fee_type,
-            },
+            extendedDetails,
             version,
           }
         }),

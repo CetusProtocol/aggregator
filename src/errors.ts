@@ -19,7 +19,10 @@ export enum TransactionErrorCode {
   MissAftermathLpSupplyType = `MissAftermathLpSupplyType`,
 }
 
-export type AggregatorErrorCode = TypesErrorCode
+export type AggregatorErrorCode =
+  | TypesErrorCode
+  | ConfigErrorCode
+  | TransactionErrorCode
 
 /**
  * AggregatorError is a custom error class that extends the built-in Error class. It is used to represent errors that occur during aggregation operations.
@@ -40,5 +43,29 @@ export class AggregatorError extends Error {
 
   static isAggregatorErrorCode(e: any, code: AggregatorErrorCode): boolean {
     return e instanceof AggregatorError && e.errorCode === code
+  }
+}
+
+export enum AggregatorServerErrorCode {
+  CalculateError = 10000,
+  NumberTooLarge = 10001,
+  NoRouter = 10002,
+  InsufficientLiquidity = 10003,
+}
+
+export function getAggregatorServerErrorMessage(
+  code: AggregatorServerErrorCode
+): string {
+  switch (code) {
+    case AggregatorServerErrorCode.CalculateError:
+      return "Calculate error"
+    case AggregatorServerErrorCode.NumberTooLarge:
+      return "Input number too large can not fit in target type"
+    case AggregatorServerErrorCode.NoRouter:
+      return "No router"
+    case AggregatorServerErrorCode.InsufficientLiquidity:
+      return "Insufficient Liquidity"
+    default:
+      return "Unknown error"
   }
 }

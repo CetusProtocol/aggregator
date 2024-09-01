@@ -15,3 +15,5 @@ export const M_VAPOR =
   "0xa1f2c11169f32165ad4efb4468ec5bdfc880cd66b22094024b32ab7b76d14d30::vapor::VAPOR"
 export const M_HASUI =
   "0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d::hasui::HASUI"
+export const M_SSWP =
+  "0x361dd589b98e8fcda9a7ee53b85efabef3569d00416640d2faa516e3801d7ffc::TOKEN::TOKEN"

@@ -1,20 +1,19 @@
 import {
   Transaction,
-  TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
 import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
 
-export class Turbos implements Dex {
-  private versioned: string
+export class KriyaV3 implements Dex {
+  private version: string
 
   constructor(env: Env) {
     if (env !== Env.Mainnet) {
-      throw new Error("Turbos only supported on mainnet")
+      throw new Error("Kriya clmm only supported on mainnet")
     }
 
-    this.versioned =
-      "0xf1cf0e81048df168ebeb1b8030fad24b3e0b53ae827c25053fff0779c1445b6f"
+    this.version =
+      "0xf5145a7ac345ca8736cf8c76047d00d6d378f30e81be6f6eb557184d9de93c78"
   }
 
   async swap(
@@ -29,24 +28,16 @@ export class Turbos implements Dex {
       ? ["swap_a2b", from, target]
       : ["swap_b2a", target, from]
 
-    if (path.extendedDetails == null) {
-      throw new Error("Extended details not supported")
-    } else {
-      if (path.extendedDetails.turbosFeeType == null) {
-        throw new Error("Turbos fee type not supported")
-      }
-    }
-
     const args = [
       txb.object(path.id),
       inputCoin,
+      txb.object(this.version),
       txb.object(CLOCK_ADDRESS),
-      txb.object(this.versioned),
     ]
 
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::turbos::${func}`,
-      typeArguments: [coinAType, coinBType, path.extendedDetails.turbosFeeType],
+      target: `${client.publishedAt()}::kriya_clmm::${func}`,
+      typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionObjectArgument
 

@@ -1,6 +1,6 @@
 {
-  "name": "aggregator-sdk",
-  "version": "0.0.0-experimental-20240709170245",
+  "name": "@cetusprotocol/aggregator-sdk",
+  "version": "0.2.0",
   "sideEffects": false,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -27,7 +27,7 @@
     "@babel/preset-env": "^7.24.5",
     "@babel/preset-typescript": "^7.24.1",
     "@jest/globals": "^29.7.0",
-    "@mysten/sui": "^1.0.5",
+    "@mysten/sui": "^1.6.0",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.12.12",
     "babel-jest": "^29.7.0",

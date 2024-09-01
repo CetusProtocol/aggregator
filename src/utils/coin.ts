@@ -1,24 +1,26 @@
+import { CoinAsset } from "../types/sui"
+import { CoinUtils } from "../types/CoinAssist"
+import { TransactionErrorCode } from "../errors"
+import {
+  Transaction,
+  TransactionObjectArgument,
+} from "@mysten/sui/transactions"
+
 export function completionCoin(s: string): string {
   const index = s.indexOf("::")
   if (index === -1) {
     return s
   }
-
   const prefix = s.substring(0, index)
   const rest = s.substring(index)
-
   if (!prefix.startsWith("0x")) {
     return s
   }
-
   const hexStr = prefix.substring(2)
-
   if (hexStr.length > 64) {
     return s
   }
-
   const paddedHexStr = hexStr.padStart(64, "0")
-
   return `0x${paddedHexStr}${rest}`
 }
 
@@ -39,23 +41,84 @@ export function compareCoins(coinA: string, coinB: string): boolean {
   return true // or coinB, they are equal
 }
 
-export function parseTurbosPoolFeeType(typeData: string) {
-  // "0x91bfbc386a41afcfd9b2533058d7e915a1d3829089cc268ff4333d54d6339ca1::pool::Pool<0xc91acfb75009c5ff2fd57c54f3caaee12ad1fbe997681334adc0b574fc277a07::icorgi::ICORGI, 0x2::sui::SUI, 0x91bfbc386a41afcfd9b2533058d7e915a1d3829089cc268ff4333d54d6339ca1::fee10000bps::FEE10000BPS>"
-  const regex = /,([^,>]*>)/g
-  const matches = [...typeData.matchAll(regex)]
-  if (matches.length > 0) {
-    const lastMatch = matches[matches.length - 1][1]
-    return lastMatch.substring(0, lastMatch.length - 1).trim()
-  }
-  return null
+export function mintZeroCoin(
+  txb: Transaction,
+  coinType: string
+): TransactionObjectArgument {
+  return txb.moveCall({
+    target: "0x2::coin::zero",
+    typeArguments: [coinType],
+  })
 }
 
-export function parseAftermathFeeType(typeData: string) {
-  // 0xefe170ec0be4d762196bedecd7a065816576198a6527c99282a2551aaa7da38c::pool::Pool<0xf66c5ba62888cd0694677bbfbd2332d08ead3b8a4332c40006c474e83b1a6786::af_lp::AF_LP>
-  // get 0xf66c5ba62888cd0694677bbfbd2332d08ead3b8a4332c40006c474e83b1a6786::af_lp::AF_LP
-  const regex = /<([^>]*)>/
-  const matches = typeData.match(regex)
-  if (matches) {
-    return matches[1]
+export type BuildCoinResult = {
+  targetCoin: TransactionObjectArgument
+  isMintZeroCoin: boolean
+  targetCoinAmount: number
+}
+
+export function buildInputCoin(
+  txb: Transaction,
+  allCoins: CoinAsset[],
+  amount: bigint,
+  coinType: string
+): BuildCoinResult {
+  const usedCoinAsests = CoinUtils.getCoinAssets(coinType, allCoins)
+  if (amount === BigInt(0) && usedCoinAsests.length === 0) {
+    const zeroCoin = mintZeroCoin(txb, coinType)
+    return {
+      targetCoin: zeroCoin,
+      isMintZeroCoin: true,
+      targetCoinAmount: 0,
+    }
+  }
+
+  let totalCoinBalance = CoinUtils.calculateTotalBalance(usedCoinAsests)
+  if (totalCoinBalance < amount) {
+    throw new AggregateError(
+      "Insufficient balance when build merge coin",
+      TransactionErrorCode.InsufficientBalance
+    )
+  }
+
+  if (CoinUtils.isSuiCoin(coinType)) {
+    const resultCoin = txb.splitCoins(txb.gas, [
+      txb.pure.u64(amount.toString()),
+    ])
+    return {
+      targetCoin: resultCoin,
+      isMintZeroCoin: true,
+      targetCoinAmount: Number(amount.toString()),
+    }
+  }
+
+  // sort used coin by amount, asc
+  let sortCoinAssets = CoinUtils.sortByBalance(usedCoinAsests)
+
+  // find first three coin if greater than amount
+  let totalThreeCoinBalance = sortCoinAssets
+    .slice(0, 3)
+    .reduce((acc, coin) => acc + coin.balance, BigInt(0))
+  if (totalThreeCoinBalance < BigInt(amount)) {
+    sortCoinAssets = CoinUtils.sortByBalanceDes(usedCoinAsests)
+  }
+
+  let selectedCoinResult = CoinUtils.selectCoinObjectIdGreaterThanOrEqual(
+    sortCoinAssets,
+    amount
+  )
+  const [masterCoin, ...mergedCoin] = selectedCoinResult.objectArray
+
+  if (mergedCoin.length > 0) {
+    txb.mergeCoins(
+      masterCoin,
+      mergedCoin.map((coin) => txb.object(coin))
+    )
+  }
+
+  return {
+    targetCoin: txb.object(masterCoin),
+    isMintZeroCoin: false,
+    targetCoinAmount: Number(amount.toString()),
   }
 }

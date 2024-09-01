@@ -1,15 +1,7 @@
 import { Transaction } from "@mysten/sui/transactions"
 import { SwapInPoolsParams } from "~/client"
-import { AggregatorConfig } from "~/config"
 import { compareCoins, completionCoin } from "~/utils/coin"
-import {
-  CETUS_DEX,
-  INTEGRATE,
-  RouterData,
-  SwapInPoolsResult,
-  U64_MAX_BN,
-  ZERO,
-} from ".."
+import { SwapInPoolsResult, U64_MAX_BN, ZERO } from ".."
 import { ConfigErrorCode, TransactionErrorCode } from "~/errors"
 import { checkInvalidSuiAddress } from "~/utils/transaction"
 import { SuiClient } from "@mysten/sui/client"
@@ -19,32 +11,24 @@ import { sqrtPriceX64ToPrice } from "~/math"
 export async function swapInPools(
   client: SuiClient,
   params: SwapInPoolsParams,
-  config: AggregatorConfig
+  sender: string
 ): Promise<SwapInPoolsResult> {
   const { from, target, amount, byAmountIn, pools } = params
   const fromCoin = completionCoin(from)
   const targetCoin = completionCoin(target)
 
   const tx = new Transaction()
-  const a2b = compareCoins(fromCoin, targetCoin)
-
-  const integratePackage = config.getPackage(INTEGRATE)
-  if (integratePackage == null) {
-    throw new AggregateError(
-      "Aggregator package not set",
-      ConfigErrorCode.MissAggregatorPackage
-    )
-  }
-  const integratePublishedAt = integratePackage.publishedAt
-
-  const coinA = a2b ? fromCoin : targetCoin
-  const coinB = a2b ? targetCoin : fromCoin
+  const direction = compareCoins(fromCoin, targetCoin)
+  const integratePublishedAt =
+    "0x8faab90228e4c4df91c41626bbaefa19fc25c514405ac64de54578dec9e6f5ee"
+  const coinA = direction ? fromCoin : targetCoin
+  const coinB = direction ? targetCoin : fromCoin
 
   const typeArguments = [coinA, coinB]
   for (let i = 0; i < pools.length; i++) {
     const args = [
       tx.object(pools[i]),
-      tx.pure.bool(a2b),
+      tx.pure.bool(direction),
       tx.pure.bool(byAmountIn),
       tx.pure.u64(amount.toString()),
     ]
@@ -55,7 +39,7 @@ export async function swapInPools(
     })
   }
 
-  if (!checkInvalidSuiAddress(config.getWallet())) {
+  if (!checkInvalidSuiAddress(sender)) {
     throw new AggregateError(
       "Aggregator package not set",
       ConfigErrorCode.InvalidWallet
@@ -64,7 +48,7 @@ export async function swapInPools(
 
   const simulateRes = await client.devInspectTransactionBlock({
     transactionBlock: tx,
-    sender: config.getWallet(),
+    sender,
   })
   if (simulateRes.error != null) {
     throw new AggregateError(
@@ -107,6 +91,8 @@ export async function swapInPools(
   }
 
   const event = valueData[tempIndex].parsedJson.data
+  console.log("event", JSON.stringify(event, null, 2))
+
   const currentSqrtPrice = event.step_results[0].current_sqrt_price
 
   const [decimalA, decimalB] = await Promise.all([
@@ -138,13 +124,13 @@ export async function swapInPools(
         path: [
           {
             id: pools[tempIndex],
-            a2b,
-            provider: CETUS_DEX,
+            direction,
+            provider: "CETUS",
             from: fromCoin,
             target: targetCoin,
-            feeRate: 0,
-            amountIn: 0,
-            amountOut: 0,
+            feeRate: event.fee_rate,
+            amountIn: event.amount_in,
+            amountOut: event.amount_out,
           },
         ],
         amountIn: new BN(event.amount_in ?? 0),
@@ -152,6 +138,7 @@ export async function swapInPools(
         initialPrice,
       },
     ],
+    insufficientLiquidity: false,
   }
 
   const result = {
