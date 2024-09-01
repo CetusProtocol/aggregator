@@ -1,0 +1,28 @@
+[package]
+name = "Afsui"
+version = "1.0.0"
+published-at = "0x7f6ce7ade63857c4fd16ef7783fed2dfc4d7fb7e40615abdb653030b76aef0c6"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.23.1", override = true }
+SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "mainnet-v1.23.1", override = true }
+SuiSystemUtils = { local = "../utility/sui-system-utils" }
+LinkedSet = { local = "../utility/linked-set" }
+
+[dependencies.Safe]
+local = "../utility/safe"
+
+[dependencies.StakingAfsui]
+local = "../staking-afsui"
+
+[dependencies.StakingRefer]
+local = "../staking-refer"
+
+
+[dependencies.StakingTreasury]
+local = "../staking-treasury"
+
+
+[addresses]
+sui = "0x2"
+afsui = "0x7f6ce7ade63857c4fd16ef7783fed2dfc4d7fb7e40615abdb653030b76aef0c6"

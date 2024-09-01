@@ -1,0 +1,11 @@
+[package]
+name = "StakingTreasury"
+version = "0.0.1"
+published-at = "0xceb3b6f35b71dbd0296cd96f8c00959c230854c7797294148b413094b9621b0e"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.24.1", override = true }
+
+[addresses]
+staking_treasury = "0xceb3b6f35b71dbd0296cd96f8c00959c230854c7797294148b413094b9621b0e"
+

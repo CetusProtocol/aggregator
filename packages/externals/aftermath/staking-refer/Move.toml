@@ -1,0 +1,9 @@
+[package]
+name = "StakingRefer"
+published-at = "0xb196672db3293fdebdbd4cbea950823ff84805547c7345710a1cf9d0db52938f"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.24.1" }
+
+[addresses]
+staking_refer= "0xb196672db3293fdebdbd4cbea950823ff84805547c7345710a1cf9d0db52938f"
