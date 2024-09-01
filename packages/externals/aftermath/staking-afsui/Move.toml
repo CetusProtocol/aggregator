@@ -1,0 +1,11 @@
+[package]
+name = "StakingAfsui"
+version = "1.0.0"
+published-at = "0xf325ce1300e8dac124071d3152c5c5ee6174914f8bc2161e88329cf579246efc"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.24.1" }
+
+[addresses]
+sui = "0x2"
+staking_afsui = "0xf325ce1300e8dac124071d3152c5c5ee6174914f8bc2161e88329cf579246efc"

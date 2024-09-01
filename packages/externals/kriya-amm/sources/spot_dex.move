@@ -1,5 +1,5 @@
 #[allow(unused_field)]
-module kriya_dex::spot_dex {
+module kriya_amm::spot_dex {
     use sui::object::UID;
     use sui::balance;
     use sui::coin;

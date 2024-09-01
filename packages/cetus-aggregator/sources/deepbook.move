@@ -33,57 +33,45 @@ module cetus_aggregator::deepbook {
 
     public fun swap_a2b<CoinA, CoinB> (
         pool: &mut Pool<CoinA, CoinB>,
-        amount: u64,
-        amount_limit: u64,
         coin_a: Coin<CoinA>,
         account_cap: &AccountCap,
-        use_full_input_coin_amount: bool,
         clock: &Clock,
         ctx: &mut TxContext,
-    ): (Coin<CoinB>, u64, u64) {
+    ): Coin<CoinB> {
         let coin_b = coin::zero<CoinB>(ctx);
-        let (coin_a, coin_b, amount_in, amount_out) = swap(pool, true, amount, amount_limit, coin_a, coin_b, account_cap, use_full_input_coin_amount, clock, ctx);
+        let (coin_a, coin_b) = swap(pool, true, coin_a, coin_b, account_cap, clock, ctx);
         transfer_or_destroy_coin<CoinA>(coin_a, ctx);
-        (coin_b, amount_in, amount_out)
+        coin_b
     }
 
     public fun swap_b2a<CoinA, CoinB> (
         pool: &mut Pool<CoinA, CoinB>,
-        amount: u64,
-        amount_limit: u64,
         coin_b: Coin<CoinB>,
         account_cap: &AccountCap,
-        use_full_input_coin_amount: bool,
         clock: &Clock,
         ctx: &mut TxContext,
-    ): (Coin<CoinA>, u64, u64) {
+    ): Coin<CoinA> {
         let coin_a = coin::zero<CoinA>(ctx);
-        let (coin_a, coin_b, amount_in, amount_out) = swap(pool, false, amount, amount_limit, coin_a, coin_b, account_cap, use_full_input_coin_amount, clock, ctx);
+        let (coin_a, coin_b) = swap(pool, false, coin_a, coin_b, account_cap, clock, ctx);
         transfer_or_destroy_coin<CoinB>(coin_b, ctx);
-        (coin_a, amount_in, amount_out)
+        coin_a
     }
 
-    public fun swap<CoinA, CoinB> (
+    fun swap<CoinA, CoinB> (
         pool: &mut Pool<CoinA, CoinB>,
         a2b: bool,
-        amount: u64,
-        amount_limit: u64,
         coin_a: Coin<CoinA>,
         coin_b: Coin<CoinB>,
         account_cap: &AccountCap,
-        use_full_input_coin_amount: bool,
         clock: &Clock,
         ctx: &mut TxContext,
-    ): (Coin<CoinA>, Coin<CoinB>, u64, u64) {
+    ): (Coin<CoinA>, Coin<CoinB>) {
         let pure_coin_a_amount = coin::value(&coin_a);
         let pure_coin_b_amount = coin::value(&coin_b);
-
-        if (use_full_input_coin_amount) {
-            amount = if (a2b) pure_coin_a_amount else pure_coin_b_amount;
-        };
+        let amount = if (a2b) pure_coin_a_amount else pure_coin_b_amount;
 
         if (a2b) {
-            let (receive_a, receive_b) = swap_base_to_quote<CoinA, CoinB>(pool, account_cap, amount, amount_limit, coin_a, coin_b, clock, ctx);
+            let (receive_a, receive_b) = swap_base_to_quote<CoinA, CoinB>(pool, account_cap, amount, 0, coin_a, coin_b, clock, ctx);
 
             let swaped_coin_a_amount = coin::value(&receive_a);
             let swaped_coin_b_amount = coin::value(&receive_b);
@@ -101,12 +89,11 @@ module cetus_aggregator::deepbook {
                 coin_a: type_name::get<CoinA>(),
                 coin_b: type_name::get<CoinB>(),
             });
-            (receive_a, receive_b, amount_in, amount_out)
+            (receive_a, receive_b)
         } else {
-            let (receive_a, receive_b) = swap_quote_to_base<CoinA, CoinB>(pool, account_cap, amount, amount_limit, coin_a, coin_b, clock, ctx);
+            let (receive_a, receive_b) = swap_quote_to_base<CoinA, CoinB>(pool, account_cap, amount, 0, coin_a, coin_b, clock, ctx);
             let swaped_coin_a_amount = coin::value(&receive_a);
             let swaped_coin_b_amount = coin::value(&receive_b);
-
             let amount_in = if (a2b) pure_coin_a_amount - swaped_coin_a_amount else pure_coin_b_amount - swaped_coin_b_amount;
             let amount_out = if (a2b) swaped_coin_b_amount - pure_coin_b_amount else swaped_coin_a_amount - pure_coin_a_amount;
 
@@ -120,11 +107,11 @@ module cetus_aggregator::deepbook {
                 coin_a: type_name::get<CoinA>(),
                 coin_b: type_name::get<CoinB>(),
             });
-            (receive_a, receive_b, amount_in, amount_out)
+            (receive_a, receive_b)
         }
     }
 
-    public fun swap_base_to_quote<CoinA, CoinB>(
+    fun swap_base_to_quote<CoinA, CoinB>(
         pool: &mut Pool<CoinA, CoinB>,
         account_cap: &AccountCap,
         amount: u64,
@@ -158,7 +145,7 @@ module cetus_aggregator::deepbook {
         (coin_a, coin_b)
     }
 
-    public fun swap_quote_to_base<CoinA, CoinB>(
+    fun swap_quote_to_base<CoinA, CoinB>(
         pool: &mut Pool<CoinA, CoinB>,
         account_cap: &AccountCap,
         amount: u64,

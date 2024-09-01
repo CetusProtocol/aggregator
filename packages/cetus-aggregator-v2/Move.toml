@@ -1,0 +1,24 @@
+[package]
+name = "CetusAggregator"
+version = "0.1.1"
+published-at = "0xeffc8ae61f439bb34c9b905ff8f29ec56873dcedf81c7123ff2f1f67c45ec302"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.23.1", override = true }
+MoveSTL = { git = "https://github.com/CetusProtocol/move-stl.git", subdir = "sui", rev = "mainnet-v1.23.1" }
+IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "mainnet-v1.23.1" }
+DeepBook= { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/deepbook", rev = "mainnet-v1.23.1" }
+CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/clmmpool", rev = "mainnet-v1.23.1", override = true }
+KriyaAmm = { local = "../externals/kriya-amm" }
+KriyaClmm = { local = "../externals/kriya-clmm" }
+FlowxClmm = { local = "../externals/flowx-clmm" }
+FlowxAMM = { local = "../externals/flowx-amm" }
+TurbosDex = { local = "../externals/turbos-dex" } 
+AftermathAMM = { local = "../externals/aftermath/aftermath-amm" }
+Afsui = { local = "../externals/aftermath/staking" }
+Hasui = { local = "../externals/hasui" }
+Vsui = { local = "../externals/vsui" }
+
+[addresses]
+cetus_aggregator = "0x0"
