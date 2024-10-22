@@ -3,7 +3,6 @@ import {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
 import { AggregatorClient, Dex, Env, Path } from ".."
-import { SUI_SYSTEM_ADDRESS } from "@mysten/sui/utils"
 
 export class Volo implements Dex {
   private nativePool: string

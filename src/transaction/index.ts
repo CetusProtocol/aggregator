@@ -12,6 +12,7 @@ export interface Dex {
     client: AggregatorClient,
     ptb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    deepbookv3DeepFee?: TransactionObjectArgument
   ): Promise<TransactionObjectArgument>
 }

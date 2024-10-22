@@ -22,8 +22,9 @@ export class Cetus implements Dex {
         : "0x6f4149091a5aea0e818e7243a13adcfb403842d670b9a2089de058512620687a"
 
     this.partner =
-      partner ??
-      "0x639b5e433da31739e800cd085f356e64cae222966d0f1b11bd9dc76b322ff58b"
+      partner ?? env === Env.Mainnet
+        ? "0x639b5e433da31739e800cd085f356e64cae222966d0f1b11bd9dc76b322ff58b"
+        : "0x8e0b7668a79592f70fbfb1ae0aebaf9e2019a7049783b9a4b6fe7c6ae038b528"
   }
 
   flash_swap(

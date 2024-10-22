@@ -7,6 +7,7 @@ import { checkInvalidSuiAddress } from "~/utils/transaction"
 import { SuiClient } from "@mysten/sui/client"
 import { BN } from "bn.js"
 import { sqrtPriceX64ToPrice } from "~/math"
+import { error } from "console"
 
 export async function swapInPools(
   client: SuiClient,
@@ -25,6 +26,10 @@ export async function swapInPools(
   const coinB = direction ? targetCoin : fromCoin
 
   const typeArguments = [coinA, coinB]
+  console.log("typeArguments", typeArguments)
+
+  console.log("pools", pools)
+
   for (let i = 0; i < pools.length; i++) {
     const args = [
       tx.object(pools[i]),
@@ -51,6 +56,7 @@ export async function swapInPools(
     sender,
   })
   if (simulateRes.error != null) {
+    console.log("simulateRes.error", simulateRes.error)
     throw new AggregateError(
       "Aggregator package not set",
       ConfigErrorCode.SimulateError
@@ -131,6 +137,9 @@ export async function swapInPools(
             feeRate: event.fee_rate,
             amountIn: event.amount_in,
             amountOut: event.amount_out,
+            extendedDetails: {
+              afterSqrtPrice: event.after_sqrt_price,
+            },
           },
         ],
         amountIn: new BN(event.amount_in ?? 0),

@@ -76,8 +76,8 @@ export function buildInputCoin(
   let totalCoinBalance = CoinUtils.calculateTotalBalance(usedCoinAsests)
   if (totalCoinBalance < amount) {
     throw new AggregateError(
-      "Insufficient balance when build merge coin",
-      TransactionErrorCode.InsufficientBalance
+      "Insufficient balance when build merge coin, coinType: " + coinType,
+      TransactionErrorCode.InsufficientBalance  + coinType
     )
   }
 

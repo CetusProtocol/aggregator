@@ -42,66 +42,23 @@ npm install @cetusprotocol/aggregator-sdk
 ## 1. Init client with rpc and package config
 
 ```typescript
-// used to do simulate swap and swap
-// https://fullnode.mainnet.sui.io:443
-const fullNodeURL = process.env.SUI_RPC!
-
-const suiClient = new SuiClient({
-  url: fullNodeURL,
-})
-
-// provider by cetus
-const aggregatorURL = "https://api-sui.cetus.zone/router_v2"
-
-// set your wallet address, used to do simulate
-const wallet = "0x..."
-
-// import { Env } from "@cetusprotocol/aggregator-sdk"
-// Currently, we provide full support for Mainnet,
-// while Testnet is only supported for Cetus and DeepBook providers.
-const client = new AggregatorClient(
-  aggregatorURL,
-  wallet,
-  sui.Client,
-  Env.Mainnet
-)
+const client = new AggregatorClient()
 ```
 
 ## 2. Get best router swap result from aggregator service
 
 ```typescript
 const amount = new BN(1000000)
-
-const from = M_SUI // 0x2::sui::SUI
-const target = M_CETUS // 0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS
+const from = "0x2::sui::SUI"
+const target =
+  "0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS"
 
 const routerRes = await client.findRouters({
   from,
   target,
   amount,
   byAmountIn: true, // true means fix input amount, false means fix output amount
-  depth: 3, // max allow 3, means 3 hops
-  providers: [
-    "CETUS",
-    "DEEPBOOK",
-    "KRIYA",
-    "KRIYAV3",
-    "FLOWX",
-    "FLOWXV3",
-    "AFTERMATH",
-    "TRUBOS",
-    "HADEAL",
-    "VOLO",
-    "AFSUI",
-  ], //  now max support above 11 platforms.
-  // splitAlgorithm: null, // select split algotirhm, recommended default set null
-  // splitFactor: null,
-  // splitCount: 100, // set max expect split count
 })
-
-if (routerRes != null) {
-  console.log(JSON.stringify(res, null, 2))
-}
 ```
 
 ## 3. Confirm and do fast swap

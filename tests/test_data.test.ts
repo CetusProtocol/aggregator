@@ -1,5 +1,8 @@
 // Testnet
 export const T_USDC = ""
+export const T_DEEP = "0x36dbef866a1d62bf7328989a10fb2f07d769f4ee587c0de4a0a256e57e0a58a8::deep::DEEP"
+export const T_DBUSDC = "0xf7152c05930480cd740d7311b5b8b45c6f488e3a53a11c3f74a6fac36a52e0d7::DBUSDC::DBUSDC"
+export const T_DBUSDT = "0xf7152c05930480cd740d7311b5b8b45c6f488e3a53a11c3f74a6fac36a52e0d7::DBUSDT::DBUSDT"
 
 // Mainnet
 export const M_USDC =
@@ -17,3 +20,4 @@ export const M_HASUI =
   "0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d::hasui::HASUI"
 export const M_SSWP =
   "0x361dd589b98e8fcda9a7ee53b85efabef3569d00416640d2faa516e3801d7ffc::TOKEN::TOKEN"
+export const M_MICHI = "0x50d796fde5709a97883e29e00bf511d66f2656de958ea0c2ce4c1147cdd20a23::MICHI::MICHI"

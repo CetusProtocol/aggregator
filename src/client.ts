@@ -1,5 +1,5 @@
 import Decimal from "decimal.js"
-import { SuiClient } from "@mysten/sui/client"
+import { getFullnodeUrl, SuiClient } from "@mysten/sui/client"
 import {
   Transaction,
   TransactionObjectArgument,
@@ -15,22 +15,27 @@ import {
   getRouterResult,
   Router,
   RouterData,
+  getDeepbookV3Config,
+  processEndpoint,
+  DeepbookV3Config,
 } from "."
 import { Aftermath } from "./transaction/aftermath"
 import { DeepbookV2 } from "./transaction/deepbook_v2"
 import { KriyaV2 } from "./transaction/kriya_v2"
+import { KriyaV3 } from "./transaction/kriya_v3"
 import { FlowxV2 } from "./transaction/flowx_v2"
+import { FlowxV3 } from "./transaction/flowx_v3"
 import { Turbos } from "./transaction/turbos"
 import { Cetus } from "./transaction/cetus"
 import { swapInPools } from "./transaction/swap"
 import { CalculateAmountLimit } from "./math"
-import { buildInputCoin } from "./utils/coin"
-import { CoinAsset } from "./types/sui"
-import { KriyaV3 } from "./transaction/kriya_v3"
 import { Haedal } from "./transaction/haedal"
 import { Afsui } from "./transaction/afsui"
 import { Volo } from "./transaction/volo"
-import { FlowxV3 } from "./transaction/flowx_v3"
+import { Bluemove } from "./transaction/bluemove"
+import { CoinAsset } from "./types/sui"
+import { buildInputCoin } from "./utils/coin"
+import { DeepbookV3 } from "./transaction/deepbook_v3"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -43,6 +48,10 @@ export const AFTERMATH = "AFTERMATH"
 export const HAEDAL = "HAEDAL"
 export const VOLO = "VOLO"
 export const AFSUI = "AFSUI"
+export const BLUEMOVE = "BLUEMOVE"
+export const DEEPBOOKV3 = "DEEPBOOKV3"
+
+export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v2"
 
 export type BuildRouterSwapParams = {
   routers: Router[]
@@ -51,6 +60,9 @@ export type BuildRouterSwapParams = {
   slippage: number
   txb: Transaction
   partner?: string
+  // This parameter is used to pass the Deep token object. When using the DeepBook V3 provider,
+  // users must pay fees with Deep tokens in non-whitelisted pools.
+  deepbookv3DeepFee?: TransactionObjectArgument
 }
 
 export type BuildFastRouterSwapParams = {
@@ -61,6 +73,7 @@ export type BuildFastRouterSwapParams = {
   partner?: string
   isMergeTragetCoin?: boolean
   refreshAllCoins?: boolean
+  payDeepFeeAmount?: number
 }
 
 export interface SwapInPoolsParams {
@@ -83,15 +96,19 @@ export class AggregatorClient {
   public env: Env
   private allCoins: CoinAsset[]
 
-  constructor(endpoint: string, signer: string, client: SuiClient, env: Env) {
-    this.endpoint = endpoint
-    this.client = client
-    this.signer = signer
-    this.env = env
+  constructor(endpoint?: string, signer?: string, client?: SuiClient, env?: Env) {
+    this.endpoint = endpoint ? processEndpoint(endpoint) : DEFAULT_ENDPOINT
+    this.client = client || new SuiClient({url: getFullnodeUrl('mainnet')})
+    this.signer = signer || ""
+    this.env = env || Env.Mainnet
     this.allCoins = []
   }
 
   async getAllCoins(): Promise<CoinAsset[]> {
+    if (this.signer === "") {
+      throw new Error("Signer is required, but not provided.")
+    }
+
     let cursor = null
     let limit = 50
     const allCoins: CoinAsset[] = []
@@ -125,7 +142,8 @@ export class AggregatorClient {
     inputCoin: TransactionObjectArgument,
     routers: Router[],
     amountOutLimit: BN,
-    partner?: string
+    partner?: string,
+    deepbookv3DeepFee?: TransactionObjectArgument,
   ) {
     if (routers.length === 0) {
       throw new Error("No router found")
@@ -142,7 +160,7 @@ export class AggregatorClient {
       let nextCoin = inputCoins[i] as TransactionObjectArgument
       for (const path of routers[i].path) {
         const dex = this.newDex(path.provider, partner)
-        nextCoin = await dex.swap(this, txb, path, nextCoin)
+        nextCoin = await dex.swap(this, txb, path, nextCoin, deepbookv3DeepFee)
       }
 
       outputCoins.push(nextCoin)
@@ -227,7 +245,7 @@ export class AggregatorClient {
   async routerSwap(
     params: BuildRouterSwapParams
   ): Promise<TransactionObjectArgument> {
-    const { routers, inputCoin, slippage, byAmountIn, txb, partner } = params
+    const { routers, inputCoin, slippage, byAmountIn, txb, partner, deepbookv3DeepFee } = params
     const amountIn = routers.reduce(
       (acc, router) => acc.add(router.amountIn),
       new BN(0)
@@ -248,7 +266,8 @@ export class AggregatorClient {
         inputCoin,
         routers,
         new BN(amountLimit),
-        partner
+        partner,
+        deepbookv3DeepFee
       )
       return targetCoin
     }
@@ -278,6 +297,7 @@ export class AggregatorClient {
       partner,
       isMergeTragetCoin,
       refreshAllCoins,
+      payDeepFeeAmount,
     } = params
     if (refreshAllCoins || this.allCoins.length === 0) {
       this.allCoins = await this.getAllCoins()
@@ -304,6 +324,17 @@ export class AggregatorClient {
       BigInt(amount.toString()),
       fromCoinType
     )
+
+    let deepCoin
+    if (payDeepFeeAmount && payDeepFeeAmount > 0) {
+      deepCoin = buildInputCoin(
+        txb,
+        this.allCoins,
+        BigInt(payDeepFeeAmount),
+        this.deepbookv3DeepFeeType()
+      ).targetCoin
+    }
+
     const targetCoin = await this.routerSwap({
       routers,
       inputCoin: buildFromCoinRes.targetCoin,
@@ -311,6 +342,7 @@ export class AggregatorClient {
       byAmountIn,
       txb,
       partner,
+      deepbookv3DeepFee: deepCoin,
     })
 
     if (isMergeTragetCoin) {
@@ -333,11 +365,29 @@ export class AggregatorClient {
     }
   }
 
+  // Include cetus、deepbookv2、flowxv2 & v3、kriyav2 & v3、turbos、aftermath、haedal、afsui、volo、bluemove
   publishedAt(): string {
     if (this.env === Env.Mainnet) {
-      return "0xeffc8ae61f439bb34c9b905ff8f29ec56873dcedf81c7123ff2f1f67c45ec302"
+      return "0xf98ed029af555e4a103febf26243dc33ac09a7ea1b2da7e414c728b25b729086" // version 3
     } else {
-      return "0x0"
+      return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637"
+    }
+  }
+
+  // Include deepbookv3
+  publishedAtV2(): string {
+    if (this.env === Env.Mainnet) {
+      return "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae" // version 1
+    } else {
+      return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637"
+    }
+  }
+
+  deepbookv3DeepFeeType(): string {
+    if (this.env === Env.Mainnet) {
+      return "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP"
+    } else {
+      return "0x36dbef866a1d62bf7328989a10fb2f07d769f4ee587c0de4a0a256e57e0a58a8::deep::DEEP"
     }
   }
 
@@ -370,7 +420,7 @@ export class AggregatorClient {
       targetCoin = coins[0]
     }
 
-    const res = txb.moveCall({
+    txb.moveCall({
       target: `${this.publishedAt()}::utils::check_coin_threshold`,
       typeArguments: [coinType],
       arguments: [targetCoin, txb.pure.u64(amountLimit.toString())],
@@ -384,6 +434,8 @@ export class AggregatorClient {
         return new Cetus(this.env, partner)
       case DEEPBOOKV2:
         return new DeepbookV2(this.env)
+      case DEEPBOOKV3:
+        return new DeepbookV3(this.env)
       case KRIYA:
         return new KriyaV2(this.env)
       case KRIYAV3:
@@ -402,6 +454,8 @@ export class AggregatorClient {
         return new Afsui(this.env)
       case VOLO:
         return new Volo(this.env)
+      case BLUEMOVE:
+        return new Bluemove(this.env)
       default:
         throw new Error(`Unsupported dex ${provider}`)
     }
@@ -437,10 +491,27 @@ export class AggregatorClient {
     })
     return res
   }
+
+  async getDeepbookV3Config(): Promise<DeepbookV3Config | null> {
+    const res = await getDeepbookV3Config(this.endpoint)
+    if (res) {
+      return res.data
+    }
+    return null
+  }
 }
 
 export function parseRouterResponse(data: any): RouterData {
-  return {
+  let totalDeepFee = 0
+  for (const route of data.routes) {
+    for (const path of route.path) {
+      if (path.extended_details && path.extended_details.deepbookv3_deep_fee) {
+        totalDeepFee += Number(path.extended_details.deepbookv3_deep_fee)
+      }
+    }
+  }
+
+  let routerData: RouterData = {
     amountIn: new BN(data.amount_in.toString()),
     amountOut: new BN(data.amount_out.toString()),
     insufficientLiquidity: false,
@@ -454,11 +525,18 @@ export function parseRouterResponse(data: any): RouterData {
           }
 
           let extendedDetails
-          if (path.provider === TURBOS || path.provider === AFTERMATH) {
+          if (
+            path.provider === TURBOS ||
+            path.provider === AFTERMATH ||
+            path.provider === CETUS ||
+            path.provider === DEEPBOOKV3
+          ) {
             extendedDetails = {
               aftermathLpSupplyType:
                 path.extended_details?.aftermath_lp_supply_type,
               turbosFeeType: path.extended_details?.turbos_fee_type,
+              afterSqrtPrice: path.extended_details?.after_sqrt_price,
+              deepbookv3DeepFee: path.extended_details?.deepbookv3_deep_fee,
             }
           }
 
@@ -480,5 +558,8 @@ export function parseRouterResponse(data: any): RouterData {
         initialPrice: new Decimal(route.initial_price.toString()),
       }
     }),
+    totalDeepFee: totalDeepFee,
   }
+
+  return routerData
 }

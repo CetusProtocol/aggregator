@@ -1,7 +1,18 @@
 import { describe, test } from "@jest/globals"
 import dotenv from "dotenv"
 import { AggregatorClient } from "~/client"
-import { M_CETUS, M_NAVI, M_SSWP, M_SUI, M_USDC } from "./test_data.test"
+import {
+  M_CETUS,
+  M_HASUI,
+  M_MICHI,
+  M_NAVI,
+  M_SSWP,
+  M_SUI,
+  M_USDC,
+  T_DBUSDC,
+  T_DBUSDT,
+  T_DEEP,
+} from "./test_data.test"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import { printTransaction } from "~/utils/transaction"
 import BN from "bn.js"
@@ -23,51 +34,17 @@ describe("router module", () => {
   let keypair: Ed25519Keypair
 
   beforeAll(() => {
-    const fullNodeURL = process.env.SUI_RPC!
-    const aggregatorURL = process.env.CETUS_AGGREGATOR!
     const secret = process.env.SUI_WALLET_SECRET!
-
     if (secret) {
       keypair = Ed25519Keypair.fromSecretKey(fromB64(secret).slice(1, 33))
     } else {
       keypair = buildTestAccount()
     }
 
-    // const wallet = keypair.getPublicKey().toSuiAddress()
-
-    // console.log("wallet", wallet, "\n", wallet.toString())
-
-    const wallet =
-      "0xfba94aa36e93ccc7d84a6a57040fc51983223f1b522a8d0be3c3bf2c98977ebb"
-    // const wallet =
-    //   "0xa459702162b73204eed77420d93d9453b7a7b893a0edea1e268607cf7fa76e03"
-    // const wallet =
-    // "0xaabf2fedcb36146db164bec930b74a47969c4df98216e049342a3c49b6d11580"
-    // const wallet = "0x410456cfc689666936b6bf80fbec958b69499b9f7183ecba07de577c17248a44"
-    // const wallet = "0xca171941521153181ff729d53489eaae7e99c3f4692884afd7cca61154e4cec4"
+    const wallet = keypair.getPublicKey().toSuiAddress()
     console.log("wallet: ", wallet)
 
-    const aggregatorPackage = {
-      packageName: "aggregator",
-      packageId:
-        "0x640d44dbdc0ede165c7cc417d7f57f1b09648083109de7132c6b3fb15861f5ee",
-      publishedAt:
-        "0x640d44dbdc0ede165c7cc417d7f57f1b09648083109de7132c6b3fb15861f5ee",
-    }
-
-    const integratePackage = {
-      packageName: "integrate",
-      packageId:
-        "0x996c4d9480708fb8b92aa7acf819fb0497b5ec8e65ba06601cae2fb6db3312c3",
-      publishedAt:
-        "0x8faab90228e4c4df91c41626bbaefa19fc25c514405ac64de54578dec9e6f5ee",
-    }
-    const endpoint =
-      "https://api-sui-cloudfront.cetus.zone/router_v2/find_routes"
-    const suiClient = new SuiClient({
-      url: "https://fullnode.mainnet.sui.io:443",
-    })
-    client = new AggregatorClient(endpoint, wallet, suiClient, Env.Mainnet)
+    client = new AggregatorClient()
   })
 
   test("Get all coins", () => {
@@ -77,18 +54,23 @@ describe("router module", () => {
   })
 
   test("Downgrade swap in route", async () => {
-    const amount = 100000
-    const byAmountIn = false
+    const amount = 100000000
+    const byAmountIn = true
 
     const res: any = await client.swapInPools({
-      from: M_USDC,
-      target: M_SUI,
+      from: "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
+      target:
+        "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
       amount: new BN(amount),
       byAmountIn,
       pools: [
-        "0xcf994611fd4c48e277ce3ffd4d4364c914af2c3cbb05f7bf6facd371de688630",
+        "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab",
+        "0x03d7739b33fe221a830ff101042fa81fd19188feca04a335f7dea4e37c0fca81",
+        "0xb8d7d9e66a60c239e7a60110efcf8de6c705580ed924d0dde141f4a0e2c90105",
       ],
     })
+
+    console.log("res", res)
 
     if (res != null) {
       console.log(JSON.stringify(res, null, 2))
@@ -105,7 +87,7 @@ describe("router module", () => {
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:114 ~ test ~ result:", result)
     }
-  }, 10000)
+  }, 60000)
 
   test("Find router", async () => {
     const amount = "4239267610000000000"
@@ -116,7 +98,7 @@ describe("router module", () => {
       byAmountIn: true,
       depth: 3,
       splitCount: 1,
-      // providers: ["CETUS"],
+      providers: ["CETUS"],
     })
 
     if (res != null) {
@@ -128,18 +110,9 @@ describe("router module", () => {
 
   test("Build router tx", async () => {
     const byAmountIn = true
-    const amount = "1000000000"
-
-    // const from = M_USDC
-    // const target = M_SUI
-
-    const from = M_SUI
-    // const target =
-    //   "0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d::hasui::HASUI"
-    // const target =
-    //   "0xf325ce1300e8dac124071d3152c5c5ee6174914f8bc2161e88329cf579246efc::afsui::AFSUI"
-
-    const target = M_USDC
+    const amount = "32"
+    const target = M_SUI
+    const from = M_MICHI
 
     const res = await client.findRouters({
       from,
@@ -148,14 +121,14 @@ describe("router module", () => {
       byAmountIn,
       depth: 3,
       providers: [
-        // "CETUS",
+        "CETUS",
+        // "DEEPBOOKV3",
         // "DEEPBOOK",
         // "AFTERMATH",
         // "FLOWX",
         // "KRIYA",
         // "KRIYAV3",
         // "TURBOS",
-        "FLOWXV3",
       ],
     })
 
@@ -177,6 +150,7 @@ describe("router module", () => {
         slippage: 0.01,
         isMergeTragetCoin: false,
         refreshAllCoins: true,
+        payDeepFeeAmount: 0,
       })
 
       printTransaction(txb)
@@ -184,13 +158,13 @@ describe("router module", () => {
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result)
 
-      // if (result.effects.status.status === "success") {
-      //   console.log("Sim exec transaction success")
-      //   const result = await client.signAndExecuteTransaction(txb, keypair)
-      //   // console.log("result", result)
-      // } else {
-      //   console.log("result", result)
-      // }
+      if (result.effects.status.status === "success") {
+        // console.log("Sim exec transaction success")
+        const result = await client.signAndExecuteTransaction(txb, keypair)
+        console.log("result", result)
+      } else {
+        console.log("result", result)
+      }
     }
   }, 600000)
 
@@ -290,4 +264,90 @@ describe("router module", () => {
       }
     }
   }, 60000000)
+
+  test("Build router with liquidity changes", async () => {
+    const byAmountIn = true
+    const amount = "1000000000"
+
+    // const from = M_USDC
+    // const target = M_SUI
+
+    const from = M_SUI
+    // const target =
+    //   "0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d::hasui::HASUI"
+    // const target =
+    //   "0xf325ce1300e8dac124071d3152c5c5ee6174914f8bc2161e88329cf579246efc::afsui::AFSUI"
+
+    const target = M_HASUI
+
+    const res = await client.findRouters({
+      from,
+      target,
+      amount: new BN(amount),
+      byAmountIn,
+      depth: 2,
+      providers: [
+        "CETUS",
+        // "DEEPBOOK",
+        // "AFTERMATH",
+        // "FLOWX",
+        // "KRIYA",
+        // "KRIYAV3",
+        // "TURBOS",
+        // "FLOWXV3",
+      ],
+      liquidityChanges: [
+        {
+          poolID:
+            "0x871d8a227114f375170f149f7e9d45be822dd003eba225e83c05ac80828596bc",
+          ticklower: 100,
+          tickUpper: 394,
+          deltaLiquidity: -5498684,
+        },
+        {
+          poolID:
+            "0x871d8a227114f375170f149f7e9d45be822dd003eba225e83c05ac80828596bc",
+          ticklower: 100,
+          tickUpper: 394,
+          deltaLiquidity: 986489,
+        },
+      ],
+    })
+
+    if (res != null) {
+      console.log(JSON.stringify(res, null, 2))
+    }
+
+    const txb = new Transaction()
+
+    if (res != null) {
+      console.log(JSON.stringify(res, null, 2))
+      await client.fastRouterSwap({
+        routers: res.routes,
+        byAmountIn,
+        txb,
+        slippage: 0.01,
+        isMergeTragetCoin: false,
+        refreshAllCoins: true,
+      })
+
+      printTransaction(txb)
+
+      let result = await client.devInspectTransactionBlock(txb)
+      console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result)
+
+      // if (result.effects.status.status === "success") {
+      //   console.log("Sim exec transaction success")
+      //   const result = await client.signAndExecuteTransaction(txb, keypair)
+      //   // console.log("result", result)
+      // } else {
+      //   console.log("result", result)
+      // }
+    }
+  }, 600000)
+
+  test("Get deepbook v3 config", async () => {
+    const config = await client.getDeepbookV3Config()
+    console.log("config", config)
+  }, 60000)
 })
