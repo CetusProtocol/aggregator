@@ -168,7 +168,7 @@ async function getRouter(endpoint: string, params: FindRouterParams) {
     }
 
     // set newest sdk version
-    url += "&v=1000304"
+    url += "&v=1000306"
 
     const response = await fetch(url)
     return response
@@ -238,7 +238,7 @@ export type DeepbookV3Config = {
   is_alternative_payment: boolean
   alternative_payment_amount: number
   trade_cap: string
-  balance_manager: string 
+  balance_manager: string
   deep_fee_vault: number
   whitelist: number
   package_version: 0
