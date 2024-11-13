@@ -19,12 +19,13 @@ export class Cetus implements Dex {
     this.globalConfig =
       env === Env.Mainnet
         ? "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f"
-        : "0x6f4149091a5aea0e818e7243a13adcfb403842d670b9a2089de058512620687a"
+        : "0x9774e359588ead122af1c7e7f64e14ade261cfeecdb5d0eb4a5b3b4c8ab8bd3e"
 
     this.partner =
-      partner ?? env === Env.Mainnet
+      partner ??
+      (env === Env.Mainnet
         ? "0x639b5e433da31739e800cd085f356e64cae222966d0f1b11bd9dc76b322ff58b"
-        : "0x8e0b7668a79592f70fbfb1ae0aebaf9e2019a7049783b9a4b6fe7c6ae038b528"
+        : "0x1f5fa5c820f40d43fc47815ad06d95e40a1942ff72a732a92e8ef4aa8cde70a5")
   }
 
   flash_swap(

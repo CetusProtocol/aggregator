@@ -34,6 +34,7 @@ export type ExtendedDetails = {
   turbosFeeType?: string
   afterSqrtPrice?: string
   deepbookv3DeepFee?: number
+  scallopScoinTreasury?: string
 }
 
 export type Path = {
@@ -167,7 +168,7 @@ async function getRouter(endpoint: string, params: FindRouterParams) {
     }
 
     // set newest sdk version
-    url += "&v=1000302"
+    url += "&v=1000304"
 
     const response = await fetch(url)
     return response

@@ -36,7 +36,7 @@ import { Bluemove } from "./transaction/bluemove"
 import { CoinAsset } from "./types/sui"
 import { buildInputCoin } from "./utils/coin"
 import { DeepbookV3 } from "./transaction/deepbook_v3"
-
+import { Scallop } from "./transaction/scallop"
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
 export const KRIYA = "KRIYA"
@@ -50,6 +50,7 @@ export const VOLO = "VOLO"
 export const AFSUI = "AFSUI"
 export const BLUEMOVE = "BLUEMOVE"
 export const DEEPBOOKV3 = "DEEPBOOKV3"
+export const SCALLOP = "SCALLOP"
 
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v2"
 
@@ -94,42 +95,53 @@ export class AggregatorClient {
   public signer: string
   public client: SuiClient
   public env: Env
-  private allCoins: CoinAsset[]
+  private allCoins: Map<string, CoinAsset[]>
 
   constructor(endpoint?: string, signer?: string, client?: SuiClient, env?: Env) {
     this.endpoint = endpoint ? processEndpoint(endpoint) : DEFAULT_ENDPOINT
     this.client = client || new SuiClient({url: getFullnodeUrl('mainnet')})
     this.signer = signer || ""
     this.env = env || Env.Mainnet
-    this.allCoins = []
+    this.allCoins = new Map<string, CoinAsset[]>()
   }
 
-  async getAllCoins(): Promise<CoinAsset[]> {
+  async getCoins(coinType: string, refresh: boolean = true): Promise<CoinAsset[]> {
     if (this.signer === "") {
       throw new Error("Signer is required, but not provided.")
     }
 
     let cursor = null
     let limit = 50
+
+    if (!refresh) {
+      const gotFromCoins = this.allCoins.get(coinType)
+      if (gotFromCoins) {
+        return gotFromCoins
+      }
+    }
+
     const allCoins: CoinAsset[] = []
     while (true) {
-      const gotAllCoins = await this.client.getAllCoins({
+      const gotCoins = await this.client.getCoins({
         owner: this.signer,
+        coinType,
         cursor,
         limit,
       })
-      for (const coin of gotAllCoins.data) {
+      for (const coin of gotCoins.data) {
         allCoins.push({
           coinAddress: extractStructTagFromType(coin.coinType).source_address,
           coinObjectId: coin.coinObjectId,
           balance: BigInt(coin.balance),
         })
       }
-      if (gotAllCoins.data.length < limit) {
+      if (gotCoins.data.length < limit) {
         break
       }
-      cursor = gotAllCoins.data[limit - 1].coinObjectId
+      cursor = gotCoins.data[limit - 1].coinObjectId
     }
+
+    this.allCoins.set(coinType, allCoins)
     return allCoins
   }
 
@@ -234,7 +246,7 @@ export class AggregatorClient {
   ): Promise<SwapInPoolsResult | null> {
     let result
     try {
-      result = await swapInPools(this.client, params, this.signer)
+      result = await swapInPools(this.client, params, this.signer, this.env)
     } catch (e) {
       console.error("swapInPools error:", e)
       return null
@@ -299,10 +311,12 @@ export class AggregatorClient {
       refreshAllCoins,
       payDeepFeeAmount,
     } = params
-    if (refreshAllCoins || this.allCoins.length === 0) {
-      this.allCoins = await this.getAllCoins()
-    }
+
     const fromCoinType = routers[0].path[0].from
+
+
+    let fromCoins = await this.getCoins(fromCoinType, refreshAllCoins)
+
     const targetCoinType = routers[0].path[routers[0].path.length - 1].target
     const amountIn = routers.reduce(
       (acc, router) => acc.add(router.amountIn),
@@ -320,16 +334,17 @@ export class AggregatorClient {
     const amount = byAmountIn ? amountIn : amountLimit
     const buildFromCoinRes = buildInputCoin(
       txb,
-      this.allCoins,
+      fromCoins,
       BigInt(amount.toString()),
       fromCoinType
     )
 
     let deepCoin
     if (payDeepFeeAmount && payDeepFeeAmount > 0) {
+      let deepCoins = await this.getCoins(this.deepbookv3DeepFeeType())
       deepCoin = buildInputCoin(
         txb,
-        this.allCoins,
+        deepCoins,
         BigInt(payDeepFeeAmount),
         this.deepbookv3DeepFeeType()
       ).targetCoin
@@ -346,9 +361,10 @@ export class AggregatorClient {
     })
 
     if (isMergeTragetCoin) {
+      let targetCoins = await this.getCoins(targetCoinType, refreshAllCoins)
       const targetCoinRes = buildInputCoin(
         txb,
-        this.allCoins,
+        targetCoins,
         BigInt(0),
         targetCoinType
       )
@@ -368,16 +384,18 @@ export class AggregatorClient {
   // Include cetus、deepbookv2、flowxv2 & v3、kriyav2 & v3、turbos、aftermath、haedal、afsui、volo、bluemove
   publishedAt(): string {
     if (this.env === Env.Mainnet) {
-      return "0xf98ed029af555e4a103febf26243dc33ac09a7ea1b2da7e414c728b25b729086" // version 3
+      return "0xec2108d2092dd6f1f6fe45def639500e323596e0bab9fabc206461aadf357e6a" // version 4
     } else {
-      return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637"
+      // return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637" // version 2
+      return "0x52eae33adeb44de55cfb3f281d4cc9e02d976181c0952f5323648b5717b33934"
     }
   }
 
-  // Include deepbookv3
+  // Include deepbookv3, scallop
   publishedAtV2(): string {
     if (this.env === Env.Mainnet) {
-      return "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae" // version 1
+      // return "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae" // version 1, deepbookv3
+      return "0x6d70ffa7aa3f924c3f0b573d27d29895a0ee666aaff821073f75cb14af7fd01a" // version 3, deepbookv3 & scallop
     } else {
       return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637"
     }
@@ -456,6 +474,8 @@ export class AggregatorClient {
         return new Volo(this.env)
       case BLUEMOVE:
         return new Bluemove(this.env)
+      case SCALLOP:
+        return new Scallop(this.env)
       default:
         throw new Error(`Unsupported dex ${provider}`)
     }
@@ -529,7 +549,8 @@ export function parseRouterResponse(data: any): RouterData {
             path.provider === TURBOS ||
             path.provider === AFTERMATH ||
             path.provider === CETUS ||
-            path.provider === DEEPBOOKV3
+            path.provider === DEEPBOOKV3 ||
+            path.provider === SCALLOP
           ) {
             extendedDetails = {
               aftermathLpSupplyType:
@@ -537,6 +558,7 @@ export function parseRouterResponse(data: any): RouterData {
               turbosFeeType: path.extended_details?.turbos_fee_type,
               afterSqrtPrice: path.extended_details?.after_sqrt_price,
               deepbookv3DeepFee: path.extended_details?.deepbookv3_deep_fee,
+              scallopScoinTreasury: path.extended_details?.scallop_scoin_treasury,
             }
           }
 

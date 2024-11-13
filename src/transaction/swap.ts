@@ -1,18 +1,18 @@
 import { Transaction } from "@mysten/sui/transactions"
 import { SwapInPoolsParams } from "~/client"
 import { compareCoins, completionCoin } from "~/utils/coin"
-import { SwapInPoolsResult, U64_MAX_BN, ZERO } from ".."
+import { Env, SwapInPoolsResult, U64_MAX_BN, ZERO } from ".."
 import { ConfigErrorCode, TransactionErrorCode } from "~/errors"
-import { checkInvalidSuiAddress } from "~/utils/transaction"
+import { checkInvalidSuiAddress, printTransaction } from "~/utils/transaction"
 import { SuiClient } from "@mysten/sui/client"
 import { BN } from "bn.js"
 import { sqrtPriceX64ToPrice } from "~/math"
-import { error } from "console"
 
 export async function swapInPools(
   client: SuiClient,
   params: SwapInPoolsParams,
-  sender: string
+  sender: string,
+  env: Env
 ): Promise<SwapInPoolsResult> {
   const { from, target, amount, byAmountIn, pools } = params
   const fromCoin = completionCoin(from)
@@ -20,15 +20,14 @@ export async function swapInPools(
 
   const tx = new Transaction()
   const direction = compareCoins(fromCoin, targetCoin)
-  const integratePublishedAt =
-    "0x8faab90228e4c4df91c41626bbaefa19fc25c514405ac64de54578dec9e6f5ee"
+  const integratePublishedAt = env === Env.Mainnet ?
+    "0x15c0555d7601d98ca2659a8387d377a81b1e285ee0808484e101f96d05806187" :
+    "0x2918cf39850de6d5d94d8196dc878c8c722cd79db659318e00bff57fbb4e2ede"
   const coinA = direction ? fromCoin : targetCoin
   const coinB = direction ? targetCoin : fromCoin
 
   const typeArguments = [coinA, coinB]
-  console.log("typeArguments", typeArguments)
-
-  console.log("pools", pools)
+  console.log("typeArguments", typeArguments, integratePublishedAt)
 
   for (let i = 0; i < pools.length; i++) {
     const args = [
@@ -50,6 +49,8 @@ export async function swapInPools(
       ConfigErrorCode.InvalidWallet
     )
   }
+
+  printTransaction(tx)
 
   const simulateRes = await client.devInspectTransactionBlock({
     transactionBlock: tx,
@@ -97,7 +98,6 @@ export async function swapInPools(
   }
 
   const event = valueData[tempIndex].parsedJson.data
-  console.log("event", JSON.stringify(event, null, 2))
 
   const currentSqrtPrice = event.step_results[0].current_sqrt_price
 
