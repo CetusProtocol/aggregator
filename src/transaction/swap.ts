@@ -21,8 +21,8 @@ export async function swapInPools(
   const tx = new Transaction()
   const direction = compareCoins(fromCoin, targetCoin)
   const integratePublishedAt = env === Env.Mainnet ?
-    "0x15c0555d7601d98ca2659a8387d377a81b1e285ee0808484e101f96d05806187" :
-    "0x2918cf39850de6d5d94d8196dc878c8c722cd79db659318e00bff57fbb4e2ede"
+    "0x3a5aa90ffa33d09100d7b6941ea1c0ffe6ab66e77062ddd26320c1b073aabb10" :
+    "0x19dd42e05fa6c9988a60d30686ee3feb776672b5547e328d6dab16563da65293"
   const coinA = direction ? fromCoin : targetCoin
   const coinB = direction ? targetCoin : fromCoin
 

@@ -97,15 +97,23 @@ export class AggregatorClient {
   public env: Env
   private allCoins: Map<string, CoinAsset[]>
 
-  constructor(endpoint?: string, signer?: string, client?: SuiClient, env?: Env) {
+  constructor(
+    endpoint?: string,
+    signer?: string,
+    client?: SuiClient,
+    env?: Env
+  ) {
     this.endpoint = endpoint ? processEndpoint(endpoint) : DEFAULT_ENDPOINT
-    this.client = client || new SuiClient({url: getFullnodeUrl('mainnet')})
+    this.client = client || new SuiClient({ url: getFullnodeUrl("mainnet") })
     this.signer = signer || ""
     this.env = env || Env.Mainnet
     this.allCoins = new Map<string, CoinAsset[]>()
   }
 
-  async getCoins(coinType: string, refresh: boolean = true): Promise<CoinAsset[]> {
+  async getCoins(
+    coinType: string,
+    refresh: boolean = true
+  ): Promise<CoinAsset[]> {
     if (this.signer === "") {
       throw new Error("Signer is required, but not provided.")
     }
@@ -155,7 +163,7 @@ export class AggregatorClient {
     routers: Router[],
     amountOutLimit: BN,
     partner?: string,
-    deepbookv3DeepFee?: TransactionObjectArgument,
+    deepbookv3DeepFee?: TransactionObjectArgument
   ) {
     if (routers.length === 0) {
       throw new Error("No router found")
@@ -257,7 +265,15 @@ export class AggregatorClient {
   async routerSwap(
     params: BuildRouterSwapParams
   ): Promise<TransactionObjectArgument> {
-    const { routers, inputCoin, slippage, byAmountIn, txb, partner, deepbookv3DeepFee } = params
+    const {
+      routers,
+      inputCoin,
+      slippage,
+      byAmountIn,
+      txb,
+      partner,
+      deepbookv3DeepFee,
+    } = params
     const amountIn = routers.reduce(
       (acc, router) => acc.add(router.amountIn),
       new BN(0)
@@ -313,7 +329,6 @@ export class AggregatorClient {
     } = params
 
     const fromCoinType = routers[0].path[0].from
-
 
     let fromCoins = await this.getCoins(fromCoinType, refreshAllCoins)
 
@@ -384,7 +399,7 @@ export class AggregatorClient {
   // Include cetus、deepbookv2、flowxv2 & v3、kriyav2 & v3、turbos、aftermath、haedal、afsui、volo、bluemove
   publishedAt(): string {
     if (this.env === Env.Mainnet) {
-      return "0xec2108d2092dd6f1f6fe45def639500e323596e0bab9fabc206461aadf357e6a" // version 4
+      return "0x11451575c775a3e633437b827ecbc1eb51a5964b0302210b28f5b89880be21a2" // version 5
     } else {
       // return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637" // version 2
       return "0x52eae33adeb44de55cfb3f281d4cc9e02d976181c0952f5323648b5717b33934"
@@ -397,7 +412,7 @@ export class AggregatorClient {
       // return "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae" // version 1, deepbookv3
       return "0x6d70ffa7aa3f924c3f0b573d27d29895a0ee666aaff821073f75cb14af7fd01a" // version 3, deepbookv3 & scallop
     } else {
-      return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637"
+      return "0xfd8a73ef0a4b928da9c27fc287dc37c1ca64df71da8e8eac7ca9ece55eb5f448"
     }
   }
 
@@ -558,7 +573,8 @@ export function parseRouterResponse(data: any): RouterData {
               turbosFeeType: path.extended_details?.turbos_fee_type,
               afterSqrtPrice: path.extended_details?.after_sqrt_price,
               deepbookv3DeepFee: path.extended_details?.deepbookv3_deep_fee,
-              scallopScoinTreasury: path.extended_details?.scallop_scoin_treasury,
+              scallopScoinTreasury:
+                path.extended_details?.scallop_scoin_treasury,
             }
           }
 

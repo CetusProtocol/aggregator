@@ -1,18 +1,7 @@
 import { describe, test } from "@jest/globals"
 import dotenv from "dotenv"
 import { AggregatorClient } from "~/client"
-import {
-  M_CETUS,
-  M_HASUI,
-  M_MICHI,
-  M_NAVI,
-  M_SSWP,
-  M_SUI,
-  M_USDC,
-  T_DBUSDC,
-  T_DBUSDT,
-  T_DEEP,
-} from "./test_data.test"
+import * as testData from "./test_data.test"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import { printTransaction } from "~/utils/transaction"
 import BN from "bn.js"
@@ -34,7 +23,10 @@ describe("router module", () => {
   let keypair: Ed25519Keypair
 
   beforeAll(() => {
+    const fullNodeURL = process.env.SUI_RPC!
+    const aggregatorURL = process.env.CETUS_AGGREGATOR!
     const secret = process.env.SUI_WALLET_SECRET!
+
     if (secret) {
       keypair = Ed25519Keypair.fromSecretKey(fromB64(secret).slice(1, 33))
     } else {
@@ -44,29 +36,37 @@ describe("router module", () => {
     const wallet = keypair.getPublicKey().toSuiAddress()
     console.log("wallet: ", wallet)
 
-    client = new AggregatorClient()
+    // // const endpoint =
+    // //   "https://api-sui-cloudfront.cetus.zone/router_v2/find_routes"
+    const endpoint = aggregatorURL
+
+    const suiClient = new SuiClient({
+      url: fullNodeURL,
+    })
+    // const suiClient = new SuiClient({
+    //   url: "https://fullnode.testnet.sui.io:443",
+    // })
+
+    client = new AggregatorClient(endpoint, wallet, suiClient, Env.Mainnet)
   })
 
-  test("Get all coins", () => {
-    return client.getAllCoins().then((coins) => {
+  test("Get coins", () => {
+    return client.getCoins(testData.M_wUSDC).then((coins) => {
       console.log(coins)
     })
   })
 
   test("Downgrade swap in route", async () => {
-    const amount = 100000000
+    const amount = 1000000
     const byAmountIn = true
 
     const res: any = await client.swapInPools({
-      from: "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI",
-      target:
-        "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC",
+      from: testData.M_USDC,
+      target: testData.M_SUI,
       amount: new BN(amount),
       byAmountIn,
       pools: [
-        "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab",
-        "0x03d7739b33fe221a830ff101042fa81fd19188feca04a335f7dea4e37c0fca81",
-        "0xb8d7d9e66a60c239e7a60110efcf8de6c705580ed924d0dde141f4a0e2c90105",
+        '0xb8d7d9e66a60c239e7a60110efcf8de6c705580ed924d0dde141f4a0e2c90105'
       ],
     })
 
@@ -84,6 +84,8 @@ describe("router module", () => {
         refreshAllCoins: true,
       })
 
+      printTransaction(txb)
+
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:114 ~ test ~ result:", result)
     }
@@ -92,8 +94,8 @@ describe("router module", () => {
   test("Find router", async () => {
     const amount = "4239267610000000000"
     const res = await client.findRouters({
-      from: M_SUI,
-      target: M_USDC,
+      from: testData.M_SUI,
+      target: testData.M_USDC,
       amount: new BN(amount),
       byAmountIn: true,
       depth: 3,
@@ -110,9 +112,9 @@ describe("router module", () => {
 
   test("Build router tx", async () => {
     const byAmountIn = true
-    const amount = "32"
-    const target = M_SUI
-    const from = M_MICHI
+    const amount = "320000"
+    const target = "0x2::sui::SUI"
+    const from = "0x26b3bc67befc214058ca78ea9a2690298d731a2d4309485ec3d40198063c4abc::eth::ETH"
 
     const res = await client.findRouters({
       from,
@@ -121,6 +123,7 @@ describe("router module", () => {
       byAmountIn,
       depth: 3,
       providers: [
+        "SCALLOP",
         "CETUS",
         // "DEEPBOOKV3",
         // "DEEPBOOK",
@@ -149,6 +152,7 @@ describe("router module", () => {
         txb,
         slippage: 0.01,
         isMergeTragetCoin: false,
+        partner: "0x1f5fa5c820f40d43fc47815ad06d95e40a1942ff72a732a92e8ef4aa8cde70a5",
         refreshAllCoins: true,
         payDeepFeeAmount: 0,
       })
@@ -172,8 +176,8 @@ describe("router module", () => {
     const byAmountIn = false
     const amount = "10000000000"
 
-    const from = M_USDC
-    const target = M_SSWP
+    const from = testData.M_USDC
+    const target = testData.M_SSWP
 
     const res = await client.findRouters({
       from,
@@ -215,8 +219,8 @@ describe("router module", () => {
 
   test("Test Multi Input", async () => {
     const amounts = [1000000000, 2000000000, 10000000000000]
-    const froms = [M_USDC, M_SUI, M_CETUS, M_NAVI]
-    const tos = [M_SUI, M_USDC, M_USDC, M_SUI]
+    const froms = [testData.M_USDC, testData.M_SUI, testData.M_CETUS, testData.M_NAVI]
+    const tos = [testData.M_SUI, testData.M_USDC, testData.M_USDC, testData.M_SUI]
 
     for (let i = 0; i < froms.length; i++) {
       const from = froms[i]
@@ -272,13 +276,13 @@ describe("router module", () => {
     // const from = M_USDC
     // const target = M_SUI
 
-    const from = M_SUI
+    const from = testData.M_SUI
     // const target =
     //   "0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d::hasui::HASUI"
     // const target =
     //   "0xf325ce1300e8dac124071d3152c5c5ee6174914f8bc2161e88329cf579246efc::afsui::AFSUI"
 
-    const target = M_HASUI
+    const target = testData.M_HASUI
 
     const res = await client.findRouters({
       from,

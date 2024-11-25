@@ -31,6 +31,7 @@ export class Scallop implements Dex {
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
+    // in scallop swap, the first coin type is always the common coin, the second coin type is always the special
     const [func, coinAType, coinBType] = direction
       ? ["swap_a2b", from, target]
       : ["swap_b2a", from, target]
