@@ -31,45 +31,19 @@ By using our aggregator, you can trade more efficiently and securely on the Sui 
 
 # Install
 
-The SDK is published to npm registry. To use the SDK in your project, you can run `npm install @cetusprotocol/aggregator-sdk`
+The SDK is published to npm registry. To use the SDK in your project, you can
+
+```
+npm install @cetusprotocol/aggregator-sdk
+```
 
 # Usage
 
 ## 1. Init client with rpc and package config
 
-1. Create aggregator client default.
-
-   ```typescript
-   const client = new AggregatorClient()
-   ```
-
-2. Customer create aggregator client by your self rpc node.
-
-   ```typescript
-   // used to do simulate swap and swap
-   // https://fullnode.mainnet.sui.io:443
-   const fullNodeURL = process.env.SUI_RPC!
-
-   const suiClient = new SuiClient({
-     url: fullNodeURL,
-   })
-
-   // provider by cetus
-   const aggregatorURL = "https://api-sui.cetus.zone/router_v2/find_routes"
-
-   // set your wallet address, used to do simulate
-   const wallet = "0x..."
-
-   // import { Env } from "@cetusprotocol/aggregator-sdk"
-   // Currently, we provide full support for Mainnet,
-   // while Testnet is only supported for Cetus and DeepBook providers.
-   const client = new AggregatorClient(
-     aggregatorURL,
-     wallet,
-     suiClient,
-     Env.Mainnet
-   )
-   ```
+```typescript
+const client = new AggregatorClient()
+```
 
 ## 2. Get best router swap result from aggregator service
 
@@ -92,35 +66,56 @@ const routerRes = await client.findRouters({
 ```typescript
 const routerTx = new Transaction()
 
-await client.fastRouterSwap({
-  routers: routerRes.routes,
-  byAmountIn,
-  txb: routerTx,
-  slippage: 0.01,
-  isMergeTragetCoin: true,
-  refreshAllCoins: true,
-})
+if (routerRes != null) {
+  await client.fastRouterSwap({
+    routers: routerRes.routes,
+    byAmountIn,
+    txb: routerTx,
+    slippage: 0.01,
+    isMergeTragetCoin: true,
+    refreshAllCoins: true,
+  })
+
+  let result = await client.devInspectTransactionBlock(routerTx, keypair)
+
+  if (result.effects.status.status === "success") {
+    console.log("Sim exec transaction success")
+    const result = await client.signAndExecuteTransaction(routerTx, keypair)
+  }
+  console.log("result", result)
+}
 ```
 
 ## 4. Build PTB and return target coin
 
 ```typescript
 const routerTx = new Transaction()
+const byAmountIn = true;
 
-const targetCoin = await client.routerSwap({
-  routers: routerRes.routes,
-  byAmountIn: true,
-  txb: routerTx,
-  inputCoin,
-  slippage: 0.01,
-})
+if (routerRes != null) {
+  const targetCoin = await client.routerSwap({
+    routers: routerRes.routes,
+    byAmountIn,
+    txb: routerTx,
+    inputCoin,
+    slippage: 0.01,
+  })
 
-// you can use this target coin object argument to build your ptb.
-const client.transferOrDestoryCoin(
-    txb,
-    targetCoinRes.targetCoin,
-    targetCoinType
-)
+  // you can use this target coin object argument to build your ptb.
+  const client.transferOrDestoryCoin(
+      txb,
+      targetCoin,
+      targetCoinType
+  )
+
+  let result = await client.devInspectTransactionBlock(routerTx, keypair)
+
+  if (result.effects.status.status === "success") {
+    console.log("Sim exec transaction success")
+    const result = await client.signAndExecuteTransaction(routerTx, keypair)
+  }
+  console.log("result", result)
+}
 ```
 
 # More About Cetus

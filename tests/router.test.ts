@@ -113,8 +113,8 @@ describe("router module", () => {
   test("Build router tx", async () => {
     const byAmountIn = true
     const amount = "320000"
-    const target = "0x2::sui::SUI"
-    const from = "0x26b3bc67befc214058ca78ea9a2690298d731a2d4309485ec3d40198063c4abc::eth::ETH"
+    const from = "0x2::sui::SUI"
+    const target = "0x83556891f4a0f233ce7b05cfe7f957d4020492a34f5405b2cb9377d060bef4bf::spring_sui::SPRING_SUI"
 
     const res = await client.findRouters({
       from,
@@ -123,8 +123,8 @@ describe("router module", () => {
       byAmountIn,
       depth: 3,
       providers: [
-        "SCALLOP",
-        "CETUS",
+        "SUILEND",
+        // "CETUS",
         // "DEEPBOOKV3",
         // "DEEPBOOK",
         // "AFTERMATH",

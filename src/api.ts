@@ -168,7 +168,7 @@ async function getRouter(endpoint: string, params: FindRouterParams) {
     }
 
     // set newest sdk version
-    url += "&v=1000307"
+    url += "&v=1000309"
 
     const response = await fetch(url)
     return response

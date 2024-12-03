@@ -37,6 +37,8 @@ import { CoinAsset } from "./types/sui"
 import { buildInputCoin } from "./utils/coin"
 import { DeepbookV3 } from "./transaction/deepbook_v3"
 import { Scallop } from "./transaction/scallop"
+import { Suilend } from "./transaction/suilend"
+
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
 export const KRIYA = "KRIYA"
@@ -51,7 +53,7 @@ export const AFSUI = "AFSUI"
 export const BLUEMOVE = "BLUEMOVE"
 export const DEEPBOOKV3 = "DEEPBOOKV3"
 export const SCALLOP = "SCALLOP"
-
+export const SUILEND = "SUILEND"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v2"
 
 export type BuildRouterSwapParams = {
@@ -410,7 +412,8 @@ export class AggregatorClient {
   publishedAtV2(): string {
     if (this.env === Env.Mainnet) {
       // return "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae" // version 1, deepbookv3
-      return "0x6d70ffa7aa3f924c3f0b573d27d29895a0ee666aaff821073f75cb14af7fd01a" // version 3, deepbookv3 & scallop
+      // return "0x6d70ffa7aa3f924c3f0b573d27d29895a0ee666aaff821073f75cb14af7fd01a" // version 3, deepbookv3 & scallop
+      return "0x16d9418726c26d8cb4ce8c9dd75917fa9b1c7bf47d38d7a1a22603135f0f2a56" // version 4 add suilend
     } else {
       return "0xfd8a73ef0a4b928da9c27fc287dc37c1ca64df71da8e8eac7ca9ece55eb5f448"
     }
@@ -491,6 +494,8 @@ export class AggregatorClient {
         return new Bluemove(this.env)
       case SCALLOP:
         return new Scallop(this.env)
+      case SUILEND:
+        return new Suilend(this.env)
       default:
         throw new Error(`Unsupported dex ${provider}`)
     }
