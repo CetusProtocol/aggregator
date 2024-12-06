@@ -1,0 +1,19 @@
+## Mainnet
+[package]
+name = "CetusAggregatorV2"
+version = "0.1.1"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+published-at = "0xd7fb78f3d8db2d5122d61b001e0692e83a215855177e5c1dc2b32c3d6fffbbbc"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev ="mainnet-v1.35.1", override = true }
+deepbookv3 = { git = "https://git.cplus.link/mesolabs/deepbookv3.git", subdir = "packages/deepbook", rev = "mainnet", override = true}
+token = { git = "https://git.cplus.link/mesolabs/deepbookv3.git", subdir = "packages/token", rev = "mainnet", override = true }
+Deepbookv3Vaults = { local = "../internals/deepbookv3-vaults", override = true }
+ScallopProtocol = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "mainnet-v1.5", override = true }
+ScallopScoin = { local = "../externals/scallop/scallop_scoin", override = true }
+liquid_staking = { local = "../externals/suilend", override = true }
+SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "mainnet-v1.35.1", override = true }
+
+[addresses]
+cetus_aggregator_v2 = "0x0"
