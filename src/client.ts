@@ -28,7 +28,7 @@ import { FlowxV3 } from "./transaction/flowx_v3"
 import { Turbos } from "./transaction/turbos"
 import { Cetus } from "./transaction/cetus"
 import { swapInPools } from "./transaction/swap"
-import { CalculateAmountLimit } from "./math"
+import { CalculateAmountLimit, CalculateAmountLimitBN } from "./math"
 import { Haedal } from "./transaction/haedal"
 import { Afsui } from "./transaction/afsui"
 import { Volo } from "./transaction/volo"
@@ -284,7 +284,7 @@ export class AggregatorClient {
       (acc, router) => acc.add(router.amountOut),
       new BN(0)
     )
-    const amountLimit = CalculateAmountLimit(
+    const amountLimit = CalculateAmountLimitBN(
       byAmountIn ? amountOut : amountIn,
       byAmountIn,
       slippage
@@ -295,7 +295,7 @@ export class AggregatorClient {
         txb,
         inputCoin,
         routers,
-        new BN(amountLimit),
+        amountLimit,
         partner,
         deepbookv3DeepFee
       )

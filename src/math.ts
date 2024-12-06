@@ -26,6 +26,25 @@ export function CalculateAmountLimit(
   return Number(amountLimit.toString())
 }
 
+export function CalculateAmountLimitBN(
+  expectAmount: BN,
+  byAmountIn: boolean,
+  slippage: number
+): BN {
+  let amountLimit = ZERO
+  if (byAmountIn) {
+    amountLimit = expectAmount
+      .mul(new BN(TEN_POW_NINE - slippage * TEN_POW_NINE))
+      .div(new BN(TEN_POW_NINE))
+  } else {
+    amountLimit = expectAmount
+      .mul(new BN(TEN_POW_NINE + slippage * TEN_POW_NINE))
+      .div(new BN(TEN_POW_NINE))
+  }
+
+  return amountLimit
+}
+
 const MAX_SQER_PRICE_X64 = "79226673515401279992447579055"
 const MIN_SQER_PRICE_X64 = "4295048016"
 
