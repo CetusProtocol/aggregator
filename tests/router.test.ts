@@ -112,9 +112,9 @@ describe("router module", () => {
 
   test("Build router tx", async () => {
     const byAmountIn = true
-    const amount = "320000"
+    const amount = "400000000000"
     const from = "0x2::sui::SUI"
-    const target = "0x83556891f4a0f233ce7b05cfe7f957d4020492a34f5405b2cb9377d060bef4bf::spring_sui::SPRING_SUI"
+    const target = "0xaf3aae4940a248739ce4964857381fc3f3149a6d05375bfbb2118592907e3bbb::dam::DAM"
 
     const res = await client.findRouters({
       from,
@@ -122,17 +122,6 @@ describe("router module", () => {
       amount: new BN(amount),
       byAmountIn,
       depth: 3,
-      providers: [
-        "SUILEND",
-        // "CETUS",
-        // "DEEPBOOKV3",
-        // "DEEPBOOK",
-        // "AFTERMATH",
-        // "FLOWX",
-        // "KRIYA",
-        // "KRIYAV3",
-        // "TURBOS",
-      ],
     })
 
     if (res != null) {
@@ -152,7 +141,7 @@ describe("router module", () => {
         txb,
         slippage: 0.01,
         isMergeTragetCoin: false,
-        partner: "0x1f5fa5c820f40d43fc47815ad06d95e40a1942ff72a732a92e8ef4aa8cde70a5",
+        // partner: "0x1f5fa5c820f40d43fc47815ad06d95e40a1942ff72a732a92e8ef4aa8cde70a5",
         refreshAllCoins: true,
         payDeepFeeAmount: 0,
       })
@@ -161,14 +150,18 @@ describe("router module", () => {
 
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result)
-
-      if (result.effects.status.status === "success") {
-        // console.log("Sim exec transaction success")
-        const result = await client.signAndExecuteTransaction(txb, keypair)
-        console.log("result", result)
-      } else {
-        console.log("result", result)
+      for (const event of result.events) {
+        console.log("event", JSON.stringify(event, null, 2))
       }
+      console.log("txb", )
+
+      // if (result.effects.status.status === "success") {
+      //   // console.log("Sim exec transaction success")
+      //   const result = await client.signAndExecuteTransaction(txb, keypair)
+      //   console.log("result", result)
+      // } else {
+      //   console.log("result", result)
+      // }
     }
   }, 600000)
 

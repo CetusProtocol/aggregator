@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
 
 export class Suilend implements Dex {
   private liquid_staking_pool: string
@@ -13,10 +13,9 @@ export class Suilend implements Dex {
       throw new Error("Suilend only supported on mainnet")
     }
 
-    this.liquid_staking_pool =
-      env === Env.Mainnet
-        ? "0x15eda7330c8f99c30e430b4d82fd7ab2af3ead4ae17046fcb224aa9bad394f6b"
-        : "0x0"
+    this.liquid_staking_pool = env === Env.Mainnet
+      ? "0x15eda7330c8f99c30e430b4d82fd7ab2af3ead4ae17046fcb224aa9bad394f6b"
+      : "0x0"
 
     this.sui_system_state =
       env === Env.Mainnet

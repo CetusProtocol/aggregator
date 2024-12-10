@@ -6,7 +6,7 @@ module cetus_aggregator::kriya {
     use sui::event::emit;
     use sui::tx_context::TxContext;
 
-    use kriya_dex::spot_dex::{Pool, swap_token_x, swap_token_y};
+    use kriya_amm::spot_dex::{Pool, swap_token_x, swap_token_y};
 
     use cetus_aggregator::utils::transfer_or_destroy_coin;
 
