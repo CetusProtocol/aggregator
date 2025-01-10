@@ -177,7 +177,7 @@ export class AggregatorClient {
     const splitAmounts = routers.map((router) => router.amountIn.toString())
     const inputCoinType = routers[0].path[0].from
     const outputCoinType = routers[0].path[routers[0].path.length - 1].target
-    const inputCoins = txb.splitCoins(inputCoin, splitAmounts)
+    const inputCoins = splitAmounts.length > 1 ? txb.splitCoins(inputCoin, splitAmounts) : [inputCoin]
     const outputCoins = []
     for (let i = 0; i < routers.length; i++) {
       if (routers[i].path.length === 0) {
