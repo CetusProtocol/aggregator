@@ -35,6 +35,8 @@ export type ExtendedDetails = {
   afterSqrtPrice?: string
   deepbookv3DeepFee?: number
   scallopScoinTreasury?: string
+  haedalPmmBasePriceSeed?: string
+  haedalPmmQuotePriceSeed?: string
 }
 
 export type Path = {
@@ -44,10 +46,10 @@ export type Path = {
   from: string
   target: string
   feeRate: number
-  amountIn: number
-  amountOut: number
-  extendedDetails?: ExtendedDetails
+  amountIn: string
+  amountOut: string
   version?: string
+  extendedDetails?: ExtendedDetails
 }
 
 export type Router = {
@@ -107,11 +109,27 @@ export async function getRouterResult(
     }
   }
   const data = await response.json()
+  const insufficientLiquidity = data.msg === "liquidity is not enough"
+
+  if(data.msg && data.msg.indexOf('HoneyPot scam')>-1){
+    return {
+      amountIn: ZERO,
+      amountOut: ZERO,
+      routes: [],
+      insufficientLiquidity,
+      error: {
+        code: AggregatorServerErrorCode.HoneyPot,
+        msg: getAggregatorServerErrorMessage(
+          AggregatorServerErrorCode.HoneyPot
+        ),
+      },
+    }
+  }
   if (data.data != null) {
     const res = parseRouterResponse(data.data)
     return res
   }
-  const insufficientLiquidity = data.msg === "liquidity is not enough"
+  
 
   return {
     amountIn: ZERO,
@@ -168,7 +186,7 @@ async function getRouter(endpoint: string, params: FindRouterParams) {
     }
 
     // set newest sdk version
-    url += "&v=1000309"
+    url += "&v=1000316"
 
     const response = await fetch(url)
     return response

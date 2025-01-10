@@ -34,18 +34,11 @@ describe("router module", () => {
     }
 
     const wallet = keypair.getPublicKey().toSuiAddress()
-    console.log("wallet: ", wallet)
-
-    // // const endpoint =
-    // //   "https://api-sui-cloudfront.cetus.zone/router_v2/find_routes"
     const endpoint = aggregatorURL
 
     const suiClient = new SuiClient({
       url: fullNodeURL,
     })
-    // const suiClient = new SuiClient({
-    //   url: "https://fullnode.testnet.sui.io:443",
-    // })
 
     client = new AggregatorClient(endpoint, wallet, suiClient, Env.Mainnet)
   })
@@ -61,19 +54,21 @@ describe("router module", () => {
     const byAmountIn = true
 
     const res: any = await client.swapInPools({
-      from: testData.M_USDC,
-      target: testData.M_SUI,
+      from: testData.M_SUI,
+      target: testData.M_USDC,
       amount: new BN(amount),
       byAmountIn,
       pools: [
-        '0xb8d7d9e66a60c239e7a60110efcf8de6c705580ed924d0dde141f4a0e2c90105'
+        "0xb8d7d9e66a60c239e7a60110efcf8de6c705580ed924d0dde141f4a0e2c90105",
       ],
     })
 
-    console.log("res", res)
-
     if (res != null) {
       console.log(JSON.stringify(res, null, 2))
+
+      console.log("amount in", res.routeData.amountIn.toString())
+      console.log("amount out", res.routeData.amountOut.toString())
+
       const txb = new Transaction()
       await client.fastRouterSwap({
         routers: res.routeData.routes,
@@ -112,9 +107,10 @@ describe("router module", () => {
 
   test("Build router tx", async () => {
     const byAmountIn = true
-    const amount = "400000000000"
+    const amount = "746028139919"
+    const target =
+      "0x375f70cf2ae4c00bf37117d0c85a2c71545e6ee05c4a5c7d282cd66a4504b068::usdt::USDT"
     const from = "0x2::sui::SUI"
-    const target = "0xaf3aae4940a248739ce4964857381fc3f3149a6d05375bfbb2118592907e3bbb::dam::DAM"
 
     const res = await client.findRouters({
       from,
@@ -122,6 +118,7 @@ describe("router module", () => {
       amount: new BN(amount),
       byAmountIn,
       depth: 3,
+      // providers: ["HAEDAL"],
     })
 
     if (res != null) {
@@ -153,7 +150,6 @@ describe("router module", () => {
       for (const event of result.events) {
         console.log("event", JSON.stringify(event, null, 2))
       }
-      console.log("txb", )
 
       // if (result.effects.status.status === "success") {
       //   // console.log("Sim exec transaction success")
@@ -212,8 +208,18 @@ describe("router module", () => {
 
   test("Test Multi Input", async () => {
     const amounts = [1000000000, 2000000000, 10000000000000]
-    const froms = [testData.M_USDC, testData.M_SUI, testData.M_CETUS, testData.M_NAVI]
-    const tos = [testData.M_SUI, testData.M_USDC, testData.M_USDC, testData.M_SUI]
+    const froms = [
+      testData.M_USDC,
+      testData.M_SUI,
+      testData.M_CETUS,
+      testData.M_NAVI,
+    ]
+    const tos = [
+      testData.M_SUI,
+      testData.M_USDC,
+      testData.M_USDC,
+      testData.M_SUI,
+    ]
 
     for (let i = 0; i < froms.length; i++) {
       const from = froms[i]
@@ -347,4 +353,24 @@ describe("router module", () => {
     const config = await client.getDeepbookV3Config()
     console.log("config", config)
   }, 60000)
+
+  test("Find router", async () => {
+    const amount = "4239267610000000000"
+    const res = await client.findRouters({
+      from: "0x2::sui::SUI",
+      target:
+        "0x188c6239bda71ba5751990cc0271e91b6362c67bccf7aa381e018db7fe39c6d7::BUILD::BUILD",
+      amount: new BN(amount),
+      byAmountIn: true,
+      depth: 3,
+      splitCount: 1,
+      providers: ["CETUS"],
+    })
+
+    if (res != null) {
+      console.log(JSON.stringify(res, null, 2))
+    }
+    console.log("amount in", res?.amountIn.toString())
+    console.log("amount out", res?.amountOut.toString())
+  })
 })

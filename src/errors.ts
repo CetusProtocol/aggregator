@@ -51,6 +51,7 @@ export enum AggregatorServerErrorCode {
   NumberTooLarge = 10001,
   NoRouter = 10002,
   InsufficientLiquidity = 10003,
+  HoneyPot = 10004
 }
 
 export function getAggregatorServerErrorMessage(
@@ -65,6 +66,8 @@ export function getAggregatorServerErrorMessage(
       return "No router"
     case AggregatorServerErrorCode.InsufficientLiquidity:
       return "Insufficient Liquidity"
+    case AggregatorServerErrorCode.HoneyPot:
+      return "Target token is detected as a HoneyPot scam"
     default:
       return "Unknown error"
   }

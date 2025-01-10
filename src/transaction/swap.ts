@@ -20,9 +20,10 @@ export async function swapInPools(
 
   const tx = new Transaction()
   const direction = compareCoins(fromCoin, targetCoin)
-  const integratePublishedAt = env === Env.Mainnet ?
-    "0x3a5aa90ffa33d09100d7b6941ea1c0ffe6ab66e77062ddd26320c1b073aabb10" :
-    "0x19dd42e05fa6c9988a60d30686ee3feb776672b5547e328d6dab16563da65293"
+  const integratePublishedAt =
+    env === Env.Mainnet
+      ? "0x3a5aa90ffa33d09100d7b6941ea1c0ffe6ab66e77062ddd26320c1b073aabb10"
+      : "0x19dd42e05fa6c9988a60d30686ee3feb776672b5547e328d6dab16563da65293"
   const coinA = direction ? fromCoin : targetCoin
   const coinB = direction ? targetCoin : fromCoin
 
@@ -122,8 +123,13 @@ export async function swapInPools(
     decimalB!
   )
 
+  const feeRate = Number(event.fee_rate) / 1000000
+  const pureAmountIn = new BN(event.amount_in ?? 0)
+  const feeAmount = new BN(event.fee_amount ?? 0)
+  const amountIn = pureAmountIn.add(feeAmount)
+
   const routeData = {
-    amountIn: new BN(event.amount_in ?? 0),
+    amountIn: amountIn,
     amountOut: new BN(event.amount_out ?? 0),
     routes: [
       {
@@ -134,7 +140,7 @@ export async function swapInPools(
             provider: "CETUS",
             from: fromCoin,
             target: targetCoin,
-            feeRate: event.fee_rate,
+            feeRate,
             amountIn: event.amount_in,
             amountOut: event.amount_out,
             extendedDetails: {
@@ -142,7 +148,7 @@ export async function swapInPools(
             },
           },
         ],
-        amountIn: new BN(event.amount_in ?? 0),
+        amountIn: amountIn,
         amountOut: new BN(event.amount_out ?? 0),
         initialPrice,
       },

@@ -38,6 +38,8 @@ import { buildInputCoin } from "./utils/coin"
 import { DeepbookV3 } from "./transaction/deepbook_v3"
 import { Scallop } from "./transaction/scallop"
 import { Suilend } from "./transaction/suilend"
+import { Bluefin } from "./transaction/bluefin"
+import { HaedalPmm } from "./transaction/haedal_pmm"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -54,6 +56,8 @@ export const BLUEMOVE = "BLUEMOVE"
 export const DEEPBOOKV3 = "DEEPBOOKV3"
 export const SCALLOP = "SCALLOP"
 export const SUILEND = "SUILEND"
+export const BLUEFIN = "BLUEFIN"
+export const HAEDALPMM = "HAEDALPMM"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v2"
 
 export type BuildRouterSwapParams = {
@@ -401,21 +405,18 @@ export class AggregatorClient {
   // Include cetus、deepbookv2、flowxv2 & v3、kriyav2 & v3、turbos、aftermath、haedal、afsui、volo、bluemove
   publishedAt(): string {
     if (this.env === Env.Mainnet) {
-      return "0x11451575c775a3e633437b827ecbc1eb51a5964b0302210b28f5b89880be21a2" // version 5
+      return "0x3fb42ddf908af45f9fc3c59eab227888ff24ba2e137b3b55bf80920fd47e11af" // version 6
     } else {
-      // return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637" // version 2
       return "0x52eae33adeb44de55cfb3f281d4cc9e02d976181c0952f5323648b5717b33934"
     }
   }
 
-  // Include deepbookv3, scallop
+  // Include deepbookv3, scallop, bluefin
   publishedAtV2(): string {
     if (this.env === Env.Mainnet) {
-      // return "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae" // version 1, deepbookv3
-      // return "0x6d70ffa7aa3f924c3f0b573d27d29895a0ee666aaff821073f75cb14af7fd01a" // version 3, deepbookv3 & scallop
-      return "0x16d9418726c26d8cb4ce8c9dd75917fa9b1c7bf47d38d7a1a22603135f0f2a56" // version 4 add suilend
+      return "0x347dd58bbd11cd82c8b386b344729717c04a998da73386e82a239cc196d5706b"
     } else {
-      return "0xfd8a73ef0a4b928da9c27fc287dc37c1ca64df71da8e8eac7ca9ece55eb5f448"
+      return "0xabb6a81c8a216828e317719e06125de5bb2cb0fe8f9916ff8c023ca5be224c78"
     }
   }
 
@@ -496,6 +497,10 @@ export class AggregatorClient {
         return new Scallop(this.env)
       case SUILEND:
         return new Suilend(this.env)
+      case BLUEFIN:
+        return new Bluefin(this.env)
+      case HAEDALPMM:
+        return new HaedalPmm(this.env, this.client)
       default:
         throw new Error(`Unsupported dex ${provider}`)
     }
@@ -570,7 +575,8 @@ export function parseRouterResponse(data: any): RouterData {
             path.provider === AFTERMATH ||
             path.provider === CETUS ||
             path.provider === DEEPBOOKV3 ||
-            path.provider === SCALLOP
+            path.provider === SCALLOP ||
+            path.provider === HAEDALPMM
           ) {
             extendedDetails = {
               aftermathLpSupplyType:
@@ -580,6 +586,10 @@ export function parseRouterResponse(data: any): RouterData {
               deepbookv3DeepFee: path.extended_details?.deepbookv3_deep_fee,
               scallopScoinTreasury:
                 path.extended_details?.scallop_scoin_treasury,
+              haedalPmmBasePriceSeed:
+                path.extended_details?.haedal_pmm_base_price_seed,
+              haedalPmmQuotePriceSeed:
+                path.extended_details?.haedal_pmm_quote_price_seed,
             }
           }
 

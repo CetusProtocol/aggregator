@@ -31,13 +31,11 @@ export class Aftermath implements Dex {
       "0x35d35b0e5b177593d8c3a801462485572fc30861e6ce96a55af6dc4730709278"
   }
 
-  amountLimit(exportAmountOut: number): number {
-    return Number(
-      new BN(exportAmountOut)
-        .mul(new BN(this.slippage))
-        .div(new BN("1000000000000000000"))
-        .toString()
-    )
+  amountLimit(exportAmountOut: string): string {
+    return new BN(exportAmountOut)
+      .mul(new BN(this.slippage))
+      .div(new BN("1000000000000000000"))
+      .toString()
   }
 
   async swap(
