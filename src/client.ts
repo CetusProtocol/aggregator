@@ -456,12 +456,13 @@ export class AggregatorClient {
       })
       targetCoin = coins[0]
     }
-
-    txb.moveCall({
-      target: `${this.publishedAt()}::utils::check_coin_threshold`,
-      typeArguments: [coinType],
-      arguments: [targetCoin, txb.pure.u64(amountLimit.toString())],
-    })
+    if (amountLimit.gt(new BN(0))) {
+      txb.moveCall({
+        target: `${this.publishedAt()}::utils::check_coin_threshold`,
+        typeArguments: [coinType],
+        arguments: [targetCoin, txb.pure.u64(amountLimit.toString())],
+      })
+    }
     return targetCoin
   }
 
