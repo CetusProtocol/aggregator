@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export class FlowxV3 implements Dex {
   private versioned: string
@@ -23,7 +23,8 @@ export class FlowxV3 implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
@@ -39,8 +40,9 @@ export class FlowxV3 implements Dex {
       txb.object(CLOCK_ADDRESS),
     ]
 
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::flowx_clmm::${func}`,
+      target: `${publishedAt}::flowx_clmm::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionObjectArgument

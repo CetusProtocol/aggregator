@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, Dex, Env, Path } from ".."
+import { AggregatorClient, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export class Afsui implements Dex {
   private stakedSuiVault: string
@@ -29,7 +29,8 @@ export class Afsui implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction } = path
 
@@ -48,8 +49,10 @@ export class Afsui implements Dex {
       inputCoin,
     ]
 
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
+
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::afsui::${func}`,
+      target: `${publishedAt}::afsui::${func}`,
       typeArguments: [],
       arguments: args,
     }) as TransactionObjectArgument

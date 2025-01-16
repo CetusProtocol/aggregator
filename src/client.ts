@@ -18,6 +18,7 @@ import {
   getDeepbookV3Config,
   processEndpoint,
   DeepbookV3Config,
+  getAggregatorV2PublishedAt,
 } from "."
 import { Aftermath } from "./transaction/aftermath"
 import { DeepbookV2 } from "./transaction/deepbook_v2"
@@ -40,6 +41,9 @@ import { Scallop } from "./transaction/scallop"
 import { Suilend } from "./transaction/suilend"
 import { Bluefin } from "./transaction/bluefin"
 import { HaedalPmm } from "./transaction/haedal_pmm"
+import { Alphafi } from "./transaction/alphafi"
+import { CoinUtils } from "./types/CoinAssist"
+
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -58,6 +62,8 @@ export const SCALLOP = "SCALLOP"
 export const SUILEND = "SUILEND"
 export const BLUEFIN = "BLUEFIN"
 export const HAEDALPMM = "HAEDALPMM"
+export const ALPHAFI = "ALPHAFI"
+export const SPRINGSUI = "SPRINGSUI"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v2"
 
 export type BuildRouterSwapParams = {
@@ -78,7 +84,26 @@ export type BuildFastRouterSwapParams = {
   slippage: number
   txb: Transaction
   partner?: string
-  isMergeTragetCoin?: boolean
+  refreshAllCoins?: boolean
+  payDeepFeeAmount?: number
+}
+
+export type BuildRouterSwapParamsV2 = {
+  routers: RouterData
+  inputCoin: TransactionObjectArgument
+  slippage: number
+  txb: Transaction
+  partner?: string
+  // This parameter is used to pass the Deep token object. When using the DeepBook V3 provider,
+  // users must pay fees with Deep tokens in non-whitelisted pools.
+  deepbookv3DeepFee?: TransactionObjectArgument
+}
+
+export type BuildFastRouterSwapParamsV2 = {
+  routers: RouterData
+  slippage: number
+  txb: Transaction
+  partner?: string
   refreshAllCoins?: boolean
   payDeepFeeAmount?: number
 }
@@ -94,6 +119,18 @@ export interface SwapInPoolsParams {
 export interface SwapInPoolsResult {
   isExceed: boolean
   routeData?: RouterData
+}
+
+function isBuilderRouterSwapParams(
+  params: BuildRouterSwapParams | BuildRouterSwapParamsV2
+): params is BuildRouterSwapParams {
+  return Array.isArray((params as BuildRouterSwapParams).routers);
+}
+
+function isBuilderFastRouterSwapParams(
+  params: BuildFastRouterSwapParams | BuildFastRouterSwapParamsV2
+): params is BuildFastRouterSwapParams {
+  return Array.isArray((params as BuildFastRouterSwapParams).routers);
 }
 
 export class AggregatorClient {
@@ -169,7 +206,8 @@ export class AggregatorClient {
     routers: Router[],
     amountOutLimit: BN,
     partner?: string,
-    deepbookv3DeepFee?: TransactionObjectArgument
+    deepbookv3DeepFee?: TransactionObjectArgument,
+    packages?: Map<string, string>
   ) {
     if (routers.length === 0) {
       throw new Error("No router found")
@@ -186,17 +224,21 @@ export class AggregatorClient {
       let nextCoin = inputCoins[i] as TransactionObjectArgument
       for (const path of routers[i].path) {
         const dex = this.newDex(path.provider, partner)
-        nextCoin = await dex.swap(this, txb, path, nextCoin, deepbookv3DeepFee)
+        nextCoin = await dex.swap(this, txb, path, nextCoin, packages, deepbookv3DeepFee)
       }
 
       outputCoins.push(nextCoin)
     }
-    this.transferOrDestoryCoin(txb, inputCoin, inputCoinType)
+
+    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(this.publishedAtV2(), packages)
+
+    this.transferOrDestoryCoin(txb, inputCoin, inputCoinType, this.publishedAtV2())
     const mergedTargetCointhis = this.checkCoinThresholdAndMergeCoin(
       txb,
       outputCoins,
       outputCoinType,
-      amountOutLimit
+      amountOutLimit,
+      aggregatorV2PublishedAt
     )
     return mergedTargetCointhis
   }
@@ -205,12 +247,16 @@ export class AggregatorClient {
     txb: Transaction,
     inputCoin: TransactionObjectArgument,
     routers: Router[],
-    partner?: string
+    partner?: string,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const returnCoins: TransactionObjectArgument[] = []
     const receipts: TransactionObjectArgument[] = []
     const targetCoins = []
     const dex = new Cetus(this.env, partner)
+
+    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(this.publishedAtV2(), packages)
+
     for (let i = 0; i < routers.length; i++) {
       const router = routers[i]
       for (let j = router.path.length - 1; j >= 0; j--) {
@@ -234,7 +280,7 @@ export class AggregatorClient {
         if (j === 0) {
           inputCoin = repayResult
         } else {
-          this.transferOrDestoryCoin(txb, repayResult, path.from)
+          this.transferOrDestoryCoin(txb, repayResult, path.from, aggregatorV2PublishedAt)
         }
         if (j === router.path.length - 1) {
           targetCoins.push(nextRepayCoin)
@@ -242,7 +288,7 @@ export class AggregatorClient {
       }
     }
     const inputCoinType = routers[0].path[0].from
-    this.transferOrDestoryCoin(txb, inputCoin, inputCoinType)
+    this.transferOrDestoryCoin(txb, inputCoin, inputCoinType, aggregatorV2PublishedAt)
     if (targetCoins.length > 1) {
       const vec = txb.makeMoveVec({ elements: targetCoins.slice(1) })
       txb.moveCall({
@@ -269,39 +315,52 @@ export class AggregatorClient {
   }
 
   async routerSwap(
-    params: BuildRouterSwapParams
+    params: BuildRouterSwapParams | BuildRouterSwapParamsV2
   ): Promise<TransactionObjectArgument> {
     const {
       routers,
       inputCoin,
       slippage,
-      byAmountIn,
       txb,
       partner,
       deepbookv3DeepFee,
     } = params
-    const amountIn = routers.reduce(
+
+    const routerData = Array.isArray(routers) ? routers : routers.routes
+    const byAmountIn = isBuilderRouterSwapParams(params) 
+    ? params.byAmountIn 
+    : params.routers.byAmountIn
+
+    const amountIn = routerData.reduce(
       (acc, router) => acc.add(router.amountIn),
       new BN(0)
     )
-    const amountOut = routers.reduce(
+    const amountOut = routerData.reduce(
       (acc, router) => acc.add(router.amountOut),
       new BN(0)
     )
+
     const amountLimit = CalculateAmountLimitBN(
       byAmountIn ? amountOut : amountIn,
       byAmountIn,
       slippage
     )
 
+    const packages = isBuilderRouterSwapParams(params) ? undefined : params.routers.packages
+
+    console.log("packages11", packages)
+
+    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(this.publishedAtV2(), packages)
+
     if (byAmountIn) {
       const targetCoin = await this.expectInputSwap(
         txb,
         inputCoin,
-        routers,
+        routerData,
         amountLimit,
         partner,
-        deepbookv3DeepFee
+        deepbookv3DeepFee,
+        packages,
       )
       return targetCoin
     }
@@ -310,11 +369,11 @@ export class AggregatorClient {
     const splitedInputCoins = txb.splitCoins(inputCoin, [
       amountLimit.toString(),
     ])
-    this.transferOrDestoryCoin(txb, inputCoin, routers[0].path[0].from)
+    this.transferOrDestoryCoin(txb, inputCoin, routerData[0].path[0].from, aggregatorV2PublishedAt)
     const targetCoin = await this.expectOutputSwap(
       txb,
       splitedInputCoins[0],
-      routers,
+      routerData,
       partner
     )
     return targetCoin
@@ -322,31 +381,31 @@ export class AggregatorClient {
 
   // auto build input coin
   // auto merge, transfer or destory target coin.
-  async fastRouterSwap(params: BuildFastRouterSwapParams) {
+  async fastRouterSwap(params: BuildFastRouterSwapParams | BuildFastRouterSwapParamsV2) {
     const {
       routers,
-      byAmountIn,
       slippage,
       txb,
       partner,
-      isMergeTragetCoin,
       refreshAllCoins,
       payDeepFeeAmount,
     } = params
 
-    const fromCoinType = routers[0].path[0].from
-
+    const routerData = Array.isArray(routers) ? routers : routers.routes
+    const fromCoinType = routerData[0].path[0].from
     let fromCoins = await this.getCoins(fromCoinType, refreshAllCoins)
 
-    const targetCoinType = routers[0].path[routers[0].path.length - 1].target
-    const amountIn = routers.reduce(
+    const targetCoinType = routerData[0].path[routerData[0].path.length - 1].target
+    const amountIn = routerData.reduce(
       (acc, router) => acc.add(router.amountIn),
       new BN(0)
     )
-    const amountOut = routers.reduce(
+    const amountOut = routerData.reduce(
       (acc, router) => acc.add(router.amountOut),
       new BN(0)
     )
+
+    const byAmountIn = isBuilderFastRouterSwapParams(params) ? params.byAmountIn : params.routers.byAmountIn
     const amountLimit = CalculateAmountLimit(
       byAmountIn ? amountOut : amountIn,
       byAmountIn,
@@ -371,17 +430,29 @@ export class AggregatorClient {
       ).targetCoin
     }
 
-    const targetCoin = await this.routerSwap({
-      routers,
+    const routerSwapParams = isBuilderFastRouterSwapParams(params) ? {
+      routers: routerData,
       inputCoin: buildFromCoinRes.targetCoin,
       slippage,
       byAmountIn,
       txb,
       partner,
       deepbookv3DeepFee: deepCoin,
-    })
+    } : {
+      routers: params.routers,
+      inputCoin: buildFromCoinRes.targetCoin,
+      slippage,
+      byAmountIn,
+      txb,
+      partner,
+      deepbookv3DeepFee: deepCoin,
+    }
 
-    if (isMergeTragetCoin) {
+    const targetCoin = await this.routerSwap(routerSwapParams)
+
+    if (CoinUtils.isSuiCoin(targetCoinType)) {
+      txb.mergeCoins(txb.gas, [targetCoin])
+    } else {
       let targetCoins = await this.getCoins(targetCoinType, refreshAllCoins)
       const targetCoinRes = buildInputCoin(
         txb,
@@ -389,32 +460,44 @@ export class AggregatorClient {
         BigInt(0),
         targetCoinType
       )
+  
+      const packages = isBuilderFastRouterSwapParams(params) ? undefined : params.routers.packages
+      const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(this.publishedAtV2(), packages)
+  
       txb.mergeCoins(targetCoinRes.targetCoin, [targetCoin])
       if (targetCoinRes.isMintZeroCoin) {
         this.transferOrDestoryCoin(
           txb,
           targetCoinRes.targetCoin,
-          targetCoinType
+          targetCoinType,
+          aggregatorV2PublishedAt
         )
       }
-    } else {
-      this.transferOrDestoryCoin(txb, targetCoin, targetCoinType)
     }
   }
 
   // Include cetus、deepbookv2、flowxv2 & v3、kriyav2 & v3、turbos、aftermath、haedal、afsui、volo、bluemove
-  publishedAt(): string {
+  publishedAtV2(): string {
     if (this.env === Env.Mainnet) {
       return "0x3fb42ddf908af45f9fc3c59eab227888ff24ba2e137b3b55bf80920fd47e11af" // version 6
+      // return "0x4069913c4953297b7f08f67f6722e3b04aa5ab2976b4e1b8a456b81590b34ab4"
+      // return "0xf182baf7eeefcdaa247cf01dbfcde920133c75a9efa75dfe3703da6a8fc6a70f" // pre
     } else {
+      // return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637" // version 2
       return "0x52eae33adeb44de55cfb3f281d4cc9e02d976181c0952f5323648b5717b33934"
     }
   }
 
   // Include deepbookv3, scallop, bluefin
-  publishedAtV2(): string {
+  publishedAtV2Extend(): string {
     if (this.env === Env.Mainnet) {
-      return "0x347dd58bbd11cd82c8b386b344729717c04a998da73386e82a239cc196d5706b"
+      // return "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae" // version 1, deepbookv3
+      // return "0x6d70ffa7aa3f924c3f0b573d27d29895a0ee666aaff821073f75cb14af7fd01a" // version 3, deepbookv3 & scallop
+      // return "0x16d9418726c26d8cb4ce8c9dd75917fa9b1c7bf47d38d7a1a22603135f0f2a56" // version 4, add suilend
+      // return "0x3b6d71bdeb8ce5b06febfd3cfc29ecd60d50da729477c8b8038ecdae34541b91" // version 5, add bluefin
+      // return "0x81ade554cb24a7564ca43a4bfb7381b08d9e5c5f375162c95215b696ab903502" // version 6, force upgrade scallop
+      // return "0x347dd58bbd11cd82c8b386b344729717c04a998da73386e82a239cc196d5706b" // version 7
+      return "0xf2fcea41dc217385019828375764fa06d9bd25e8e4726ba1962680849fb8d613"    // version 8
     } else {
       return "0xabb6a81c8a216828e317719e06125de5bb2cb0fe8f9916ff8c023ca5be224c78"
     }
@@ -431,10 +514,11 @@ export class AggregatorClient {
   transferOrDestoryCoin(
     txb: Transaction,
     coin: TransactionObjectArgument,
-    coinType: string
+    coinType: string,
+    aggregatorV2PublishedAt: string
   ) {
     txb.moveCall({
-      target: `${this.publishedAt()}::utils::transfer_or_destroy_coin`,
+      target: `${aggregatorV2PublishedAt}::utils::transfer_or_destroy_coin`,
       typeArguments: [coinType],
       arguments: [coin],
     })
@@ -444,7 +528,8 @@ export class AggregatorClient {
     txb: Transaction,
     coins: TransactionObjectArgument[],
     coinType: string,
-    amountLimit: BN
+    amountLimit: BN,
+    aggregatorV2PublishedAt: string
   ) {
     let targetCoin = coins[0]
     if (coins.length > 1) {
@@ -458,7 +543,7 @@ export class AggregatorClient {
     }
 
     txb.moveCall({
-      target: `${this.publishedAt()}::utils::check_coin_threshold`,
+      target: `${aggregatorV2PublishedAt}::utils::check_coin_threshold`,
       typeArguments: [coinType],
       arguments: [targetCoin, txb.pure.u64(amountLimit.toString())],
     })
@@ -497,10 +582,14 @@ export class AggregatorClient {
         return new Scallop(this.env)
       case SUILEND:
         return new Suilend(this.env)
+      case SPRINGSUI:
+        return new Suilend(this.env)
       case BLUEFIN:
         return new Bluefin(this.env)
       case HAEDALPMM:
         return new HaedalPmm(this.env, this.client)
+      case ALPHAFI:
+        return new Alphafi(this.env)
       default:
         throw new Error(`Unsupported dex ${provider}`)
     }
@@ -546,7 +635,7 @@ export class AggregatorClient {
   }
 }
 
-export function parseRouterResponse(data: any): RouterData {
+export function parseRouterResponse(data: any, byAmountIn: boolean): RouterData {
   let totalDeepFee = 0
   for (const route of data.routes) {
     for (const path of route.path) {
@@ -556,9 +645,18 @@ export function parseRouterResponse(data: any): RouterData {
     }
   }
 
+  let packages = undefined
+  if (data.packages != null) {
+    packages = new Map<string, string>()
+    for (const [key, value] of Object.entries(data.packages)) {
+      packages.set(key, value as string)
+    }
+  }
+
   let routerData: RouterData = {
     amountIn: new BN(data.amount_in.toString()),
     amountOut: new BN(data.amount_out.toString()),
+    byAmountIn,
     insufficientLiquidity: false,
     routes: data.routes.map((route: any) => {
       return {
@@ -575,7 +673,7 @@ export function parseRouterResponse(data: any): RouterData {
             path.provider === AFTERMATH ||
             path.provider === CETUS ||
             path.provider === DEEPBOOKV3 ||
-            path.provider === SCALLOP ||
+            path.provider === SCALLOP || 
             path.provider === HAEDALPMM
           ) {
             extendedDetails = {
@@ -586,10 +684,8 @@ export function parseRouterResponse(data: any): RouterData {
               deepbookv3DeepFee: path.extended_details?.deepbookv3_deep_fee,
               scallopScoinTreasury:
                 path.extended_details?.scallop_scoin_treasury,
-              haedalPmmBasePriceSeed:
-                path.extended_details?.haedal_pmm_base_price_seed,
-              haedalPmmQuotePriceSeed:
-                path.extended_details?.haedal_pmm_quote_price_seed,
+              haedalPmmBasePriceSeed: path.extended_details?.haedal_pmm_base_price_seed,
+              haedalPmmQuotePriceSeed: path.extended_details?.haedal_pmm_quote_price_seed,
             }
           }
 
@@ -611,7 +707,8 @@ export function parseRouterResponse(data: any): RouterData {
         initialPrice: new Decimal(route.initial_price.toString()),
       }
     }),
-    totalDeepFee: totalDeepFee,
+    totalDeepFee,
+    packages,
   }
 
   return routerData

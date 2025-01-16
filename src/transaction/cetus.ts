@@ -3,7 +3,7 @@ import {
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export type CetusFlashSwapResult = {
   targetCoin: TransactionObjectArgument
@@ -32,7 +32,8 @@ export class Cetus implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    by_amount_in: boolean
+    by_amount_in: boolean,
+    packages?: Map<string, string>
   ): CetusFlashSwapResult {
     const { direction, from, target } = path
     const [func, coinAType, coinBType] = direction
@@ -47,8 +48,9 @@ export class Cetus implements Dex {
       txb.pure.bool(by_amount_in),
       txb.object(CLOCK_ADDRESS),
     ]
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res: TransactionObjectArgument[] = txb.moveCall({
-      target: `${client.publishedAt()}::cetus::${func}`,
+      target: `${publishedAt}::cetus::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     })
@@ -64,7 +66,8 @@ export class Cetus implements Dex {
     txb: Transaction,
     path: Path,
     inputCoin: TransactionObjectArgument,
-    receipt: TransactionArgument
+    receipt: TransactionArgument,
+    packages?: Map<string, string>
   ): TransactionObjectArgument {
     const { direction, from, target } = path
     const [func, coinAType, coinBType] = direction
@@ -77,8 +80,9 @@ export class Cetus implements Dex {
       inputCoin,
       receipt,
     ]
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::cetus::${func}`,
+      target: `${publishedAt}::cetus::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     })
@@ -89,7 +93,8 @@ export class Cetus implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
     const [func, coinAType, coinBType] = direction
@@ -102,8 +107,9 @@ export class Cetus implements Dex {
       inputCoin,
       txb.object(CLOCK_ADDRESS),
     ]
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::cetus::${func}`,
+      target: `${publishedAt}::cetus::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionArgument

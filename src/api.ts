@@ -67,8 +67,10 @@ export type RouterError = {
 export type RouterData = {
   amountIn: BN
   amountOut: BN
+  byAmountIn: boolean
   routes: Router[]
   insufficientLiquidity: boolean
+  packages?: Map<string, string>
   totalDeepFee?: number
   error?: RouterError
 }
@@ -99,6 +101,7 @@ export async function getRouterResult(
       amountIn: ZERO,
       amountOut: ZERO,
       routes: [],
+      byAmountIn: params.byAmountIn,
       insufficientLiquidity: false,
       error: {
         code: AggregatorServerErrorCode.NumberTooLarge,
@@ -116,6 +119,7 @@ export async function getRouterResult(
       amountIn: ZERO,
       amountOut: ZERO,
       routes: [],
+      byAmountIn: params.byAmountIn,
       insufficientLiquidity,
       error: {
         code: AggregatorServerErrorCode.HoneyPot,
@@ -126,16 +130,16 @@ export async function getRouterResult(
     }
   }
   if (data.data != null) {
-    const res = parseRouterResponse(data.data)
+    const res = parseRouterResponse(data.data, params.byAmountIn)
     return res
   }
-  
 
   return {
     amountIn: ZERO,
     amountOut: ZERO,
     routes: [],
     insufficientLiquidity,
+    byAmountIn: params.byAmountIn,
     error: {
       code: AggregatorServerErrorCode.InsufficientLiquidity,
       msg: getAggregatorServerErrorMessage(
@@ -186,7 +190,7 @@ async function getRouter(endpoint: string, params: FindRouterParams) {
     }
 
     // set newest sdk version
-    url += "&v=1000316"
+    url += "&v=1000319"
 
     const response = await fetch(url)
     return response

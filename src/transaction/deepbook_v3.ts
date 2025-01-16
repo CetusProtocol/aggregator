@@ -3,7 +3,7 @@ import {
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2ExtendPublishedAt, Path } from ".."
 import { mintZeroCoin } from "~/utils/coin"
 
 export type CetusFlashSwapResult = {
@@ -27,7 +27,8 @@ export class DeepbookV3 implements Dex {
     txb: Transaction,
     path: Path,
     inputCoin: TransactionObjectArgument,
-    deepbookv3DeepFee?: TransactionObjectArgument
+    packages?: Map<string, string>,
+    deepbookv3DeepFee?: TransactionObjectArgument,
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
     const [func, coinAType, coinBType] = direction
@@ -48,8 +49,9 @@ export class DeepbookV3 implements Dex {
       deepFee,
       txb.object(CLOCK_ADDRESS),
     ]
+    const publishedAt = getAggregatorV2ExtendPublishedAt(client.publishedAtV2Extend(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAtV2()}::deepbookv3::${func}`,
+      target: `${publishedAt}::deepbookv3::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionArgument

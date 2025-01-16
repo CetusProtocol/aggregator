@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, Dex, Env, Path } from ".."
+import { AggregatorClient, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export class Haedal implements Dex {
   constructor(env: Env) {
@@ -15,7 +15,8 @@ export class Haedal implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction } = path
     if (!direction) {
@@ -23,8 +24,9 @@ export class Haedal implements Dex {
     }
     const func = "swap_a2b"
     const args = [txb.object(path.id), txb.object("0x5"), inputCoin]
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::haedal::${func}`,
+      target: `${publishedAt}::haedal::${func}`,
       typeArguments: [],
       arguments: args,
     }) as TransactionObjectArgument

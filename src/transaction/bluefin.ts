@@ -3,7 +3,7 @@ import {
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2ExtendPublishedAt, Path } from ".."
 
 export class Bluefin implements Dex {
   private globalConfig: string
@@ -21,7 +21,8 @@ export class Bluefin implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
     const [func, coinAType, coinBType] = direction
@@ -33,8 +34,10 @@ export class Bluefin implements Dex {
       inputCoin,
       txb.object(CLOCK_ADDRESS),
     ]
+    const publishedAt = getAggregatorV2ExtendPublishedAt(client.publishedAtV2Extend(), packages)
+
     const res = txb.moveCall({
-      target: `${client.publishedAtV2()}::bluefin::${func}`,
+      target: `${publishedAt}::bluefin::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionArgument

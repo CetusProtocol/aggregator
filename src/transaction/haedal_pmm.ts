@@ -3,7 +3,7 @@ import {
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2ExtendPublishedAt, Path } from ".."
 import { SuiPriceServiceConnection, SuiPythClient } from "@pythnetwork/pyth-sui-js"
 import { SuiClient } from "@mysten/sui/client"
 
@@ -29,7 +29,8 @@ export class HaedalPmm implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
     const [func, coinAType, coinBType] = direction
@@ -59,8 +60,9 @@ export class HaedalPmm implements Dex {
       inputCoin,
       txb.object(CLOCK_ADDRESS),
     ]
+    const publishedAt = getAggregatorV2ExtendPublishedAt(client.publishedAtV2Extend(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAtV2()}::haedalpmm::${func}`,
+      target: `${publishedAt}::haedalpmm::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionArgument

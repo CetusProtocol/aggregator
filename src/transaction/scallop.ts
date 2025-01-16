@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2ExtendPublishedAt, Path } from ".."
 
 export class Scallop implements Dex {
   private version: string
@@ -27,7 +27,8 @@ export class Scallop implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
@@ -51,9 +52,9 @@ export class Scallop implements Dex {
       inputCoin,
       txb.object(CLOCK_ADDRESS),
     ]
-
+    const publishedAt = getAggregatorV2ExtendPublishedAt(client.publishedAtV2Extend(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAtV2()}::scallop::${func}`,
+      target: `${publishedAt}::scallop::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionObjectArgument

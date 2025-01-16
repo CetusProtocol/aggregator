@@ -3,7 +3,7 @@ import {
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export class Turbos implements Dex {
   private versioned: string
@@ -21,7 +21,8 @@ export class Turbos implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
@@ -43,9 +44,9 @@ export class Turbos implements Dex {
       txb.object(CLOCK_ADDRESS),
       txb.object(this.versioned),
     ]
-
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::turbos::${func}`,
+      target: `${publishedAt}::turbos::${func}`,
       typeArguments: [coinAType, coinBType, path.extendedDetails.turbosFeeType],
       arguments: args,
     }) as TransactionObjectArgument

@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, Dex, Env, Path } from ".."
+import { AggregatorClient, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export class KriyaV2 implements Dex {
   constructor(env: Env) {
@@ -15,7 +15,8 @@ export class KriyaV2 implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
@@ -24,9 +25,9 @@ export class KriyaV2 implements Dex {
       : ["swap_b2a", target, from]
 
     const args = [txb.object(path.id), inputCoin]
-
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::kriya_amm::${func}`,
+      target: `${publishedAt}::kriya_amm::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionObjectArgument

@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, Dex, Env, Path } from ".."
+import { AggregatorClient, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export class Bluemove implements Dex {
   private dexInfo: string
@@ -20,7 +20,8 @@ export class Bluemove implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
@@ -29,9 +30,9 @@ export class Bluemove implements Dex {
       : ["swap_b2a", target, from]
 
     const args = [txb.object(this.dexInfo), inputCoin]
-
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::bluemove::${func}`,
+      target: `${publishedAt}::bluemove::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionObjectArgument

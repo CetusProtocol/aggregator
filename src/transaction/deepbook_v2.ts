@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 import { SuiClient } from "@mysten/sui/client"
 
 const DEEPBOOK_PACKAGE_ID =
@@ -85,7 +85,8 @@ export class DeepbookV2 implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
@@ -105,9 +106,9 @@ export class DeepbookV2 implements Dex {
       accountCapRes.accountCap,
       txb.object(CLOCK_ADDRESS),
     ]
-
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::deepbook::${func}`,
+      target: `${publishedAt}::deepbook::${func}`,
       typeArguments: [coinAType, coinBType],
       arguments: args,
     }) as TransactionObjectArgument

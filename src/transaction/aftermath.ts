@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, Dex, Env, Path } from ".."
+import { AggregatorClient, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 import BN from "bn.js"
 
 export class Aftermath implements Dex {
@@ -42,7 +42,8 @@ export class Aftermath implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
@@ -70,8 +71,10 @@ export class Aftermath implements Dex {
       inputCoin,
     ]
 
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
+
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::aftermath::${func}`,
+      target: `${publishedAt}::aftermath::${func}`,
       typeArguments: [
         coinAType,
         coinBType,

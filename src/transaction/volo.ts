@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, Dex, Env, Path } from ".."
+import { AggregatorClient, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export class Volo implements Dex {
   private nativePool: string
@@ -23,7 +23,8 @@ export class Volo implements Dex {
     client: AggregatorClient,
     txb: Transaction,
     path: Path,
-    inputCoin: TransactionObjectArgument
+    inputCoin: TransactionObjectArgument,
+    packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction } = path
 
@@ -40,8 +41,9 @@ export class Volo implements Dex {
       inputCoin,
     ]
 
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
-      target: `${client.publishedAt()}::volo::${func}`,
+      target: `${publishedAt}::volo::${func}`,
       typeArguments: [],
       arguments: args,
     }) as TransactionObjectArgument

@@ -34,6 +34,8 @@ describe("router module", () => {
     }
 
     const wallet = keypair.getPublicKey().toSuiAddress()
+    console.log("wallet: ", wallet)
+
     const endpoint = aggregatorURL
 
     const suiClient = new SuiClient({
@@ -75,7 +77,6 @@ describe("router module", () => {
         byAmountIn,
         txb,
         slippage: 0.01,
-        isMergeTragetCoin: false,
         refreshAllCoins: true,
       })
 
@@ -107,10 +108,10 @@ describe("router module", () => {
 
   test("Build router tx", async () => {
     const byAmountIn = true
-    const amount = "746028139919"
-    const target =
-      "0x375f70cf2ae4c00bf37117d0c85a2c71545e6ee05c4a5c7d282cd66a4504b068::usdt::USDT"
-    const from = "0x2::sui::SUI"
+    const amount = "10000"
+    const from =
+      "0x83556891f4a0f233ce7b05cfe7f957d4020492a34f5405b2cb9377d060bef4bf::spring_sui::SPRING_SUI"
+    const target = "0x2::sui::SUI"
 
     const res = await client.findRouters({
       from,
@@ -118,7 +119,7 @@ describe("router module", () => {
       amount: new BN(amount),
       byAmountIn,
       depth: 3,
-      // providers: ["HAEDAL"],
+      providers: ["SUILEND"],
     })
 
     if (res != null) {
@@ -133,12 +134,9 @@ describe("router module", () => {
     if (res != null) {
       console.log(JSON.stringify(res, null, 2))
       await client.fastRouterSwap({
-        routers: res.routes,
-        byAmountIn,
+        routers: res,
         txb,
         slippage: 0.01,
-        isMergeTragetCoin: false,
-        // partner: "0x1f5fa5c820f40d43fc47815ad06d95e40a1942ff72a732a92e8ef4aa8cde70a5",
         refreshAllCoins: true,
         payDeepFeeAmount: 0,
       })
@@ -151,13 +149,13 @@ describe("router module", () => {
         console.log("event", JSON.stringify(event, null, 2))
       }
 
-      // if (result.effects.status.status === "success") {
-      //   // console.log("Sim exec transaction success")
-      //   const result = await client.signAndExecuteTransaction(txb, keypair)
-      //   console.log("result", result)
-      // } else {
-      //   console.log("result", result)
-      // }
+      if (result.effects.status.status === "success") {
+        // console.log("Sim exec transaction success")
+        const result = await client.signAndExecuteTransaction(txb, keypair)
+        console.log("result", result)
+      } else {
+        console.log("result", result)
+      }
     }
   }, 600000)
 
@@ -188,7 +186,6 @@ describe("router module", () => {
         byAmountIn,
         txb,
         slippage: 0.02,
-        isMergeTragetCoin: false,
         refreshAllCoins: true,
       })
 
@@ -248,7 +245,6 @@ describe("router module", () => {
               byAmountIn,
               slippage: 0.01,
               txb,
-              isMergeTragetCoin: false,
             })
 
             let result = await client.devInspectTransactionBlock(txb)
@@ -330,7 +326,6 @@ describe("router module", () => {
         byAmountIn,
         txb,
         slippage: 0.01,
-        isMergeTragetCoin: false,
         refreshAllCoins: true,
       })
 

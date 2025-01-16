@@ -61,15 +61,23 @@ export function buildInputCoin(
   txb: Transaction,
   allCoins: CoinAsset[],
   amount: bigint,
-  coinType: string
+  coinType: string,
 ): BuildCoinResult {
   const usedCoinAsests = CoinUtils.getCoinAssets(coinType, allCoins)
-  if (amount === BigInt(0) && usedCoinAsests.length === 0) {
-    const zeroCoin = mintZeroCoin(txb, coinType)
-    return {
-      targetCoin: zeroCoin,
-      isMintZeroCoin: true,
-      targetCoinAmount: 0,
+  if (amount === BigInt(0)) {
+    if (CoinUtils.isSuiCoin(coinType) || usedCoinAsests.length === 0 && !CoinUtils.isSuiCoin(coinType)) {
+      const zeroCoin = mintZeroCoin(txb, coinType)
+      return {
+        targetCoin: zeroCoin,
+        isMintZeroCoin: true,
+        targetCoinAmount: 0,
+      }
+    } else {
+      return {
+        targetCoin: txb.object(usedCoinAsests[0].coinObjectId),
+        isMintZeroCoin: false,
+        targetCoinAmount: Number(usedCoinAsests[0].balance.toString()),
+      }
     }
   }
 
@@ -116,8 +124,12 @@ export function buildInputCoin(
     )
   }
 
+  const targetCoin = txb.splitCoins(txb.object(masterCoin), [
+    txb.pure.u64(amount.toString()),
+  ])
+
   return {
-    targetCoin: txb.object(masterCoin),
+    targetCoin,
     isMintZeroCoin: false,
     targetCoinAmount: Number(amount.toString()),
   }

@@ -20,10 +20,9 @@ export async function swapInPools(
 
   const tx = new Transaction()
   const direction = compareCoins(fromCoin, targetCoin)
-  const integratePublishedAt =
-    env === Env.Mainnet
-      ? "0x3a5aa90ffa33d09100d7b6941ea1c0ffe6ab66e77062ddd26320c1b073aabb10"
-      : "0x19dd42e05fa6c9988a60d30686ee3feb776672b5547e328d6dab16563da65293"
+  const integratePublishedAt = env === Env.Mainnet ?
+    "0x3a5aa90ffa33d09100d7b6941ea1c0ffe6ab66e77062ddd26320c1b073aabb10" :
+    "0x19dd42e05fa6c9988a60d30686ee3feb776672b5547e328d6dab16563da65293"
   const coinA = direction ? fromCoin : targetCoin
   const coinB = direction ? targetCoin : fromCoin
 
@@ -100,6 +99,8 @@ export async function swapInPools(
 
   const event = valueData[tempIndex].parsedJson.data
 
+  console.log("event", JSON.stringify(event, null, 2))
+
   const currentSqrtPrice = event.step_results[0].current_sqrt_price
 
   const [decimalA, decimalB] = await Promise.all([
@@ -154,6 +155,7 @@ export async function swapInPools(
       },
     ],
     insufficientLiquidity: false,
+    byAmountIn: params.byAmountIn,
   }
 
   const result = {

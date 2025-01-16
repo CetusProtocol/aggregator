@@ -4,12 +4,12 @@ import {
 } from "@mysten/sui/transactions"
 import { AggregatorClient, Dex, Env, getAggregatorV2ExtendPublishedAt, Path } from ".."
 
-export class Suilend implements Dex {
+export class Alphafi implements Dex {
   private sui_system_state: string
 
   constructor(env: Env) {
     if (env !== Env.Mainnet) {
-      throw new Error("Suilend only supported on mainnet")
+      throw new Error("Alphafi only supported on mainnet")
     }
 
     this.sui_system_state =
@@ -27,7 +27,7 @@ export class Suilend implements Dex {
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
 
-    const [func, springCoinType] = direction
+    const [func, stCoinType] = direction
       ? ["swap_a2b", target]
       : ["swap_b2a", from]
 
@@ -36,10 +36,12 @@ export class Suilend implements Dex {
       txb.object(this.sui_system_state),
       inputCoin,
     ]
+
     const publishedAt = getAggregatorV2ExtendPublishedAt(client.publishedAtV2Extend(), packages)
+
     const res = txb.moveCall({
-      target: `${publishedAt}::suilend::${func}`,
-      typeArguments: [springCoinType],
+      target: `${publishedAt}::alphafi::${func}`,
+      typeArguments: [stCoinType],
       arguments: args,
     }) as TransactionObjectArgument
 
