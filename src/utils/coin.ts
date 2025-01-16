@@ -1,6 +1,6 @@
 import { CoinAsset } from "../types/sui"
 import { CoinUtils } from "../types/CoinAssist"
-import { TransactionErrorCode } from "../errors"
+import { AggregatorError, TransactionErrorCode } from "../errors"
 import {
   Transaction,
   TransactionObjectArgument,
@@ -83,9 +83,9 @@ export function buildInputCoin(
 
   let totalCoinBalance = CoinUtils.calculateTotalBalance(usedCoinAsests)
   if (totalCoinBalance < amount) {
-    throw new AggregateError(
+    throw new AggregatorError(
       "Insufficient balance when build merge coin, coinType: " + coinType,
-      TransactionErrorCode.InsufficientBalance  + coinType
+      TransactionErrorCode.InsufficientBalance
     )
   }
 
