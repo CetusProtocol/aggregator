@@ -43,7 +43,11 @@ import { Bluefin } from "./transaction/bluefin"
 import { HaedalPmm } from "./transaction/haedal_pmm"
 import { Alphafi } from "./transaction/alphafi"
 import { CoinUtils } from "./types/CoinAssist"
-
+import {
+  SuiPriceServiceConnection,
+  SuiPythClient,
+} from "@pythnetwork/pyth-sui-js"
+import { Steamm } from "./transaction/steamm"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -64,6 +68,7 @@ export const BLUEFIN = "BLUEFIN"
 export const HAEDALPMM = "HAEDALPMM"
 export const ALPHAFI = "ALPHAFI"
 export const SPRINGSUI = "SPRINGSUI"
+export const STEAMM = "STEAMM"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v2"
 
 export type BuildRouterSwapParams = {
@@ -116,6 +121,12 @@ export interface SwapInPoolsParams {
   pools: string[]
 }
 
+interface PythConfig {
+  connections: SuiPriceServiceConnection[]
+  wormholeStateId: string
+  pythStateId: string
+}
+
 export interface SwapInPoolsResult {
   isExceed: boolean
   routeData?: RouterData
@@ -124,13 +135,13 @@ export interface SwapInPoolsResult {
 function isBuilderRouterSwapParams(
   params: BuildRouterSwapParams | BuildRouterSwapParamsV2
 ): params is BuildRouterSwapParams {
-  return Array.isArray((params as BuildRouterSwapParams).routers);
+  return Array.isArray((params as BuildRouterSwapParams).routers)
 }
 
 function isBuilderFastRouterSwapParams(
   params: BuildFastRouterSwapParams | BuildFastRouterSwapParamsV2
 ): params is BuildFastRouterSwapParams {
-  return Array.isArray((params as BuildFastRouterSwapParams).routers);
+  return Array.isArray((params as BuildFastRouterSwapParams).routers)
 }
 
 export class AggregatorClient {
@@ -139,6 +150,38 @@ export class AggregatorClient {
   public client: SuiClient
   public env: Env
   private allCoins: Map<string, CoinAsset[]>
+
+  private pythConnections: SuiPriceServiceConnection[]
+  private pythClient: SuiPythClient
+
+  private static readonly CONFIG: Record<Env, PythConfig> = {
+    [Env.Testnet]: {
+      connections: [
+        new SuiPriceServiceConnection("https://hermes-beta.pyth.network"),
+      ],
+      wormholeStateId:
+        "0x31358d198147da50db32eda2562951d53973a0c0ad5ed738e9b17d88b213d790",
+      pythStateId:
+        "0x243759059f4c3111179da5878c12f68d612c21a8d54d85edc86164bb18be1c7c",
+    },
+    [Env.Mainnet]: {
+      connections: [
+        new SuiPriceServiceConnection(
+          "https://cetus.liquify.com/api=X9LTVPQD7Y3R5N2A/hermes",
+          {
+            timeout: 3000,
+          }
+        ),
+        new SuiPriceServiceConnection("https://hermes.pyth.network", {
+          timeout: 3000,
+        }),
+      ],
+      wormholeStateId:
+        "0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c",
+      pythStateId:
+        "0x1f9310238ee9298fb703c3419030b35b22bb1cc37113e3bb5007c99aec79e5b8",
+    },
+  }
 
   constructor(
     endpoint?: string,
@@ -151,6 +194,14 @@ export class AggregatorClient {
     this.signer = signer || ""
     this.env = env || Env.Mainnet
     this.allCoins = new Map<string, CoinAsset[]>()
+
+    const config = AggregatorClient.CONFIG[this.env]
+    this.pythConnections = config.connections
+    this.pythClient = new SuiPythClient(
+      this.client,
+      config.pythStateId,
+      config.wormholeStateId
+    )
   }
 
   async getCoins(
@@ -205,6 +256,7 @@ export class AggregatorClient {
     inputCoin: TransactionObjectArgument,
     routers: Router[],
     amountOutLimit: BN,
+    pythPriceIDs: Map<string, string>,
     partner?: string,
     deepbookv3DeepFee?: TransactionObjectArgument,
     packages?: Map<string, string>
@@ -223,16 +275,31 @@ export class AggregatorClient {
       }
       let nextCoin = inputCoins[i] as TransactionObjectArgument
       for (const path of routers[i].path) {
-        const dex = this.newDex(path.provider, partner)
-        nextCoin = await dex.swap(this, txb, path, nextCoin, packages, deepbookv3DeepFee)
+        const dex = this.newDex(path.provider, pythPriceIDs, partner)
+        nextCoin = await dex.swap(
+          this,
+          txb,
+          path,
+          nextCoin,
+          packages,
+          deepbookv3DeepFee
+        )
       }
 
       outputCoins.push(nextCoin)
     }
 
-    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(this.publishedAtV2(), packages)
+    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(
+      this.publishedAtV2(),
+      packages
+    )
 
-    this.transferOrDestoryCoin(txb, inputCoin, inputCoinType, this.publishedAtV2())
+    this.transferOrDestoryCoin(
+      txb,
+      inputCoin,
+      inputCoinType,
+      this.publishedAtV2()
+    )
     const mergedTargetCointhis = this.checkCoinThresholdAndMergeCoin(
       txb,
       outputCoins,
@@ -255,7 +322,10 @@ export class AggregatorClient {
     const targetCoins = []
     const dex = new Cetus(this.env, partner)
 
-    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(this.publishedAtV2(), packages)
+    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(
+      this.publishedAtV2(),
+      packages
+    )
 
     for (let i = 0; i < routers.length; i++) {
       const router = routers[i]
@@ -280,7 +350,12 @@ export class AggregatorClient {
         if (j === 0) {
           inputCoin = repayResult
         } else {
-          this.transferOrDestoryCoin(txb, repayResult, path.from, aggregatorV2PublishedAt)
+          this.transferOrDestoryCoin(
+            txb,
+            repayResult,
+            path.from,
+            aggregatorV2PublishedAt
+          )
         }
         if (j === router.path.length - 1) {
           targetCoins.push(nextRepayCoin)
@@ -288,7 +363,12 @@ export class AggregatorClient {
       }
     }
     const inputCoinType = routers[0].path[0].from
-    this.transferOrDestoryCoin(txb, inputCoin, inputCoinType, aggregatorV2PublishedAt)
+    this.transferOrDestoryCoin(
+      txb,
+      inputCoin,
+      inputCoinType,
+      aggregatorV2PublishedAt
+    )
     if (targetCoins.length > 1) {
       const vec = txb.makeMoveVec({ elements: targetCoins.slice(1) })
       txb.moveCall({
@@ -317,19 +397,13 @@ export class AggregatorClient {
   async routerSwap(
     params: BuildRouterSwapParams | BuildRouterSwapParamsV2
   ): Promise<TransactionObjectArgument> {
-    const {
-      routers,
-      inputCoin,
-      slippage,
-      txb,
-      partner,
-      deepbookv3DeepFee,
-    } = params
+    const { routers, inputCoin, slippage, txb, partner, deepbookv3DeepFee } =
+      params
 
     const routerData = Array.isArray(routers) ? routers : routers.routes
-    const byAmountIn = isBuilderRouterSwapParams(params) 
-    ? params.byAmountIn 
-    : params.routers.byAmountIn
+    const byAmountIn = isBuilderRouterSwapParams(params)
+      ? params.byAmountIn
+      : params.routers.byAmountIn
 
     const amountIn = routerData.reduce(
       (acc, router) => acc.add(router.amountIn),
@@ -346,11 +420,21 @@ export class AggregatorClient {
       slippage
     )
 
-    const packages = isBuilderRouterSwapParams(params) ? undefined : params.routers.packages
+    const packages = isBuilderRouterSwapParams(params)
+      ? undefined
+      : params.routers.packages
 
-    console.log("packages11", packages)
+    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(
+      this.publishedAtV2(),
+      packages
+    )
 
-    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(this.publishedAtV2(), packages)
+    const priceIDs = findPythPriceIDs(routerData)
+
+    const priceInfoObjectIds =
+      priceIDs.length > 0
+        ? await this.updatePythPriceIDs(priceIDs, txb)
+        : new Map<string, string>()
 
     if (byAmountIn) {
       const targetCoin = await this.expectInputSwap(
@@ -358,9 +442,10 @@ export class AggregatorClient {
         inputCoin,
         routerData,
         amountLimit,
+        priceInfoObjectIds,
         partner,
         deepbookv3DeepFee,
-        packages,
+        packages
       )
       return targetCoin
     }
@@ -369,7 +454,12 @@ export class AggregatorClient {
     const splitedInputCoins = txb.splitCoins(inputCoin, [
       amountLimit.toString(),
     ])
-    this.transferOrDestoryCoin(txb, inputCoin, routerData[0].path[0].from, aggregatorV2PublishedAt)
+    this.transferOrDestoryCoin(
+      txb,
+      inputCoin,
+      routerData[0].path[0].from,
+      aggregatorV2PublishedAt
+    )
     const targetCoin = await this.expectOutputSwap(
       txb,
       splitedInputCoins[0],
@@ -381,7 +471,9 @@ export class AggregatorClient {
 
   // auto build input coin
   // auto merge, transfer or destory target coin.
-  async fastRouterSwap(params: BuildFastRouterSwapParams | BuildFastRouterSwapParamsV2) {
+  async fastRouterSwap(
+    params: BuildFastRouterSwapParams | BuildFastRouterSwapParamsV2
+  ) {
     const {
       routers,
       slippage,
@@ -395,7 +487,8 @@ export class AggregatorClient {
     const fromCoinType = routerData[0].path[0].from
     let fromCoins = await this.getCoins(fromCoinType, refreshAllCoins)
 
-    const targetCoinType = routerData[0].path[routerData[0].path.length - 1].target
+    const targetCoinType =
+      routerData[0].path[routerData[0].path.length - 1].target
     const amountIn = routerData.reduce(
       (acc, router) => acc.add(router.amountIn),
       new BN(0)
@@ -405,7 +498,9 @@ export class AggregatorClient {
       new BN(0)
     )
 
-    const byAmountIn = isBuilderFastRouterSwapParams(params) ? params.byAmountIn : params.routers.byAmountIn
+    const byAmountIn = isBuilderFastRouterSwapParams(params)
+      ? params.byAmountIn
+      : params.routers.byAmountIn
     const amountLimit = CalculateAmountLimit(
       byAmountIn ? amountOut : amountIn,
       byAmountIn,
@@ -430,23 +525,25 @@ export class AggregatorClient {
       ).targetCoin
     }
 
-    const routerSwapParams = isBuilderFastRouterSwapParams(params) ? {
-      routers: routerData,
-      inputCoin: buildFromCoinRes.targetCoin,
-      slippage,
-      byAmountIn,
-      txb,
-      partner,
-      deepbookv3DeepFee: deepCoin,
-    } : {
-      routers: params.routers,
-      inputCoin: buildFromCoinRes.targetCoin,
-      slippage,
-      byAmountIn,
-      txb,
-      partner,
-      deepbookv3DeepFee: deepCoin,
-    }
+    const routerSwapParams = isBuilderFastRouterSwapParams(params)
+      ? {
+          routers: routerData,
+          inputCoin: buildFromCoinRes.targetCoin,
+          slippage,
+          byAmountIn,
+          txb,
+          partner,
+          deepbookv3DeepFee: deepCoin,
+        }
+      : {
+          routers: params.routers,
+          inputCoin: buildFromCoinRes.targetCoin,
+          slippage,
+          byAmountIn,
+          txb,
+          partner,
+          deepbookv3DeepFee: deepCoin,
+        }
 
     const targetCoin = await this.routerSwap(routerSwapParams)
 
@@ -460,10 +557,15 @@ export class AggregatorClient {
         BigInt(0),
         targetCoinType
       )
-  
-      const packages = isBuilderFastRouterSwapParams(params) ? undefined : params.routers.packages
-      const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(this.publishedAtV2(), packages)
-  
+
+      const packages = isBuilderFastRouterSwapParams(params)
+        ? undefined
+        : params.routers.packages
+      const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(
+        this.publishedAtV2(),
+        packages
+      )
+
       txb.mergeCoins(targetCoinRes.targetCoin, [targetCoin])
       if (targetCoinRes.isMintZeroCoin) {
         this.transferOrDestoryCoin(
@@ -479,9 +581,10 @@ export class AggregatorClient {
   // Include cetus、deepbookv2、flowxv2 & v3、kriyav2 & v3、turbos、aftermath、haedal、afsui、volo、bluemove
   publishedAtV2(): string {
     if (this.env === Env.Mainnet) {
-      return "0x3fb42ddf908af45f9fc3c59eab227888ff24ba2e137b3b55bf80920fd47e11af" // version 6
-      // return "0x4069913c4953297b7f08f67f6722e3b04aa5ab2976b4e1b8a456b81590b34ab4"
-      // return "0xf182baf7eeefcdaa247cf01dbfcde920133c75a9efa75dfe3703da6a8fc6a70f" // pre
+      // return "0x3fb42ddf908af45f9fc3c59eab227888ff24ba2e137b3b55bf80920fd47e11af" // version 6
+      // return "0xf9c6f78322ed667909e05f6b42b2f5a67af6297503c905335e02a15148e9440d" // version 7
+      return "0x2485feb9d42c7c3bcb8ecde555ad40f1b073d9fb4faf354fa2d30a0b183a23ce" // version 8
+      // return "0x803db8dfcc86fc1afbc7d2212bd14ec9690978ddebea0d590e01147d6b17aa06" // pre
     } else {
       // return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637" // version 2
       return "0x52eae33adeb44de55cfb3f281d4cc9e02d976181c0952f5323648b5717b33934"
@@ -497,7 +600,8 @@ export class AggregatorClient {
       // return "0x3b6d71bdeb8ce5b06febfd3cfc29ecd60d50da729477c8b8038ecdae34541b91" // version 5, add bluefin
       // return "0x81ade554cb24a7564ca43a4bfb7381b08d9e5c5f375162c95215b696ab903502" // version 6, force upgrade scallop
       // return "0x347dd58bbd11cd82c8b386b344729717c04a998da73386e82a239cc196d5706b" // version 7
-      return "0xf2fcea41dc217385019828375764fa06d9bd25e8e4726ba1962680849fb8d613"    // version 8
+      // return "0xf2fcea41dc217385019828375764fa06d9bd25e8e4726ba1962680849fb8d613" // version 8
+      return "0xa2d8a4279d69d8fec04b2fea8852d0d467d3cc0d39c5890180d439ae7a9953ed" // version 9
     } else {
       return "0xabb6a81c8a216828e317719e06125de5bb2cb0fe8f9916ff8c023ca5be224c78"
     }
@@ -550,7 +654,11 @@ export class AggregatorClient {
     return targetCoin
   }
 
-  newDex(provider: string, partner?: string): Dex {
+  newDex(
+    provider: string,
+    pythPriceIDs: Map<string, string>,
+    partner?: string
+  ): Dex {
     switch (provider) {
       case CETUS:
         return new Cetus(this.env, partner)
@@ -587,9 +695,11 @@ export class AggregatorClient {
       case BLUEFIN:
         return new Bluefin(this.env)
       case HAEDALPMM:
-        return new HaedalPmm(this.env, this.client)
+        return new HaedalPmm(this.env, pythPriceIDs)
       case ALPHAFI:
         return new Alphafi(this.env)
+      case STEAMM:
+        return new Steamm(this.env)
       default:
         throw new Error(`Unsupported dex ${provider}`)
     }
@@ -633,9 +743,74 @@ export class AggregatorClient {
     }
     return null
   }
+
+  async updatePythPriceIDs(
+    priceIDs: string[],
+    txb: Transaction
+  ): Promise<Map<string, string>> {
+    let priceUpdateData: Buffer[] | null = null
+    let lastError: Error | null = null
+
+    for (const connection of this.pythConnections) {
+      try {
+        priceUpdateData = await connection.getPriceFeedsUpdateData(priceIDs)
+        break
+      } catch (e) {
+        lastError = e as Error
+        console.log("Error: ", e)
+        continue
+      }
+    }
+
+    if (priceUpdateData == null) {
+      throw new Error(
+        `No pyth price seeds update data found: ${lastError?.message}`
+      )
+    }
+
+    let priceInfoObjectIds = []
+    try {
+      priceInfoObjectIds = await this.pythClient.updatePriceFeeds(
+        txb,
+        priceUpdateData,
+        priceIDs
+      )
+    } catch (e) {
+      throw new Error(`Failed to update price feeds: ${e}`)
+    }
+
+    let priceInfoObjectIdsMap = new Map<string, string>()
+    for (let i = 0; i < priceIDs.length; i++) {
+      priceInfoObjectIdsMap.set(priceIDs[i], priceInfoObjectIds[i])
+    }
+    return priceInfoObjectIdsMap
+  }
 }
 
-export function parseRouterResponse(data: any, byAmountIn: boolean): RouterData {
+export function findPythPriceIDs(routes: Router[]): string[] {
+  const priceIDs = new Set<string>()
+
+  for (const route of routes) {
+    for (const path of route.path) {
+      if (path.provider === HAEDALPMM) {
+        if (
+          path.extendedDetails &&
+          path.extendedDetails.haedalPmmBasePriceSeed &&
+          path.extendedDetails.haedalPmmQuotePriceSeed
+        ) {
+          priceIDs.add(path.extendedDetails.haedalPmmBasePriceSeed)
+          priceIDs.add(path.extendedDetails.haedalPmmQuotePriceSeed)
+        }
+      }
+    }
+  }
+  return Array.from(priceIDs)
+}
+
+export function parseRouterResponse(
+  data: any,
+  byAmountIn: boolean
+): RouterData {
   let totalDeepFee = 0
   for (const route of data.routes) {
     for (const path of route.path) {
@@ -673,8 +848,9 @@ export function parseRouterResponse(data: any, byAmountIn: boolean): RouterData 
             path.provider === AFTERMATH ||
             path.provider === CETUS ||
             path.provider === DEEPBOOKV3 ||
-            path.provider === SCALLOP || 
-            path.provider === HAEDALPMM
+            path.provider === SCALLOP ||
+            path.provider === HAEDALPMM ||
+            path.provider === STEAMM
           ) {
             extendedDetails = {
               aftermathLpSupplyType:
@@ -684,8 +860,17 @@ export function parseRouterResponse(data: any, byAmountIn: boolean): RouterData 
               deepbookv3DeepFee: path.extended_details?.deepbookv3_deep_fee,
               scallopScoinTreasury:
                 path.extended_details?.scallop_scoin_treasury,
-              haedalPmmBasePriceSeed: path.extended_details?.haedal_pmm_base_price_seed,
-              haedalPmmQuotePriceSeed: path.extended_details?.haedal_pmm_quote_price_seed,
+              haedalPmmBasePriceSeed:
+                path.extended_details?.haedal_pmm_base_price_seed,
+              haedalPmmQuotePriceSeed:
+                path.extended_details?.haedal_pmm_quote_price_seed,
+              steammBankA: path.extended_details?.steamm_bank_a,
+              steammBankB: path.extended_details?.steamm_bank_b,
+              steammLendingMarket: path.extended_details?.steamm_lending_market,
+              steammLendingMarketType: path.extended_details?.steamm_lending_market_type,
+              steammBCoinAType: path.extended_details?.steamm_btoken_a_type,
+              steammBCoinBType: path.extended_details?.steamm_btoken_b_type,
+              steammLPToken: path.extended_details?.steamm_lp_token_type, 
             }
           }
 

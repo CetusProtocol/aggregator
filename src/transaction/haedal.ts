@@ -19,10 +19,7 @@ export class Haedal implements Dex {
     packages?: Map<string, string>
   ): Promise<TransactionObjectArgument> {
     const { direction } = path
-    if (!direction) {
-      throw new Error("Haedal not support b2a swap")
-    }
-    const func = "swap_a2b"
+    const func = direction ? "swap_a2b" : "swap_b2a"
     const args = [txb.object(path.id), txb.object("0x5"), inputCoin]
     const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({

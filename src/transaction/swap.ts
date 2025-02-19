@@ -21,13 +21,12 @@ export async function swapInPools(
   const tx = new Transaction()
   const direction = compareCoins(fromCoin, targetCoin)
   const integratePublishedAt = env === Env.Mainnet ?
-    "0x3a5aa90ffa33d09100d7b6941ea1c0ffe6ab66e77062ddd26320c1b073aabb10" :
-    "0x19dd42e05fa6c9988a60d30686ee3feb776672b5547e328d6dab16563da65293"
+    "0x2d8c2e0fc6dd25b0214b3fa747e0fd27fd54608142cd2e4f64c1cd350cc4add4" :
+    "0x4f920e1ef6318cfba77e20a0538a419a5a504c14230169438b99aba485db40a6"
   const coinA = direction ? fromCoin : targetCoin
   const coinB = direction ? targetCoin : fromCoin
 
   const typeArguments = [coinA, coinB]
-  console.log("typeArguments", typeArguments, integratePublishedAt)
 
   for (let i = 0; i < pools.length; i++) {
     const args = [
@@ -49,8 +48,6 @@ export async function swapInPools(
       ConfigErrorCode.InvalidWallet
     )
   }
-
-  printTransaction(tx)
 
   const simulateRes = await client.devInspectTransactionBlock({
     transactionBlock: tx,
@@ -98,8 +95,6 @@ export async function swapInPools(
   }
 
   const event = valueData[tempIndex].parsedJson.data
-
-  console.log("event", JSON.stringify(event, null, 2))
 
   const currentSqrtPrice = event.step_results[0].current_sqrt_price
 

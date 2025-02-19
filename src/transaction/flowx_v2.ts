@@ -1,6 +1,5 @@
 import {
   Transaction,
-  TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
 import { AggregatorClient, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."

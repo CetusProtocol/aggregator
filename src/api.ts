@@ -29,14 +29,28 @@ export interface PreSwapLpChangeParams {
 }
 
 export type ExtendedDetails = {
+  // aftermath
   aftermathPoolFlatness?: number
   aftermathLpSupplyType?: string
+  // turbos
   turbosFeeType?: string
+  // cetus
   afterSqrtPrice?: string
+  // deepbookv3
   deepbookv3DeepFee?: number
+  // scallop
   scallopScoinTreasury?: string
+  // haedal
   haedalPmmBasePriceSeed?: string
   haedalPmmQuotePriceSeed?: string
+  // steamm
+  steammBankA?: string
+  steammBankB?: string
+  steammLendingMarket?: string
+  steammLendingMarketType?: string
+  steammBCoinAType?: string
+  steammBCoinBType?: string
+  steammLPToken?: string
 }
 
 export type Path = {
@@ -114,7 +128,7 @@ export async function getRouterResult(
   const data = await response.json()
   const insufficientLiquidity = data.msg === "liquidity is not enough"
 
-  if(data.msg && data.msg.indexOf('HoneyPot scam')>-1){
+  if (data.msg && data.msg.indexOf("HoneyPot scam") > -1) {
     return {
       amountIn: ZERO,
       amountOut: ZERO,
@@ -190,7 +204,7 @@ async function getRouter(endpoint: string, params: FindRouterParams) {
     }
 
     // set newest sdk version
-    url += "&v=1000319"
+    url += "&v=1000327"
 
     const response = await fetch(url)
     return response

@@ -3,29 +3,38 @@ import BN from 'bn.js'
 import Decimal from "decimal.js"
 
 export const dealWithFastRouterSwapParamsForMsafe = (data: any) => {
-    const result =data.map((route: any) => {
+  const result = {
+    ...data,
+    amountIn: data?.amountIn?.toString(),
+    amountOut: data?.amountIn?.toString(),
+    routes: data?.routes?.map((item:any) => {
       return {
-        ...route,
-        amountIn: route.amountIn.toString(),
-        amountOut: route.amountOut.toString(),
-        initialPrice: route.initialPrice.toString(),
-        path: route.path
+        ...item,
+        amountIn: item?.amountIn?.toString(),
+        amountOut: item?.amountOut?.toString(),
+        initialPrice: item?.initialPrice?.toString()
       }
     })
-    
-    return result
   }
 
-  export const restituteMsafeFastRouterSwapParams = (data: any) => {
-    const result =data.map((route: any) => {
+  return result
+}
+
+
+export const restituteMsafeFastRouterSwapParams = (data: any) => {
+  const result = {
+    ...data,
+    amountIn: new BN(data?.amountIn),
+    amountOut: new BN(data?.amountIn),
+    routes: data?.routes?.map((item:any) => {
       return {
-        ...route,
-        amountIn: new BN(route.amountIn),
-        amountOut: new BN(route.amountOut),
-        initialPrice: new Decimal(route.initialPrice.toString()),
-        path: route.path
+        ...item,
+        amountIn: new BN(item?.amountIn),
+        amountOut: new BN(item?.amountOut),
+        initialPrice: new Decimal(item?.initialPrice?.toString())
       }
     })
-    
-    return result
   }
+
+  return result
+}
