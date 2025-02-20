@@ -89,30 +89,26 @@ if (routerRes != null) {
 ## 4. Build PTB and return target coin
 
 ```typescript
-const routerTx = new Transaction()
-const byAmountIn = true;
+const txb = new Transaction()
+const byAmountIn = true
 
 if (routerRes != null) {
   const targetCoin = await client.routerSwap({
     routers: routerRes.routes,
     byAmountIn,
-    txb: routerTx,
+    txb,
     inputCoin,
     slippage: 0.01,
   })
 
   // you can use this target coin object argument to build your ptb.
-  const client.transferOrDestoryCoin(
-      txb,
-      targetCoin,
-      targetCoinType
-  )
+  client.transferOrDestoryCoin(txb, targetCoin, targetCoinType)
 
-  let result = await client.devInspectTransactionBlock(routerTx, keypair)
+  const result = await client.devInspectTransactionBlock(txb, keypair)
 
   if (result.effects.status.status === "success") {
     console.log("Sim exec transaction success")
-    const result = await client.signAndExecuteTransaction(routerTx, keypair)
+    const result = await client.signAndExecuteTransaction(txb, keypair)
   }
   console.log("result", result)
 }
