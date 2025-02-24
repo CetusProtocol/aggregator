@@ -165,12 +165,15 @@ public fun cpmm_swap<LENGDING_MARKET, TOKEN_A, TOKEN_B, BTOKEN_A, BTOKEN_B, LP_T
     };
     let mut swap_coin_a = btoken_a;
     let mut swap_coin_b = btoken_b;
+
+    let swap_amount_in = coin::value(&swap_coin_a) + coin::value(&swap_coin_b);
+
     cpmm::swap<BTOKEN_A, BTOKEN_B, LP_TOKEN>(
         pool,
         &mut swap_coin_a,
         &mut swap_coin_b,
         a2b,
-        amount_in,
+        swap_amount_in,
         min_amount_out,
         ctx,
     );
