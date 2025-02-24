@@ -1,0 +1,15 @@
+[package]
+name = "sprungsui"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+published-at = "0xb87cea7e4220461e35dff856185814d6a37ef479ce895ffbe4efa1d1af5aacbc"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }
+
+[addresses]
+sprungsui = "0xb87cea7e4220461e35dff856185814d6a37ef479ce895ffbe4efa1d1af5aacbc"
+
+[dev-dependencies]
+
+[dev-addresses]
+

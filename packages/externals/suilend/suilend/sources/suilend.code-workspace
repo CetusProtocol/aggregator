@@ -1,0 +1,16 @@
+{
+    "folders": [
+        {
+            "path": ".."
+        },
+        {
+            "path": "../../suilend-old"
+        },
+        {
+            "path": "../../../github/sui"
+        },
+        {
+            "path": "../../solana-program-library"
+        }
+    ]
+}

@@ -1,5 +1,8 @@
 module hasui::staking {
-
+    use hasui::config::StakingConfig;
+    use hasui::hasui::HASUI;
+    use hasui::table_queue::TableQueue;
+    use hasui::vault::Vault;
     use sui::balance::Balance;
     use sui::coin::{Coin, TreasuryCap};
     use sui::object::UID;
@@ -7,25 +10,21 @@ module hasui::staking {
     use sui::table::Table;
     use sui::tx_context::TxContext;
     use sui::vec_map::VecMap;
-    use hasui::table_queue::TableQueue;
     use sui_system::staking_pool::StakedSui;
-    use hasui::config::StakingConfig;
-    use hasui::vault::Vault;
     use sui_system::sui_system::SuiSystemState;
-    use hasui::hasui::HASUI;
 
     #[allow(unused_field)]
     struct PoolInfo has store {
         staked_suis: TableQueue<StakedSui>,
         total_staked: u64,
-        rewards: u64
+        rewards: u64,
     }
 
     #[allow(unused_field)]
     struct EpochClaim has store {
         epoch: u64,
         amount: u64,
-        approved: bool
+        approved: bool,
     }
 
     #[allow(unused_field)]
@@ -51,7 +50,7 @@ module hasui::staking {
         validators: vector<address>,
         pools: Table<address, PoolInfo>,
         user_selected_validator_bals: VecMap<address, Balance<SUI>>,
-        rewards_last_updated_epoch: u64
+        rewards_last_updated_epoch: u64,
     }
 
     public fun request_stake_coin(
@@ -59,8 +58,17 @@ module hasui::staking {
         _rg1: &mut Staking,
         _rg2: Coin<SUI>,
         _rg3: address,
-        _rg4: &mut TxContext
+        _rg4: &mut TxContext,
     ): Coin<HASUI> {
+        abort 1
+    }
+
+    public fun request_unstake_instant_coin(
+        _rg0: &mut SuiSystemState,
+        _rg1: &mut Staking,
+        _rg2: Coin<HASUI>,
+        _rg3: &mut TxContext,
+    ): Coin<SUI> {
         abort 1
     }
 }

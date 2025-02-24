@@ -1,0 +1,31 @@
+[package]
+name = "suilend"
+version = "0.0.1"
+published-at = "0xd2a67633ccb8de063163e25bcfca242929caf5cf1a26c2929dab519ee0b8f331"
+edition = "2024.beta"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "framework/mainnet"
+override = true
+ 
+[dependencies.Pyth]
+git = "https://github.com/solendprotocol/pyth-crosschain.git"
+subdir = "target_chains/sui/contracts"
+rev = "98e218c64bb75cf1350eb7b021e1ffcc3aedfd62"
+override = true
+
+[dependencies.liquid_staking]
+git = "https://github.com/solendprotocol/liquid-staking.git"
+subdir = "contracts"
+rev = "main"
+override = true
+
+[dependencies.sprungsui]
+local = "../sprungsui"
+
+[addresses]
+sui = "0x2"
+# suilend = "0x0"
+suilend = "0xf95b06141ed4a174f239417323bde3f209b972f5930d8521ea38a52aff3a6ddf"

@@ -1,14 +1,27 @@
 [package]
-name = "liquid_staking"
-edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0x82e6f4f75441eae97d2d5850f41a09d28c7b64a05b067d37748d471f43aaf3f7"
-# license = ""           # e.g., "MIT", "GPL", "Apache 2.0"
-# authors = ["..."]      # e.g., ["Joe Smith (joesmith@noemail.com)", "John Snow (johnsnow@noemail.com)"]
+name = "haedal_pmm"
+edition = "2024.beta"
+published-at = "0xa0e3b011012b80af4957afa30e556486eb3da0a7d96eeb733cf16ccd3aec32e0"
 
-[dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet" }
-SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "framework/mainnet" }
+[dependencies.Pyth]
+git = "https://github.com/pyth-network/pyth-crosschain.git"
+subdir = "target_chains/sui/contracts"
+rev = "sui-contract-mainnet"
+override = true
 
+[dependencies.Wormhole]
+git = "https://github.com/wormhole-foundation/wormhole.git"
+subdir = "sui/wormhole"
+rev = "sui-upgrade-mainnet"
+override = true
+
+# Pyth is locked into this specific `rev` because the package depends on Wormhole and is pinned to this version.
+ 
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "framework/mainnet"
+override = true
 
 # For remote import, use the `{ git = "...", subdir = "...", rev = "..." }`.
 # Revision can be a branch, a tag, and a commit hash.
@@ -22,7 +35,7 @@ SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/su
 # Override = { local = "../conflicting/version", override = true }
 
 [addresses]
-liquid_staking = "0xb0575765166030556a6eafd3b1b970eba8183ff748860680245b9edd41c716e7"
+haedal_pmm = "0xa0e3b011012b80af4957afa30e556486eb3da0a7d96eeb733cf16ccd3aec32e0"
 
 # Named addresses will be accessible in Move as `@name`. They're also exported:
 # for example, `std = "0x1"` is exported by the Standard Library.
@@ -37,3 +50,4 @@ liquid_staking = "0xb0575765166030556a6eafd3b1b970eba8183ff748860680245b9edd41c7
 # The dev-addresses section allows overwriting named addresses for the `--test`
 # and `--dev` modes.
 # alice = "0xB0B"
+

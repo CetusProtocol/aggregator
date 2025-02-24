@@ -1,5 +1,2 @@
-.idea
-.vscode
-target/
-build/
-Move.lock
+**/Move.lock
+**/*/Move.lock

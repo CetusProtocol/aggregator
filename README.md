@@ -53,7 +53,7 @@ const from = "0x2::sui::SUI"
 const target =
   "0x06864a6f921804860930db6ddbe2e16acdf8504495ea7481637a1c8b9a8fe54b::cetus::CETUS"
 
-const routerRes = await client.findRouters({
+const routers = await client.findRouters({
   from,
   target,
   amount,
@@ -64,23 +64,20 @@ const routerRes = await client.findRouters({
 ## 3. Confirm and do fast swap
 
 ```typescript
-const routerTx = new Transaction()
+const txb = new Transaction()
 
 if (routerRes != null) {
   await client.fastRouterSwap({
-    routers: routerRes.routes,
-    byAmountIn,
-    txb: routerTx,
+    routers,
+    txb,
     slippage: 0.01,
-    isMergeTragetCoin: true,
-    refreshAllCoins: true,
   })
 
-  let result = await client.devInspectTransactionBlock(routerTx, keypair)
+  const result = await client.devInspectTransactionBlock(txb, keypair)
 
   if (result.effects.status.status === "success") {
     console.log("Sim exec transaction success")
-    const result = await client.signAndExecuteTransaction(routerTx, keypair)
+    const result = await client.signAndExecuteTransaction(txb, keypair)
   }
   console.log("result", result)
 }
@@ -94,8 +91,7 @@ const byAmountIn = true
 
 if (routerRes != null) {
   const targetCoin = await client.routerSwap({
-    routers: routerRes.routes,
-    byAmountIn,
+    routers,
     txb,
     inputCoin,
     slippage: 0.01,

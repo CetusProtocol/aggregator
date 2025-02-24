@@ -1,0 +1,24 @@
+[package]
+name = "Steamm"
+version = "0.1.1"
+edition = "2024.beta"
+published-at = "0x4fb1cf45dffd6230305f1d269dd1816678cc8e3ba0b747a813a556921219f261" #pre
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "framework/mainnet"
+override = true
+
+[dependencies.liquid_staking]
+git = "https://github.com/solendprotocol/liquid-staking.git"
+subdir = "contracts"
+rev = "main"
+override = true
+
+[dependencies.suilend]
+local = "../suilend/suilend"
+override = true
+
+[addresses]
+steamm = "0x4fb1cf45dffd6230305f1d269dd1816678cc8e3ba0b747a813a556921219f261"

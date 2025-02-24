@@ -1,6 +1,6 @@
-module liquid_staking::cell {
+module suilend::cell {
     public struct Cell<Element> has store {
-        element: Option<Element>
+        element: Option<Element>,
     }
 
     public fun new<Element>(element: Element): Cell<Element> {

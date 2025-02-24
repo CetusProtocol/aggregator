@@ -1,6 +1,6 @@
 [package]
 name = "Hasui"
-published-at = "0x1d56b8ec33c3fae897eb7bb1acb79914e8152faed614868928e684c25c8b198d"
+published-at = "0x3f45767c1aa95b25422f675800f02d8a813ec793a00b60667d071a77ba7178a2"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.23.1", override = true }
@@ -8,4 +8,3 @@ SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/su
 
 [addresses]
 hasui = "0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d"
-
