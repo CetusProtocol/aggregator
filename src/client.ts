@@ -19,6 +19,7 @@ import {
   processEndpoint,
   DeepbookV3Config,
   getAggregatorV2PublishedAt,
+  getAggregatorV2ExtendPublishedAt,
 } from "."
 import { Aftermath } from "./transaction/aftermath"
 import { DeepbookV2 } from "./transaction/deepbook_v2"
@@ -47,7 +48,11 @@ import {
   SuiPriceServiceConnection,
   SuiPythClient,
 } from "@pythnetwork/pyth-sui-js"
-import { Steamm } from "./transaction/steamm"
+import { SteammCPMM } from "./transaction/steamm_cpmm"
+import { SteammOmm } from "./transaction/steamm_omm"
+import { Metastable } from "./transaction/metastable"
+import { Obric } from "./transaction/obric"
+import { HaWAL } from "./transaction/hawal"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -69,6 +74,10 @@ export const HAEDALPMM = "HAEDALPMM"
 export const ALPHAFI = "ALPHAFI"
 export const SPRINGSUI = "SPRINGSUI"
 export const STEAMM = "STEAMM"
+export const METASTABLE = "METASTABLE"
+export const OBRIC = "OBRIC"
+export const HAWAL = "HAWAL"
+export const STEAMM_OMM = "STEAMM_OMM"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v2"
 
 export type BuildRouterSwapParams = {
@@ -77,6 +86,7 @@ export type BuildRouterSwapParams = {
   inputCoin: TransactionObjectArgument
   slippage: number
   txb: Transaction
+  // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
   partner?: string
   // This parameter is used to pass the Deep token object. When using the DeepBook V3 provider,
   // users must pay fees with Deep tokens in non-whitelisted pools.
@@ -88,6 +98,7 @@ export type BuildFastRouterSwapParams = {
   byAmountIn: boolean
   slippage: number
   txb: Transaction
+  // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
   partner?: string
   refreshAllCoins?: boolean
   payDeepFeeAmount?: number
@@ -98,6 +109,7 @@ export type BuildRouterSwapParamsV2 = {
   inputCoin: TransactionObjectArgument
   slippage: number
   txb: Transaction
+  // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
   partner?: string
   // This parameter is used to pass the Deep token object. When using the DeepBook V3 provider,
   // users must pay fees with Deep tokens in non-whitelisted pools.
@@ -108,6 +120,7 @@ export type BuildFastRouterSwapParamsV2 = {
   routers: RouterData
   slippage: number
   txb: Transaction
+  // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
   partner?: string
   refreshAllCoins?: boolean
   payDeepFeeAmount?: number
@@ -122,7 +135,6 @@ export interface SwapInPoolsParams {
 }
 
 interface PythConfig {
-  connections: SuiPriceServiceConnection[]
   wormholeStateId: string
   pythStateId: string
 }
@@ -144,38 +156,40 @@ function isBuilderFastRouterSwapParams(
   return Array.isArray((params as BuildFastRouterSwapParams).routers)
 }
 
+export type AggregatorClientParams = {
+  endpoint?: string
+  signer?: string
+  client?: SuiClient
+  env?: Env
+  pythUrls?: string[]
+  apiKey?: string
+  partner?: string
+  overlayFeeRate?: number
+  overlayFeeReceiver?: string
+}
+
 export class AggregatorClient {
   public endpoint: string
   public signer: string
   public client: SuiClient
   public env: Env
+  public apiKey: string
   private allCoins: Map<string, CoinAsset[]>
 
   private pythConnections: SuiPriceServiceConnection[]
   private pythClient: SuiPythClient
+  private overlayFeeRate: number
+  private overlayFeeReceiver: string
+  private partner?: string
 
   private static readonly CONFIG: Record<Env, PythConfig> = {
     [Env.Testnet]: {
-      connections: [
-        new SuiPriceServiceConnection("https://hermes-beta.pyth.network"),
-      ],
       wormholeStateId:
         "0x31358d198147da50db32eda2562951d53973a0c0ad5ed738e9b17d88b213d790",
       pythStateId:
         "0x243759059f4c3111179da5878c12f68d612c21a8d54d85edc86164bb18be1c7c",
     },
     [Env.Mainnet]: {
-      connections: [
-        new SuiPriceServiceConnection(
-          "https://cetus.liquify.com/api=X9LTVPQD7Y3R5N2A/hermes",
-          {
-            timeout: 3000,
-          }
-        ),
-        new SuiPriceServiceConnection("https://hermes.pyth.network", {
-          timeout: 3000,
-        }),
-      ],
       wormholeStateId:
         "0xaeab97f96cf9877fee2883315d459552b2b921edc16d7ceac6eab944dd88919c",
       pythStateId:
@@ -183,25 +197,41 @@ export class AggregatorClient {
     },
   }
 
-  constructor(
-    endpoint?: string,
-    signer?: string,
-    client?: SuiClient,
-    env?: Env
-  ) {
-    this.endpoint = endpoint ? processEndpoint(endpoint) : DEFAULT_ENDPOINT
-    this.client = client || new SuiClient({ url: getFullnodeUrl("mainnet") })
-    this.signer = signer || ""
-    this.env = env || Env.Mainnet
+  constructor(params: AggregatorClientParams) {
+    this.endpoint = params.endpoint ? processEndpoint(params.endpoint) : DEFAULT_ENDPOINT
+    this.client = params.client || new SuiClient({ url: getFullnodeUrl("mainnet") })
+    this.signer = params.signer || ""
+    this.env = params.env || Env.Mainnet
     this.allCoins = new Map<string, CoinAsset[]>()
 
     const config = AggregatorClient.CONFIG[this.env]
-    this.pythConnections = config.connections
+    this.pythConnections = this.newPythClients(params.pythUrls ?? [])
     this.pythClient = new SuiPythClient(
       this.client,
       config.pythStateId,
       config.wormholeStateId
     )
+    this.apiKey = params.apiKey || ""
+    this.partner = params.partner
+    if (params.overlayFeeRate) {
+      if (params.overlayFeeRate > 0 && params.overlayFeeRate <= 0.01) {
+        this.overlayFeeRate = params.overlayFeeRate * 1000000
+      } else {
+        throw new Error("Overlay fee rate must be between 0 and 0.01")
+      }
+    } else {
+      this.overlayFeeRate = 0
+    }
+    this.overlayFeeReceiver = params.overlayFeeReceiver ?? "0x0"
+  }
+
+  newPythClients(pythUrls: string[]) {
+    if (!pythUrls.includes("https://hermes.pyth.network")) {
+      pythUrls.push("https://hermes.pyth.network")
+    }
+
+    const connections = pythUrls.map(url => new SuiPriceServiceConnection(url, { timeout: 3000 }))
+    return connections
   }
 
   async getCoins(
@@ -224,23 +254,28 @@ export class AggregatorClient {
 
     const allCoins: CoinAsset[] = []
     while (true) {
-      const gotCoins = await this.client.getCoins({
-        owner: this.signer,
-        coinType,
-        cursor,
-        limit,
-      })
-      for (const coin of gotCoins.data) {
-        allCoins.push({
-          coinAddress: extractStructTagFromType(coin.coinType).source_address,
-          coinObjectId: coin.coinObjectId,
-          balance: BigInt(coin.balance),
+      try {
+        const gotCoins = await this.client.getCoins({
+          owner: this.signer,
+          coinType,
+          cursor,
+          limit,
         })
-      }
-      if (gotCoins.data.length < limit) {
+        for (const coin of gotCoins.data) {
+          allCoins.push({
+            coinAddress: extractStructTagFromType(coin.coinType).source_address,
+            coinObjectId: coin.coinObjectId,
+            balance: BigInt(coin.balance),
+          })
+        }
+        if (!gotCoins.hasNextPage) {
+          break
+        }
+        cursor = gotCoins.nextCursor
+      } catch (e) {
+        console.error("getCoins error:", e)
         break
       }
-      cursor = gotCoins.data[limit - 1].coinObjectId
     }
 
     this.allCoins.set(coinType, allCoins)
@@ -248,18 +283,91 @@ export class AggregatorClient {
   }
 
   async findRouters(params: FindRouterParams): Promise<RouterData | null> {
-    return getRouterResult(this.endpoint, params)
+    return getRouterResult(this.endpoint, this.apiKey, params, this.overlayFeeRate, this.overlayFeeReceiver)
+  }
+
+  async executeFlexibleInputSwap(
+    txb: Transaction,
+    inputCoin: TransactionObjectArgument,
+    routers: Router[],
+    expectedAmountOut: string,
+    amountLimit: string,
+    pythPriceIDs: Map<string, string>,
+    partner?: string,
+    deepbookv3DeepFee?: TransactionObjectArgument,
+    packages?: Map<string, string>,
+  ) {
+    if (routers.length === 0) {
+      throw new Error("No router found")
+    }
+    
+    const outputCoinType = routers[0].path[routers[0].path.length - 1].target
+    const outputCoins = []
+    
+    for (let i = 0; i < routers.length - 1; i++) {
+      if (routers[i].path.length === 0) {
+        throw new Error("Empty path")
+      }
+      const splitCoin = txb.splitCoins(inputCoin, [routers[i].amountIn.toString()])
+      let nextCoin = splitCoin[0] as TransactionObjectArgument
+      
+      for (const path of routers[i].path) {
+        const dex = this.newDex(path.provider, pythPriceIDs, partner)
+        nextCoin = await dex.swap(
+          this,
+          txb,
+          path,
+          nextCoin,
+          packages,
+          deepbookv3DeepFee
+        )
+      }
+      outputCoins.push(nextCoin)
+    }
+
+    if (routers[routers.length - 1].path.length === 0) {
+      throw new Error("Empty path")
+    }
+    let lastCoin = inputCoin
+    for (const path of routers[routers.length - 1].path) {
+      const dex = this.newDex(path.provider, pythPriceIDs, partner)
+      lastCoin = await dex.swap(
+        this,
+        txb,
+        path,
+        lastCoin,
+        packages,
+        deepbookv3DeepFee
+      )
+    }
+    outputCoins.push(lastCoin)
+
+    const aggregatorV2ExtendPublishedAt = getAggregatorV2ExtendPublishedAt(
+      this.publishedAtV2Extend(),
+      packages
+    )
+
+    const mergedTargetCoin = this.checkCoinThresholdAndMergeCoin(
+      txb,
+      outputCoins,
+      outputCoinType,
+      expectedAmountOut,
+      amountLimit,
+      aggregatorV2ExtendPublishedAt
+    )
+    return mergedTargetCoin
   }
 
   async expectInputSwap(
     txb: Transaction,
     inputCoin: TransactionObjectArgument,
     routers: Router[],
-    amountOutLimit: BN,
+    expectedAmountOut: string,
+    amountLimit: string,
     pythPriceIDs: Map<string, string>,
     partner?: string,
     deepbookv3DeepFee?: TransactionObjectArgument,
-    packages?: Map<string, string>
+    packages?: Map<string, string>,
   ) {
     if (routers.length === 0) {
       throw new Error("No router found")
@@ -294,20 +402,26 @@ export class AggregatorClient {
       packages
     )
 
+    const aggregatorV2ExtendPublishedAt = getAggregatorV2ExtendPublishedAt(
+      this.publishedAtV2Extend(),
+      packages
+    )
+
     this.transferOrDestoryCoin(
       txb,
       inputCoin,
       inputCoinType,
-      this.publishedAtV2()
+      aggregatorV2PublishedAt
     )
-    const mergedTargetCointhis = this.checkCoinThresholdAndMergeCoin(
+    const mergedTargetCoins = this.checkCoinThresholdAndMergeCoin(
       txb,
       outputCoins,
       outputCoinType,
-      amountOutLimit,
-      aggregatorV2PublishedAt
+      expectedAmountOut,
+      amountLimit,
+      aggregatorV2ExtendPublishedAt
     )
-    return mergedTargetCointhis
+    return mergedTargetCoins
   }
 
   async expectOutputSwap(
@@ -397,8 +511,12 @@ export class AggregatorClient {
   async routerSwap(
     params: BuildRouterSwapParams | BuildRouterSwapParamsV2
   ): Promise<TransactionObjectArgument> {
-    const { routers, inputCoin, slippage, txb, partner, deepbookv3DeepFee } =
+    const { routers, inputCoin, slippage, txb, deepbookv3DeepFee, partner } =
       params
+
+    if (slippage > 1 || slippage < 0) {
+      throw new Error("Invalid slippage value. Must be between 0 and 1 (e.g., 0.01 represents 1% slippage)")
+    }
 
     const routerData = Array.isArray(routers) ? routers : routers.routes
     const byAmountIn = isBuilderRouterSwapParams(params)
@@ -414,8 +532,20 @@ export class AggregatorClient {
       new BN(0)
     )
 
+    let overlayFee = new BN(0)
+    if (this.overlayFeeRate > 0 && this.overlayFeeReceiver !== "0x0") {
+      if (byAmountIn) {
+        overlayFee = amountOut.mul(new BN(this.overlayFeeRate)).div(new BN(1000000))
+      } else {
+        overlayFee = amountIn.mul(new BN(this.overlayFeeRate)).div(new BN(1000000))
+      }
+    }
+
+    const expectedAmountOut = byAmountIn ? amountOut.sub(overlayFee) : amountOut
+    const expectedAmountIn = byAmountIn ? amountIn : amountIn.add(overlayFee)
+
     const amountLimit = CalculateAmountLimitBN(
-      byAmountIn ? amountOut : amountIn,
+      byAmountIn ? expectedAmountOut : expectedAmountIn,
       byAmountIn,
       slippage
     )
@@ -441,18 +571,25 @@ export class AggregatorClient {
         txb,
         inputCoin,
         routerData,
-        amountLimit,
+        amountOut.toString(),
+        amountLimit.toString(),
         priceInfoObjectIds,
-        partner,
+        partner ?? this.partner,
         deepbookv3DeepFee,
         packages
       )
       return targetCoin
     }
+    const overlayFeeCoin = txb.splitCoins(inputCoin, [
+      overlayFee.toString(),
+    ])
+    if (this.overlayFeeRate > 0 && this.overlayFeeReceiver !== "0x0") {
+      txb.transferObjects([overlayFeeCoin], this.overlayFeeReceiver)
+    }
 
     // When exact output, we will set slippage limit in split coin.
     const splitedInputCoins = txb.splitCoins(inputCoin, [
-      amountLimit.toString(),
+      amountLimit.sub(overlayFee).toString(),
     ])
     this.transferOrDestoryCoin(
       txb,
@@ -464,7 +601,77 @@ export class AggregatorClient {
       txb,
       splitedInputCoins[0],
       routerData,
-      partner
+      partner ?? this.partner
+    )
+    return targetCoin
+  }
+
+  async fixableRouterSwap(
+    params: BuildRouterSwapParamsV2
+  ): Promise<TransactionObjectArgument> {
+    const { routers, inputCoin, slippage, txb, deepbookv3DeepFee, partner } =
+      params
+
+    const routerData = Array.isArray(routers) ? routers : routers.routes
+    const byAmountIn = params.routers.byAmountIn
+
+    const amountIn = routerData.reduce(
+      (acc, router) => acc.add(router.amountIn),
+      new BN(0)
+    )
+    const amountOut = routerData.reduce(
+      (acc, router) => acc.add(router.amountOut),
+      new BN(0)
+    )
+    let overlayFee = 0
+    if (this.overlayFeeRate > 0 && this.overlayFeeReceiver !== "0x0") {
+      if (byAmountIn) {
+        overlayFee = Number(amountOut.mul(new BN(this.overlayFeeRate)).div(new BN(1000000)).toString())
+      } else {
+        overlayFee = Number(amountIn.mul(new BN(this.overlayFeeRate)).div(new BN(1000000)).toString())
+      }
+    }
+
+    const expectedAmountOut = byAmountIn ? amountOut.sub(new BN(overlayFee)) : amountOut
+    const expectedAmountIn = byAmountIn ? amountIn : amountIn.add(new BN(overlayFee))
+
+    const amountLimit = CalculateAmountLimitBN(
+      byAmountIn ? expectedAmountOut : expectedAmountIn,
+      byAmountIn,
+      slippage
+    )
+
+    const packages = isBuilderRouterSwapParams(params)
+      ? undefined
+      : params.routers.packages
+
+    const priceIDs = findPythPriceIDs(routerData)
+
+    const priceInfoObjectIds =
+      priceIDs.length > 0
+        ? await this.updatePythPriceIDs(priceIDs, txb)
+        : new Map<string, string>()
+
+    if (byAmountIn) {
+      const targetCoin = await this.executeFlexibleInputSwap(
+        txb,
+        inputCoin,
+        routerData,
+        expectedAmountOut.toString(),
+        amountLimit.toString(),
+        priceInfoObjectIds,
+        partner ?? this.partner,
+        deepbookv3DeepFee,
+        packages
+      )
+      return targetCoin
+    }
+
+    const targetCoin = await this.expectOutputSwap(
+      txb,
+      inputCoin,
+      routerData,
+      partner ?? this.partner
     )
     return targetCoin
   }
@@ -480,7 +687,7 @@ export class AggregatorClient {
       txb,
       partner,
       refreshAllCoins,
-      payDeepFeeAmount,
+      payDeepFeeAmount
     } = params
 
     const routerData = Array.isArray(routers) ? routers : routers.routes
@@ -501,12 +708,26 @@ export class AggregatorClient {
     const byAmountIn = isBuilderFastRouterSwapParams(params)
       ? params.byAmountIn
       : params.routers.byAmountIn
+    
+
+    let overlayFee = 0
+    if (this.overlayFeeRate > 0 && this.overlayFeeReceiver !== "0x0") {
+      if (byAmountIn) {
+        overlayFee = Number(amountOut.mul(new BN(this.overlayFeeRate)).div(new BN(1000000)).toString())
+      } else {
+        overlayFee = Number(amountIn.mul(new BN(this.overlayFeeRate)).div(new BN(1000000)).toString())
+      }
+    }
+
+    const expectedAmountOut = byAmountIn ? amountOut.sub(new BN(overlayFee)) : amountOut
+    const expectedAmountIn = byAmountIn ? amountIn : amountIn.add(new BN(overlayFee))
+    
     const amountLimit = CalculateAmountLimit(
-      byAmountIn ? amountOut : amountIn,
+      byAmountIn ? expectedAmountOut : expectedAmountIn,
       byAmountIn,
       slippage
     )
-    const amount = byAmountIn ? amountIn : amountLimit
+    const amount = byAmountIn ? expectedAmountIn : amountLimit
     const buildFromCoinRes = buildInputCoin(
       txb,
       fromCoins,
@@ -532,8 +753,8 @@ export class AggregatorClient {
           slippage,
           byAmountIn,
           txb,
-          partner,
-          deepbookv3DeepFee: deepCoin,
+          partner: partner ?? this.partner,
+          deepbookv3DeepFee: deepCoin
         }
       : {
           routers: params.routers,
@@ -541,8 +762,8 @@ export class AggregatorClient {
           slippage,
           byAmountIn,
           txb,
-          partner,
-          deepbookv3DeepFee: deepCoin,
+          partner: partner ?? this.partner,
+          deepbookv3DeepFee: deepCoin
         }
 
     const targetCoin = await this.routerSwap(routerSwapParams)
@@ -583,7 +804,8 @@ export class AggregatorClient {
     if (this.env === Env.Mainnet) {
       // return "0x3fb42ddf908af45f9fc3c59eab227888ff24ba2e137b3b55bf80920fd47e11af" // version 6
       // return "0xf9c6f78322ed667909e05f6b42b2f5a67af6297503c905335e02a15148e9440d" // version 7
-      return "0x2485feb9d42c7c3bcb8ecde555ad40f1b073d9fb4faf354fa2d30a0b183a23ce" // version 8
+      // return "0x2485feb9d42c7c3bcb8ecde555ad40f1b073d9fb4faf354fa2d30a0b183a23ce" // version 8
+      return "0x3864c7c59a4889fec05d1aae4bc9dba5a0e0940594b424fbed44cb3f6ac4c032" // version 9
       // return "0x803db8dfcc86fc1afbc7d2212bd14ec9690978ddebea0d590e01147d6b17aa06" // pre
     } else {
       // return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637" // version 2
@@ -601,9 +823,22 @@ export class AggregatorClient {
       // return "0x81ade554cb24a7564ca43a4bfb7381b08d9e5c5f375162c95215b696ab903502" // version 6, force upgrade scallop
       // return "0x347dd58bbd11cd82c8b386b344729717c04a998da73386e82a239cc196d5706b" // version 7
       // return "0xf2fcea41dc217385019828375764fa06d9bd25e8e4726ba1962680849fb8d613" // version 8
-      return "0xa2d8a4279d69d8fec04b2fea8852d0d467d3cc0d39c5890180d439ae7a9953ed" // version 9
+      // return "0xa2d8a4279d69d8fec04b2fea8852d0d467d3cc0d39c5890180d439ae7a9953ed" // version 9
+      // return "0x34ef25b60b51f9d07cd9b7dc5b08dfdf26c7b0ff00c57bb17454c161fa6b6b83" // version 10
+      // return "0xf57be4b9f9036034b1c5484d299d8fb68d5f43862d6afe8886d67db293dfc4bc" // version 11
+      // return "0x200e762fa2c49f3dc150813038fbf22fd4f894ac6f23ebe1085c62f2ef97f1ca" // version 12
+      // return "0x3b6239bc9bccfdc6b702fd971f5f1999a724d6335f0146d7d5a0ff8dcadcefb8" // version 13
+      return "0x39402d188b7231036e52266ebafad14413b4bf3daea4ac17115989444e6cd516" // version 14
     } else {
       return "0xabb6a81c8a216828e317719e06125de5bb2cb0fe8f9916ff8c023ca5be224c78"
+    }
+  }
+
+  publishedAtV2Extend2(): string {
+    if (this.env === Env.Mainnet) {
+      return "0x368d13376443a8051b22b42a9125f6a3bc836422bb2d9c4a53984b8d6624c326"
+    } else {
+      return "0x0"
     }
   }
 
@@ -632,8 +867,9 @@ export class AggregatorClient {
     txb: Transaction,
     coins: TransactionObjectArgument[],
     coinType: string,
-    amountLimit: BN,
-    aggregatorV2PublishedAt: string
+    expectedAmountOut: string,
+    threshold: string,
+    aggregatorV2ExtendPublishedAt: string,
   ) {
     let targetCoin = coins[0]
     if (coins.length > 1) {
@@ -646,11 +882,30 @@ export class AggregatorClient {
       targetCoin = coins[0]
     }
 
-    txb.moveCall({
-      target: `${aggregatorV2PublishedAt}::utils::check_coin_threshold`,
-      typeArguments: [coinType],
-      arguments: [targetCoin, txb.pure.u64(amountLimit.toString())],
-    })
+    if (this.overlayFeeRate === 0 || this.overlayFeeReceiver === "0x0") {
+      txb.moveCall({
+        target: `${aggregatorV2ExtendPublishedAt}::utils::check_coin_threshold_v1`,
+        typeArguments: [coinType],
+        arguments: [
+          targetCoin, 
+          txb.pure.u64(expectedAmountOut), 
+          txb.pure.u64(threshold)
+        ],
+      })
+    } else {
+      txb.moveCall({
+        target: `${aggregatorV2ExtendPublishedAt}::utils::check_coin_threshold_v2`,
+        typeArguments: [coinType],
+        arguments: [
+          targetCoin, 
+          txb.pure.u64(expectedAmountOut), 
+          txb.pure.u64(threshold), 
+          txb.pure.u64(this.overlayFeeRate), 
+          txb.pure.address(this.overlayFeeReceiver)
+        ],
+      })
+    }
+
     return targetCoin
   }
 
@@ -699,7 +954,15 @@ export class AggregatorClient {
       case ALPHAFI:
         return new Alphafi(this.env)
       case STEAMM:
-        return new Steamm(this.env)
+        return new SteammCPMM(this.env)
+      case STEAMM_OMM:
+        return new SteammOmm(this.env, pythPriceIDs)
+      case METASTABLE:
+        return new Metastable(this.env, pythPriceIDs)
+      case OBRIC:
+        return new Obric(this.env, pythPriceIDs)
+      case HAWAL:
+        return new HaWAL(this.env)
       default:
         throw new Error(`Unsupported dex ${provider}`)
     }
@@ -764,7 +1027,7 @@ export class AggregatorClient {
 
     if (priceUpdateData == null) {
       throw new Error(
-        `No pyth price seeds update data found: ${lastError?.message}`
+        `All Pyth price nodes are unavailable. Cannot fetch price data. Please switch to or add new available Pyth nodes. Detailed error: ${lastError?.message}`
       )
     }
 
@@ -776,7 +1039,7 @@ export class AggregatorClient {
         priceIDs
       )
     } catch (e) {
-      throw new Error(`Failed to update price feeds: ${e}`)
+      throw new Error(`All Pyth price nodes are unavailable. Cannot fetch price data. Please switch to or add new available Pyth nodes in the pythUrls parameter when initializing AggregatorClient, for example: new AggregatorClient({ pythUrls: ["https://your-pyth-node-url"] }). Detailed error: ${e}`)
     }
 
     let priceInfoObjectIdsMap = new Map<string, string>()
@@ -800,6 +1063,30 @@ export function findPythPriceIDs(routes: Router[]): string[] {
         ) {
           priceIDs.add(path.extendedDetails.haedalPmmBasePriceSeed)
           priceIDs.add(path.extendedDetails.haedalPmmQuotePriceSeed)
+        }
+      }
+      if (path.provider === METASTABLE) {
+        if (path.extendedDetails && path.extendedDetails.metastablePriceSeed) {
+          priceIDs.add(path.extendedDetails.metastablePriceSeed)
+        }
+        if (path.extendedDetails && path.extendedDetails.metastableETHPriceSeed) {
+          priceIDs.add(path.extendedDetails.metastableETHPriceSeed)
+        }
+      }
+      if (path.provider === OBRIC) {
+        if (path.extendedDetails && path.extendedDetails.obricCoinAPriceSeed) {
+          priceIDs.add(path.extendedDetails.obricCoinAPriceSeed)
+        }
+        if (path.extendedDetails && path.extendedDetails.obricCoinBPriceSeed) {
+          priceIDs.add(path.extendedDetails.obricCoinBPriceSeed)
+        }
+      }
+      if (path.provider === STEAMM_OMM) {
+        if (path.extendedDetails && path.extendedDetails.steammOraclePythPriceSeedA) {
+          priceIDs.add(path.extendedDetails.steammOraclePythPriceSeedA)
+        }
+        if (path.extendedDetails && path.extendedDetails.steammOraclePythPriceSeedB) {
+          priceIDs.add(path.extendedDetails.steammOraclePythPriceSeedB)
         }
       }
     }
@@ -842,6 +1129,8 @@ export function parseRouterResponse(
               path.extended_details.aftermath_pool_flatness === 0 ? "v2" : "v3"
           }
 
+          console.log("path: ", path.extended_details)
+
           let extendedDetails
           if (
             path.provider === TURBOS ||
@@ -850,7 +1139,10 @@ export function parseRouterResponse(
             path.provider === DEEPBOOKV3 ||
             path.provider === SCALLOP ||
             path.provider === HAEDALPMM ||
-            path.provider === STEAMM
+            path.provider === METASTABLE ||
+            path.provider === OBRIC ||
+            path.provider === STEAMM ||
+            path.provider === STEAMM_OMM
           ) {
             extendedDetails = {
               aftermathLpSupplyType:
@@ -870,7 +1162,23 @@ export function parseRouterResponse(
               steammLendingMarketType: path.extended_details?.steamm_lending_market_type,
               steammBCoinAType: path.extended_details?.steamm_btoken_a_type,
               steammBCoinBType: path.extended_details?.steamm_btoken_b_type,
-              steammLPToken: path.extended_details?.steamm_lp_token_type, 
+              steammLPToken: path.extended_details?.steamm_lp_token_type,
+              steammOracleRegistryId: path.extended_details?.steamm_oracle_registry_id,
+              steammOracleIndexA: path.extended_details?.steamm_oracle_index_a,
+              steammOracleIndexB: path.extended_details?.steamm_oracle_index_b,
+              steammOraclePythPriceSeedA: path.extended_details?.steamm_oracle_pyth_price_seed_a,
+              steammOraclePythPriceSeedB: path.extended_details?.steamm_oracle_pyth_price_seed_b,
+              metastablePriceSeed: path.extended_details?.metastable_price_seed,
+              metastableETHPriceSeed: path.extended_details?.metastable_eth_price_seed,
+              metastableWhitelistedAppId: path.extended_details?.metastable_whitelisted_app_id,
+              metastableCreateCapPkgId: path.extended_details?.metastable_create_cap_pkg_id,
+              metastableCreateCapModule: path.extended_details?.metastable_create_cap_module,
+              metastableCreateCapAllTypeParams: path.extended_details?.metastable_create_cap_all_type_params,
+              metastableRegistryId: path.extended_details?.metastable_registry_id,
+              obricCoinAPriceSeed: path.extended_details?.obric_coin_a_price_seed,
+              obricCoinBPriceSeed: path.extended_details?.obric_coin_b_price_seed,
+              obricCoinAPriceId: path.extended_details?.obric_coin_a_price_id,
+              obricCoinBPriceId: path.extended_details?.obric_coin_b_price_id,
             }
           }
 

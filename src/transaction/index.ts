@@ -9,7 +9,7 @@ export const CLOCK_ADDRESS = SUI_CLOCK_OBJECT_ID
 
 export const AGGREGATOR_V2 = "aggregator_v2"
 export const AGGREGATOR_V2_EXTEND = "aggregator_v2_extend"
-
+export const AGGREGATOR_V2_EXTEND2 = "aggregator_v2_extend2"
 export function getAggregatorV2PublishedAt(
   aggregatorV2PublishedAt: string,
   packages?: Map<string, string> | Record<string, string>
@@ -28,6 +28,16 @@ export function getAggregatorV2ExtendPublishedAt(
     return packages.get(AGGREGATOR_V2_EXTEND) ?? aggregatorV2ExtendPublishedAt
   }
   return aggregatorV2ExtendPublishedAt
+}
+
+export function getAggregatorV2Extend2PublishedAt(
+  aggregatorV2Extend2PublishedAt: string,
+  packages?: Map<string, string> | Record<string, string>
+) {
+  if (packages instanceof Map) {
+    return packages.get(AGGREGATOR_V2_EXTEND2) ?? aggregatorV2Extend2PublishedAt
+  }
+  return aggregatorV2Extend2PublishedAt
 }
 
 export interface Dex {
