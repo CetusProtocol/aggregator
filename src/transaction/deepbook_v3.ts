@@ -18,7 +18,7 @@ export class DeepbookV3 implements Dex {
   constructor(env: Env) {
     this.deepbookV3Config =
       env === Env.Mainnet
-        ? "0xe4099d0cda04f3aa80028fac91a9b3dbe50d08f2ff42aa2c29473926e34ca48c"
+        ? "0x699d455ab8c5e02075b4345ea1f91be55bf46064ae6026cc2528e701ce3ac135"
         : "0xe19b5d072346cae83a037d4e3c8492068a74410a74e5830b3a68012db38296aa"
   }
 
@@ -32,8 +32,8 @@ export class DeepbookV3 implements Dex {
   ): Promise<TransactionObjectArgument> {
     const { direction, from, target } = path
     const [func, coinAType, coinBType] = direction
-      ? ["swap_a2b", from, target]
-      : ["swap_b2a", target, from]
+      ? ["swap_a2b_v2", from, target]
+      : ["swap_b2a_v2", target, from]
 
     let deepFee
     if (deepbookv3DeepFee) {

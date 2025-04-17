@@ -4,7 +4,7 @@ import {
 } from "@mysten/sui/transactions"
 import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2ExtendPublishedAt, Path } from ".."
 
-export class Steamm implements Dex {
+export class SteammCPMM implements Dex {
   constructor(env: Env) {
     if (env !== Env.Mainnet) {
       throw new Error("Steamm only supported on mainnet")
