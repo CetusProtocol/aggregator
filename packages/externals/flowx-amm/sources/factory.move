@@ -1,13 +1,12 @@
 #[allow(unused_field)]
-module flowx_amm::factory {
-    use sui::object::UID;
-    use sui::bag::Bag;
+module flowx_amm::factory;
 
-    use flowx_amm::treasury::Treasury;
+use flowx_amm::treasury::Treasury;
+use sui::bag::Bag;
+use sui::object::UID;
 
-    struct Container has key {
-        id: UID,
-        pairs: Bag,
-        treasury: Treasury,
-    }
+public struct Container has key {
+    id: UID,
+    pairs: Bag,
+    treasury: Treasury,
 }

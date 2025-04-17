@@ -1,6 +1,6 @@
-module hasui::hasui{
-    #[allow(unused_field)]
-    struct HASUI has drop {
-        dummy_field: bool
-    }
+#[allow(unused_field)]
+module hasui::hasui;
+
+public struct HASUI has drop {
+    dummy_field: bool,
 }

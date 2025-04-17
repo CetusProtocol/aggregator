@@ -1,5 +1,5 @@
 [package]
-name = "CetusAggregator"
+name = "CetusAggregatorV2"
 edition = "2024.beta"
 version = "0.1.1"
 published-at = "0x0"
@@ -14,4 +14,4 @@ haedal_pmm = { local = "../../externals/haedal-pmm", override = true }
 Pyth = { git = "https://github.com/pyth-network/pyth-crosschain.git", subdir = "target_chains/sui/contracts", rev = "sui-contract-testnet", override = true }
 
 [addresses]
-cetus_aggregator = "0x0"
+cetus_aggregator_v2 = "0x0"

@@ -1,0 +1,29 @@
+## Mainnet
+[package]
+name = "CetusAggregatorV2ExtendV1"
+version = "0.1.1"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+published-at = "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.35.2", override = true }
+deepbookv3 = { local = "../externals/deepbookv3/deepbook", override = true}
+token = { local = "../externals/deepbookv3/token", override = true }
+Deepbookv3Vaults = { local = "../internals/deepbookv3-vaults", override = true }
+ScallopProtocol = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "mainnet-v1.6", override = true }
+ScallopScoin = { local = "../externals/scallop/scallop_scoin", override = true }
+liquid_staking = { git = "https://github.com/solendprotocol/liquid-staking.git", subdir = "contracts", rev = "main", override = true }
+SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "mainnet-v1.35.2", override = true }
+BluefinSpot = { local = "../externals/bluefin", override = true }
+haedal_pmm = { local = "../externals/haedal-pmm", override = true }
+Pyth = { git = "https://github.com/pyth-network/pyth-crosschain.git", subdir = "target_chains/sui/contracts", rev = "sui-contract-mainnet", override = true }
+alphafi_liquid_staking = { local = "../externals/alphafi", override = true }
+Steamm = { local = "../externals/steamm", override = true }
+aftermath_mstable = { local = "../externals/metastable", override = true }
+obric = { local = "../externals/obric", override = true }
+Walrus = { local = "../externals/walrus/walrus", override = true }
+WAL = { local = "../externals/walrus/wal", override = true }
+Hawal = { local = "../externals/hawal", override = true }
+
+[addresses]
+cetus_aggregator_v2_extend_v1 = "0x39402d188b7231036e52266ebafad14413b4bf3daea4ac17115989444e6cd516"

@@ -1,0 +1,25 @@
+[package]
+name = "oracles"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+published-at = "0xe84b649199654d18c38e727212f5d8dacfc3cf78d60d0a7fc85fd589f280eb2b"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "framework/mainnet"
+override = true
+
+[dependencies.Pyth]
+git = "https://github.com/solendprotocol/pyth-crosschain.git"
+subdir = "target_chains/sui/contracts"
+rev = "98e218c64bb75cf1350eb7b021e1ffcc3aedfd62"
+override = true
+
+[dependencies.Switchboard]
+git = "https://github.com/suilend/switchboard.git"
+subdir = "on_demand/"
+rev = "mainnet"
+override = true
+
+[addresses]
+oracles = "0xe84b649199654d18c38e727212f5d8dacfc3cf78d60d0a7fc85fd589f280eb2b"

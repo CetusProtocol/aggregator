@@ -1,16 +1,15 @@
-module vsui::cert{
-    use sui::balance::Supply;
-    use sui::object::UID;
+#[allow(unused_field)]
+module vsui::cert;
 
-    #[allow(unused_field)]
-    struct CERT has drop {
-        dummy_field: bool
-    }
+use sui::balance::Supply;
+use sui::object::UID;
 
-    #[allow(unused_field)]
-    struct Metadata<phantom Ty0> has store, key {
-        id: UID,
-        version: u64,
-        total_supply: Supply<Ty0>
-    }
+public struct CERT has drop {
+    dummy_field: bool,
+}
+
+public struct Metadata<phantom Ty0> has key, store {
+    id: UID,
+    version: u64,
+    total_supply: Supply<Ty0>,
 }

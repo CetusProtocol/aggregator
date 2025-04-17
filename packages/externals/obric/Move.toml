@@ -1,0 +1,23 @@
+[package]
+name = "obric"
+edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+published-at = "0x0faf21b90a31e7d9a233be3b16138b23da34a243bb1d2497e0c01a2cc566b310"
+
+[dependencies.Pyth]
+git = "https://github.com/pyth-network/pyth-crosschain.git"
+subdir = "target_chains/sui/contracts"
+rev = "sui-contract-mainnet"
+ 
+[dependencies.Wormhole]
+git = "https://github.com/wormhole-foundation/wormhole.git"
+subdir = "sui/wormhole"
+rev = "sui-upgrade-mainnet"
+ 
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "framework/mainnet"
+override = true
+
+[addresses]
+obric = "0xb84e63d22ea4822a0a333c250e790f69bf5c2ef0c63f4e120e05a6415991368f"

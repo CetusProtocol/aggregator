@@ -2,6 +2,7 @@
 name = "Safe"
 version = "0.0.1"
 published-at = "0x0b572349baf4526c92c4e5242306e07a1658fa329ae93d1b9db0fc38b8a592bb"
+edition = "2024.beta"
 
 [dependencies.Sui]
 git = "https://github.com/MystenLabs/sui.git"

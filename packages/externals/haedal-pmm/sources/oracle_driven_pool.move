@@ -1,13 +1,10 @@
-/*
-/// Module: haedal_pmm
-module haedal_pmm::haedal_pmm;
-*/
+#[allow(unused_field)]
 module haedal_pmm::oracle_driven_pool;
 
 use std::string::String;
 use sui::balance::{Self, Supply, Balance};
 
-public enum RStatus has store, copy, drop {
+public enum RStatus has copy, drop, store {
     ONE,
     ABOVE_ONE,
     BELOW_ONE,
@@ -80,53 +77,3 @@ public struct PoolCoreData has store {
 
 public struct BasePoolLiquidityCoin<phantom BaseCoinType, phantom QuoteCoinType> has drop {}
 public struct QuotePoolLiquidityCoin<phantom BaseCoinType, phantom QuoteCoinType> has drop {}
-
-public struct PoolVersionUpdated has copy, drop {
-    operator: address,
-    old_version: u64,
-    new_version: u64,
-}
-
-public struct AddPoolEvent has copy, drop {
-    sender: address,
-    pool_id: ID,
-    lp_fee_rate: u64,
-    protocol_fee_rate: u64,
-    base_coin_type: String,
-    quote_coin_type: String,
-    k: u64,
-}
-
-public struct UpdateLiquidityProviderFeeRateEvent has copy, drop {
-    operator: address,
-    old_liquidity_provider_fee_rate: u64,
-    new_liquidity_provider_fee_rate: u64,
-}
-
-public struct UpdateProtocolFeeRateEvent has copy, drop {
-    operator: address,
-    old_protocol_fee_rate: u64,
-    new_protocol_fee_rate: u64,
-}
-
-public struct UpdateKEvent has copy, drop {
-    operator: address,
-    old_k: u64,
-    new_k: u64,
-}
-
-public struct DonateEvent has copy, drop {
-    pool_id: ID,
-    amount: u64,
-    is_base_coin: bool,
-    is_lp_fee: bool,
-    index: u64,
-}
-
-public struct ClaimAssetsEvent has copy, drop {
-    pool_id: ID,
-    user: address,
-    base_coin_amount: u64,
-    quote_coin_amount: u64,
-    liquidity_change_num: u64, // liquidity change num
-}

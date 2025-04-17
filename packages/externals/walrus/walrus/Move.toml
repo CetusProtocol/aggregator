@@ -1,0 +1,13 @@
+[package]
+name = "Walrus"
+license = "Apache-2.0"
+authors = ["Mysten Labs <build@mystenlabs.com>"]
+edition = "2024.beta"
+published-at = "0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }
+WAL = { local = "../wal" }
+
+[addresses]
+walrus = "0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77"

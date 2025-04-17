@@ -1,0 +1,29 @@
+[package]
+name = "aftermath_mstable"
+edition = "2024.beta"
+published-at = "0x74ecdeabc36974da37a3e2052592b2bc2c83e878bbd74690e00816e91f93a505"
+
+[dependencies.Pyth]
+git = "https://github.com/pyth-network/pyth-crosschain.git"
+subdir = "target_chains/sui/contracts"
+rev = "sui-contract-mainnet"
+override = true
+
+[dependencies.Wormhole]
+git = "https://github.com/wormhole-foundation/wormhole.git"
+subdir = "sui/wormhole"
+rev = "sui-upgrade-mainnet"
+override = true
+
+# Pyth is locked into this specific `rev` because the package depends on Wormhole and is pinned to this version.
+ 
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "framework/mainnet"
+override = true
+
+
+[addresses]
+aftermath_mstable = "0xca653d2fac70a49549c7ff8792027fa4fa418fd6619954ea0f45d6fd0d081b8e"
+

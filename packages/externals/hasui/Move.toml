@@ -1,6 +1,7 @@
 [package]
 name = "Hasui"
 published-at = "0x3f45767c1aa95b25422f675800f02d8a813ec793a00b60667d071a77ba7178a2"
+edition = "2024.beta"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.23.1", override = true }

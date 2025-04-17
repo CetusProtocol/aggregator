@@ -28,14 +28,3 @@ public struct TradingData has store {
     pool_fees_a: u64,
     pool_fees_b: u64,
 }
-
-public struct SwapResult has copy, drop, store {
-    user: address,
-    pool_id: ID,
-    amount_in: u64,
-    amount_out: u64,
-    output_fees: SwapFee,
-    a2b: bool,
-    balance_a: u64,
-    balance_b: u64,
-}
