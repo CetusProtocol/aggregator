@@ -10,6 +10,7 @@ Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-fram
 deepbookv3 = { local = "../externals/deepbookv3/deepbook", override = true}
 token = { local = "../externals/deepbookv3/token", override = true }
 Deepbookv3Vaults = { local = "../internals/deepbookv3-vaults", override = true }
+Deepbookv3VaultsV2 = { local = "../internals/deepbookv3-vaults-v2", override = true }
 ScallopProtocol = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "mainnet-v1.6", override = true }
 ScallopScoin = { local = "../externals/scallop/scallop_scoin", override = true }
 liquid_staking = { git = "https://github.com/solendprotocol/liquid-staking.git", subdir = "contracts", rev = "main", override = true }

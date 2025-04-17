@@ -126,7 +126,6 @@ if (routerRes != null) {
 
 ```
 CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2", rev = "mainnet", override = true }
-testnet:
 
 CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet", override = true }
 
