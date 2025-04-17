@@ -1,3 +1,3 @@
-module suilend::suilend {
-    public struct MAIN_POOL has drop {}
-}
+module suilend::suilend;
+
+public struct MAIN_POOL has drop {}

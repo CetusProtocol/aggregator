@@ -23,25 +23,3 @@ public struct Lending<phantom T0> has store {
     reserve_array_index: u64,
     obligation_cap: ObligationOwnerCap<T0>,
 }
-
-public fun mint_btokens<LENGDING_MARKET, COIN, BCOIN>(
-    bank: &mut Bank<LENGDING_MARKET, COIN, BCOIN>,
-    lending_market: &mut LendingMarket<LENGDING_MARKET>,
-    coin: &mut Coin<COIN>,
-    amount: u64,
-    clock: &Clock,
-    ctx: &mut TxContext,
-): Coin<BCOIN> {
-    abort 0
-}
-
-public fun burn_btokens<LENGDING_MARKET, COIN, BCOIN>(
-    bank: &mut Bank<LENGDING_MARKET, COIN, BCOIN>,
-    lending_market: &mut LendingMarket<LENGDING_MARKET>,
-    coin: &mut Coin<BCOIN>,
-    amount: u64,
-    clock: &Clock,
-    ctx: &mut TxContext,
-): Coin<COIN> {
-    abort 0
-}

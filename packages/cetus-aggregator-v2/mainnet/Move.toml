@@ -2,14 +2,12 @@
 name = "CetusAggregator"
 version = "0.1.1"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-# published-at = "0x5fb33ae7b06dd05e4f70b9ff1ff0ae6e6198865bf85d97bfcfa81d242bcfd481"
-published-at = "0xf9c6f78322ed667909e05f6b42b2f5a67af6297503c905335e02a15148e9440d"
+published-at = "0x3864c7c59a4889fec05d1aae4bc9dba5a0e0940594b424fbed44cb3f6ac4c032"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.23.1", override = true }
 MoveSTL = { git = "https://github.com/CetusProtocol/move-stl.git", subdir = "sui", rev = "mainnet-v1.23.1" }
 IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "mainnet-v1.23.1" }
-DeepBook = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/deepbook", rev = "mainnet-v1.23.1" }
 CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/cetus_clmm", rev = "mainnet-v1.26.0", override = true }
 KriyaAmm = { local = "../../externals/kriya-amm" }
 KriyaClmm = { local = "../../externals/kriya-clmm" }
@@ -17,12 +15,14 @@ FlowxClmm = { local = "../../externals/flowx-clmm" }
 FlowxAMM = { local = "../../externals/flowx-amm" }
 TurbosDex = { local = "../../externals/turbos-dex" }
 AftermathAMM = { local = "../../externals/aftermath/aftermath-amm" }
+ProtocolFeeVault = { local = "../../externals/aftermath/amm-protocol-fee-vault" }
+InsuranceFund = { local = "../../externals/aftermath/amm-insurance-fund" }
+ReferralVault = { local = "../../externals/aftermath/amm-referral-vault" }
+StakingRefer = { local = "../../externals/aftermath/staking-refer" }
 Afsui = { local = "../../externals/aftermath/staking" }
 Hasui = { local = "../../externals/hasui" }
 Vsui = { local = "../../externals/vsui" }
 BlueMove = { local = "../../externals/bluemove" }
-deepbookv3 = { local = "../../externals/deepbookv3/deepbook" }
-token = { local = "../../externals/deepbookv3/token" }
 
 [addresses]
-cetus_aggregator = "0x0"
+cetus_aggregator = "0xeffc8ae61f439bb34c9b905ff8f29ec56873dcedf81c7123ff2f1f67c45ec302"

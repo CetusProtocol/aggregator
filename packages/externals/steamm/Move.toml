@@ -20,5 +20,9 @@ override = true
 local = "../suilend/suilend"
 override = true
 
+[dependencies.oracles]
+local = "../suilend/oracles"
+override = true
+
 [addresses]
 steamm = "0x4fb1cf45dffd6230305f1d269dd1816678cc8e3ba0b747a813a556921219f261"

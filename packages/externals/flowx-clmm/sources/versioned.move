@@ -1,10 +1,9 @@
-module flowx_clmm::versioned {
-    use sui::object::UID;
+#[allow(unused_field)]
+module flowx_clmm::versioned;
 
-    #[allow(unused_field)]
-    struct Versioned has store, key {
-        id: UID,
-        version: u64,
-    }
+use sui::object::UID;
+
+public struct Versioned has key, store {
+    id: UID,
+    version: u64,
 }
-

@@ -1,0 +1,12 @@
+[package]
+name = "WAL"
+license = "Apache-2.0"
+authors = ["Mysten Labs <build@mystenlabs.com>"]
+edition = "2024.beta"
+published-at = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.35.2", override = true }
+
+[addresses]
+wal = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59"

@@ -2,6 +2,7 @@
 name = "KriyaClmm"
 version = "0.1.1"
 published-at = "0xbd8d4489782042c6fafad4de4bc6a5e0b84a43c6c00647ffd7062d1e2bb7549e"
+edition = "2024.beta"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.24.1", override = true }

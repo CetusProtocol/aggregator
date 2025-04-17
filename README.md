@@ -29,7 +29,9 @@ Multi-Platform Support: Currently, we have integrated multiple mainstream DEXs o
 
 By using our aggregator, you can trade more efficiently and securely on the Sui blockchain, fully leveraging the various opportunities brought by decentralized finance (DeFi).
 
-# Install
+# Aggregator SDK
+
+## Install
 
 The SDK is published to npm registry. To use the SDK in your project, you can
 
@@ -37,15 +39,15 @@ The SDK is published to npm registry. To use the SDK in your project, you can
 npm install @cetusprotocol/aggregator-sdk
 ```
 
-# Usage
+## Usage
 
-## 1. Init client with rpc and package config
+### 1. Init client with rpc and package config
 
 ```typescript
 const client = new AggregatorClient()
 ```
 
-## 2. Get best router swap result from aggregator service
+### 2. Get best router swap result from aggregator service
 
 ```typescript
 const amount = new BN(1000000)
@@ -61,7 +63,7 @@ const routers = await client.findRouters({
 })
 ```
 
-## 3. Confirm and do fast swap
+### 3. Confirm and do fast swap
 
 ```typescript
 const txb = new Transaction()
@@ -83,7 +85,7 @@ if (routerRes != null) {
 }
 ```
 
-## 4. Build PTB and return target coin
+### 4. Build PTB and return target coin
 
 ```typescript
 const txb = new Transaction()
@@ -108,6 +110,35 @@ if (routerRes != null) {
   }
   console.log("result", result)
 }
+```
+
+# Aggregator Contract Interface
+
+## Tags corresponding to different networks
+
+| Contract                  | Tag of Repo | Latest published at address                                        |
+| ------------------------- | ----------- | ------------------------------------------------------------------ |
+| CetusAggregatorV2         | mainnet     | 0x3864c7c59a4889fec05d1aae4bc9dba5a0e0940594b424fbed44cb3f6ac4c032 |
+| CetusAggregatorV2ExtendV1 | mainnet     | 0x39402d188b7231036e52266ebafad14413b4bf3daea4ac17115989444e6cd516 |
+| CetusAggregatorV2ExtendV2 | mainnet     | 0x368d13376443a8051b22b42a9125f6a3bc836422bb2d9c4a53984b8d6624c326 |
+
+## Example
+
+```
+CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2", rev = "mainnet", override = true }
+testnet:
+
+CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet", override = true }
+
+CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet", override = true }
+```
+
+## Usage
+
+Cetus clmm interface is not complete(just have function definition), so it will fails when sui client check the code version. However, this does not affect its actual functionality. Therefore, we need to add a --dependencies-are-root during the build.
+
+```
+sui move build --dependencies-are-root && sui client publish --dependencies-are-root
 ```
 
 # More About Cetus

@@ -8,8 +8,3 @@ Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-fram
 
 [addresses]
 sprungsui = "0xb87cea7e4220461e35dff856185814d6a37ef479ce895ffbe4efa1d1af5aacbc"
-
-[dev-dependencies]
-
-[dev-addresses]
-

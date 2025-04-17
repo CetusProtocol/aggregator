@@ -1,0 +1,14 @@
+[package]
+name = "Hawal"
+version = "0.0.1"
+edition = "2024.beta"
+published-at = "0x8b4d553839b219c3fd47608a0cc3d5fcc572cb25d41b7df3833208586a8d2470"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }
+SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "framework/mainnet", override = true }
+Walrus = { local = "../walrus/walrus", override = true  }
+WAL = { local = "../walrus/wal", override = true }
+
+[addresses]
+hawal = "0x8b4d553839b219c3fd47608a0cc3d5fcc572cb25d41b7df3833208586a8d2470"
