@@ -1,33 +1,27 @@
-#[allow(unused_use, unused_field, unused_variable)]
-module cetus_aggregator_v2::cetus;
+module cetus_aggregator_v2_extend_v2::momentum;
 
-use cetus_aggregator_v2::utils::transfer_or_destroy_coin;
-use cetus_clmm::config::GlobalConfig;
-use cetus_clmm::partner::Partner;
-use cetus_clmm::pool::{Self, Pool, FlashSwapReceipt};
-use cetus_clmm::tick_math;
+use mmt_v3::pool::Pool;
+use mmt_v3::version::Version;
 use std::type_name::{Self, TypeName};
 use sui::balance;
 use sui::clock::Clock;
 use sui::coin::{Self, Coin};
 use sui::event::emit;
 
-public struct CetusSwapEvent has copy, drop, store {
+public struct MomentumSwapEvent has copy, drop, store {
     pool: ID,
     amount_in: u64,
     amount_out: u64,
     a2b: bool,
     by_amount_in: bool,
-    partner_id: ID,
     coin_a: TypeName,
     coin_b: TypeName,
 }
 
 public fun swap_a2b<CoinA, CoinB>(
-    config: &GlobalConfig,
     pool: &mut Pool<CoinA, CoinB>,
-    partner: &mut Partner,
     coin_a: Coin<CoinA>,
+    version: &Version,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinB> {
@@ -35,10 +29,9 @@ public fun swap_a2b<CoinA, CoinB>(
 }
 
 public fun swap_b2a<CoinA, CoinB>(
-    config: &GlobalConfig,
     pool: &mut Pool<CoinA, CoinB>,
-    partner: &mut Partner,
     coin_b: Coin<CoinB>,
+    version: &Version,
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinA> {

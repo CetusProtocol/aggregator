@@ -2,16 +2,16 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// `Fill` struct represents the results of a match between two orders.
-#[allow(unused_field)]
+#[allow(unused_variable, unused_const, unused_use)]
 module deepbookv3::fill;
 
-use deepbookv3::balances::Balances;
+use deepbookv3::balances::{Self, Balances};
 use deepbookv3::deep_price::OrderDeepPrice;
 
 // === Structs ===
 /// Fill struct represents the results of a match between two orders.
 /// It is used to update the state.
-public struct Fill has store, drop, copy {
+public struct Fill has copy, drop, store {
     // ID of the maker order
     maker_order_id: u128,
     // Client Order ID of the maker order
@@ -48,67 +48,67 @@ public struct Fill has store, drop, copy {
 
 // === Public-View Functions ===
 public fun maker_order_id(self: &Fill): u128 {
-    self.maker_order_id
+    abort 0
 }
 
 public fun maker_client_order_id(self: &Fill): u64 {
-    self.maker_client_order_id
+    abort 0
 }
 
 public fun execution_price(self: &Fill): u64 {
-    self.execution_price
+    abort 0
 }
 
 public fun balance_manager_id(self: &Fill): ID {
-    self.balance_manager_id
+    abort 0
 }
 
 public fun expired(self: &Fill): bool {
-    self.expired
+    abort 0
 }
 
 public fun completed(self: &Fill): bool {
-    self.completed
+    abort 0
 }
 
 public fun original_maker_quantity(self: &Fill): u64 {
-    self.original_maker_quantity
+    abort 0
 }
 
 public fun base_quantity(self: &Fill): u64 {
-    self.base_quantity
+    abort 0
 }
 
 public fun taker_is_bid(self: &Fill): bool {
-    self.taker_is_bid
+    abort 0
 }
 
 public fun quote_quantity(self: &Fill): u64 {
-    self.quote_quantity
+    abort 0
 }
 
 public fun maker_epoch(self: &Fill): u64 {
-    self.maker_epoch
+    abort 0
 }
 
 public fun maker_deep_price(self: &Fill): OrderDeepPrice {
-    self.maker_deep_price
+    abort 0
 }
 
 public fun taker_fee(self: &Fill): u64 {
-    self.taker_fee
+    abort 0
 }
 
 public fun taker_fee_is_deep(self: &Fill): bool {
-    self.taker_fee_is_deep
+    abort 0
 }
 
 public fun maker_fee(self: &Fill): u64 {
-    self.maker_fee
+    abort 0
 }
 
 public fun maker_fee_is_deep(self: &Fill): bool {
-    self.maker_fee_is_deep
+    abort 0
 }
 
 // === Public-Package Functions ===
@@ -128,35 +128,18 @@ public(package) fun new(
     taker_fee_is_deep: bool,
     maker_fee_is_deep: bool,
 ): Fill {
-    Fill {
-        maker_order_id,
-        maker_client_order_id,
-        execution_price,
-        balance_manager_id,
-        expired,
-        completed,
-        original_maker_quantity,
-        base_quantity,
-        quote_quantity,
-        taker_is_bid,
-        maker_epoch,
-        maker_deep_price,
-        taker_fee: 0,
-        taker_fee_is_deep,
-        maker_fee: 0,
-        maker_fee_is_deep,
-    }
+    abort 0
 }
 
 /// Calculate the quantities to settle for the maker.
-public(package) fun get_settled_maker_quantities(_self: &Fill): Balances {
+public(package) fun get_settled_maker_quantities(self: &Fill): Balances {
     abort 0
 }
 
-public(package) fun set_fill_maker_fee(_self: &mut Fill, _fee: u64) {
+public(package) fun set_fill_maker_fee(self: &mut Fill, fee: &Balances) {
     abort 0
 }
 
-public(package) fun set_fill_taker_fee(_self: &mut Fill, _fee: u64) {
+public(package) fun set_fill_taker_fee(self: &mut Fill, fee: &Balances) {
     abort 0
 }

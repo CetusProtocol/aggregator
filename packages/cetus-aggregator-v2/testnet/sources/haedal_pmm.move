@@ -1,6 +1,6 @@
-module cetus_aggregator::haedal_pmm;
+module cetus_aggregator_v2::haedal_pmm;
 
-use cetus_aggregator::utils;
+use cetus_aggregator_v2::utils;
 use haedal_pmm::oracle_driven_pool::Pool;
 use haedal_pmm::trader::{sell_base_coin, sell_quote_coin};
 use pyth::price_info::PriceInfoObject;
@@ -9,7 +9,7 @@ use sui::clock::Clock;
 use sui::coin::{Self, Coin};
 use sui::event::emit;
 
-public struct HaedalPmmSwapEvent has copy, store, drop {
+public struct HaedalPmmSwapEvent has copy, drop, store {
     pool: ID,
     amount_in: u64,
     amount_out: u64,

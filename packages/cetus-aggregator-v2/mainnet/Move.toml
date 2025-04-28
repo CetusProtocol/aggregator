@@ -1,5 +1,5 @@
 [package]
-name = "CetusAggregator"
+name = "CetusAggregatorV2"
 version = "0.1.1"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
 published-at = "0x3864c7c59a4889fec05d1aae4bc9dba5a0e0940594b424fbed44cb3f6ac4c032"
@@ -25,4 +25,4 @@ Vsui = { local = "../../externals/vsui" }
 BlueMove = { local = "../../externals/bluemove" }
 
 [addresses]
-cetus_aggregator = "0xeffc8ae61f439bb34c9b905ff8f29ec56873dcedf81c7123ff2f1f67c45ec302"
+cetus_aggregator_v2 = "0xeffc8ae61f439bb34c9b905ff8f29ec56873dcedf81c7123ff2f1f67c45ec302"

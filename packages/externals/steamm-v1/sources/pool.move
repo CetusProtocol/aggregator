@@ -6,8 +6,6 @@ use steamm::quote::SwapFee;
 use steamm::version::Version;
 use sui::balance::{Balance, Supply};
 
-public use fun steamm::omm::swap as Pool.omm_swap;
-
 public struct Pool<phantom T0, phantom T1, T2: store, phantom T3: drop> has key, store {
     id: UID,
     quoter: T2,

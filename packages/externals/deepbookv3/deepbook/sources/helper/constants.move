@@ -1,8 +1,10 @@
-#[allow(unused_field)]
+// Copyright (c) Mysten Labs, Inc.
+// SPDX-License-Identifier: Apache-2.0
+#[allow(unused_variable, unused_const, unused_use)]
 module deepbookv3::constants;
 
-const CURRENT_VERSION: u64 = 1; // Update version during upgrades
-const POOL_CREATION_FEE: u64 = 0 * 1_000_000; // 0 DEEP
+const CURRENT_VERSION: u64 = 2; // Update version during upgrades
+const POOL_CREATION_FEE: u64 = 500 * 1_000_000; // 500 DEEP
 const FLOAT_SCALING: u64 = 1_000_000_000;
 const FLOAT_SCALING_U128: u128 = 1_000_000_000;
 const MAX_U64: u64 = ((1u128 << 64) - 1) as u64;
@@ -12,13 +14,16 @@ const MAX_PRICE: u64 = ((1u128 << 63) - 1) as u64;
 const DEFAULT_STAKE_REQUIRED: u64 = 100_000_000; // 100 DEEP
 const HALF: u64 = 500_000_000;
 const DEEP_UNIT: u64 = 1_000_000;
+const FEE_PENALTY_MULTIPLIER: u64 = 1_250_000_000; // 25% more than normal
 
 // Restrictions on limit orders.
 // No restriction on the order.
 const NO_RESTRICTION: u8 = 0;
-// Mandates that whatever amount of an order that can be executed in the current transaction, be filled and then the rest of the order canceled.
+// Mandates that whatever amount of an order that can be executed in the current
+// transaction, be filled and then the rest of the order canceled.
 const IMMEDIATE_OR_CANCEL: u8 = 1;
-// Mandates that the entire order size be filled in the current transaction. Otherwise, the order is canceled.
+// Mandates that the entire order size be filled in the current transaction.
+// Otherwise, the order is canceled.
 const FILL_OR_KILL: u8 = 2;
 // Mandates that the entire order be passive. Otherwise, cancel the order.
 const POST_ONLY: u8 = 3;
@@ -212,82 +217,6 @@ public fun max_fan_out(): u64 {
     MAX_FAN_OUT
 }
 
-#[test_only]
-public fun maker_fee(): u64 {
-    MAKER_FEE
-}
-
-#[test_only]
-public fun taker_fee(): u64 {
-    TAKER_FEE
-}
-
-#[test_only]
-public fun stable_maker_fee(): u64 {
-    STABLE_MAKER_FEE
-}
-
-#[test_only]
-public fun stable_taker_fee(): u64 {
-    STABLE_TAKER_FEE
-}
-
-#[test_only]
-public fun tick_size(): u64 {
-    TICK_SIZE
-}
-
-#[test_only]
-public fun lot_size(): u64 {
-    LOT_SIZE
-}
-
-#[test_only]
-public fun min_size(): u64 {
-    MIN_SIZE
-}
-
-#[test_only]
-public fun deep_multiplier(): u64 {
-    DEEP_MULTIPLIER
-}
-
-#[test_only]
-public fun taker_discount(): u64 {
-    TAKER_DISCOUNT
-}
-
-#[test_only]
-public fun e_order_info_mismatch(): u64 {
-    EOrderInfoMismatch
-}
-
-#[test_only]
-public fun e_fill_mismatch(): u64 {
-    EFillMismatch
-}
-
-#[test_only]
-public fun e_book_order_mismatch(): u64 {
-    EBookOrderMismatch
-}
-
-#[test_only]
-public fun e_incorrect_mid_price(): u64 {
-    EIncorrectMidPrice
-}
-
-#[test_only]
-public fun usdc_unit(): u64 {
-    USDC_UNIT
-}
-
-#[test_only]
-public fun sui_unit(): u64 {
-    SUI_UNIT
-}
-
-#[test_only]
-public fun e_incorrect_pool_id(): u64 {
-    EIncorrectPoolId
+public fun fee_penalty_multiplier(): u64 {
+    FEE_PENALTY_MULTIPLIER
 }

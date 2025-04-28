@@ -1,6 +1,6 @@
-module cetus_aggregator::deepbook;
+module cetus_aggregator_v2::deepbook;
 
-use cetus_aggregator::utils::transfer_or_destroy_coin;
+use cetus_aggregator_v2::utils::transfer_or_destroy_coin;
 use deepbook::clob_v2::{Self, Pool};
 use deepbook::custodian_v2::AccountCap;
 use std::type_name::{Self, TypeName};
@@ -10,7 +10,7 @@ use sui::event::emit;
 
 const CLIENT_ID_BOND: u64 = 0;
 
-public struct DeepbookSwapEvent has copy, store, drop {
+public struct DeepbookSwapEvent has copy, drop, store {
     pool: ID,
     amount_in: u64,
     amount_out: u64,

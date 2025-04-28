@@ -1,7 +1,7 @@
 [package]
 name = "Deepbookv3VaultsV2"
 version = "0.1.1"
-published-at = "0x79bd71317665179f4f6025df6c478d9ed47fd281c9335c4c51e1ba0996010519"
+published-at = "0x3dd6243c54c8bf3cc7e8b9489d7ba16e5fa2fa81f09fee5c2962f158b764cb20"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
 
 [dependencies]

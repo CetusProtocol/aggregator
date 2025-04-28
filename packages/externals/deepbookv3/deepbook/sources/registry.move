@@ -2,15 +2,24 @@
 // SPDX-License-Identifier: Apache-2.0
 
 /// Registry holds all created pools.
-#[allow(unused_field, unused_type_parameter)]
 module deepbookv3::registry;
 
 use deepbookv3::constants;
-use std::type_name::TypeName;
+use std::type_name::{Self, TypeName};
 use sui::bag::{Self, Bag};
+use sui::dynamic_field;
 use sui::vec_set::{Self, VecSet};
 use sui::versioned::{Self, Versioned};
 
+// === Errors ===
+const EPoolAlreadyExists: u64 = 1;
+const EPoolDoesNotExist: u64 = 2;
+const EPackageVersionNotEnabled: u64 = 3;
+const EVersionNotEnabled: u64 = 4;
+const EVersionAlreadyEnabled: u64 = 5;
+const ECannotDisableCurrentVersion: u64 = 6;
+const ECoinAlreadyWhitelisted: u64 = 7;
+const ECoinNotWhitelisted: u64 = 8;
 
 public struct REGISTRY has drop {}
 
@@ -36,83 +45,46 @@ public struct PoolKey has copy, drop, store {
     quote: TypeName,
 }
 
-fun init(_: REGISTRY, ctx: &mut TxContext) {
-    let registry_inner = RegistryInner {
-        allowed_versions: vec_set::singleton(constants::current_version()),
-        pools: bag::new(ctx),
-        treasury_address: ctx.sender(),
-    };
-    let registry = Registry {
-        id: object::new(ctx),
-        inner: versioned::create(
-            constants::current_version(),
-            registry_inner,
-            ctx,
-        ),
-    };
-    transfer::share_object(registry);
-    let admin = DeepbookAdminCap { id: object::new(ctx) };
-    transfer::public_transfer(admin, ctx.sender());
-}
+public struct StableCoinKey has copy, drop, store {}
 
 // === Public Admin Functions ===
 /// Sets the treasury address where the pool creation fees are sent
 /// By default, the treasury address is the publisher of the deepbook package
-// ... existing code ...
-
 public fun set_treasury_address(
-    _self: &mut Registry,
-    _treasury_address: address,
+    self: &mut Registry,
+    treasury_address: address,
     _cap: &DeepbookAdminCap,
 ) {
     abort 0
 }
 
-public fun enable_version(
-    _self: &mut Registry,
-    _version: u64,
-    _cap: &DeepbookAdminCap,
-) {
+/// Enables a package version
+/// Only Admin can enable a package version
+/// This function does not have version restrictions
+public fun enable_version(self: &mut Registry, version: u64, _cap: &DeepbookAdminCap) {
     abort 0
 }
 
-public fun disable_version(
-    _self: &mut Registry,
-    _version: u64,
-    _cap: &DeepbookAdminCap,
-) {
+/// Disables a package version
+/// Only Admin can disable a package version
+/// This function does not have version restrictions
+public fun disable_version(self: &mut Registry, version: u64, _cap: &DeepbookAdminCap) {
     abort 0
 }
 
-public(package) fun load_inner_mut(_self: &mut Registry): &mut RegistryInner {
+/// Adds a stablecoin to the whitelist
+/// Only Admin can add stablecoin
+public fun add_stablecoin<StableCoin>(self: &mut Registry, _cap: &DeepbookAdminCap) {
     abort 0
 }
 
-public(package) fun register_pool<BaseAsset, QuoteAsset>(
-    _self: &mut Registry,
-    _pool_id: ID,
-) {
+/// Removes a stablecoin from the whitelist
+/// Only Admin can remove stablecoin
+public fun remove_stablecoin<StableCoin>(self: &mut Registry, _cap: &DeepbookAdminCap) {
     abort 0
 }
 
-public(package) fun unregister_pool<BaseAsset, QuoteAsset>(
-    _self: &mut Registry,
-) {
-    abort 0
-}
-
-public(package) fun load_inner(_self: &Registry): &RegistryInner {
-    abort 0
-}
-
-public(package) fun get_pool_id<BaseAsset, QuoteAsset>(_self: &Registry): ID {
-    abort 0
-}
-
-public(package) fun treasury_address(_self: &Registry): address {
-    abort 0
-}
-
-public(package) fun allowed_versions(_self: &Registry): VecSet<u64> {
+/// Returns whether the given coin is whitelisted
+public fun is_stablecoin(self: &Registry, stable_type: TypeName): bool {
     abort 0
 }

@@ -1,6 +1,6 @@
-module cetus_aggregator::cetus;
+module cetus_aggregator_v2::cetus;
 
-use cetus_aggregator::utils::transfer_or_destroy_coin;
+use cetus_aggregator_v2::utils::transfer_or_destroy_coin;
 use cetus_clmm::config::GlobalConfig;
 use cetus_clmm::partner::Partner;
 use cetus_clmm::pool::{Self, Pool, FlashSwapReceipt};
@@ -14,7 +14,7 @@ use sui::event::emit;
 const DEFAULT_PARTNER_ID: address =
     @0x8e0b7668a79592f70fbfb1ae0aebaf9e2019a7049783b9a4b6fe7c6ae038b528;
 
-public struct CetusSwapEvent has copy, store, drop {
+public struct CetusSwapEvent has copy, drop, store {
     pool: ID,
     amount_in: u64,
     amount_out: u64,

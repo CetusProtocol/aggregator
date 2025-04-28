@@ -1,25 +1,42 @@
 // Copyright (c) Mysten Labs, Inc.
 // SPDX-License-Identifier: Apache-2.0
 
-/// Governance module handles the governance of the `Pool` that it's attached to.
+/// Governance module handles the governance of the `Pool` that it's attached
+/// to.
 /// Users with non zero stake can create proposals and vote on them. Winning
 /// proposals are used to set the trade parameters for the next epoch.
-#[allow(unused_field)]
+#[allow(unused_variable, unused_const, unused_use)]
 module deepbookv3::governance;
 
 use deepbookv3::constants;
 use deepbookv3::trade_params::{Self, TradeParams};
+use sui::event;
 use sui::vec_map::{Self, VecMap};
 
+// === Errors ===
+const EInvalidMakerFee: u64 = 1;
+const EInvalidTakerFee: u64 = 2;
+const EProposalDoesNotExist: u64 = 3;
+const EMaxProposalsReachedNotEnoughVotes: u64 = 4;
+const EWhitelistedPoolCannotChange: u64 = 5;
+
 // === Constants ===
-const MAX_TAKER_STABLE: u64 = 100000;
-const MAX_MAKER_STABLE: u64 = 50000;
-const MAX_TAKER_VOLATILE: u64 = 1000000;
-const MAX_MAKER_VOLATILE: u64 = 500000;
+const FEE_MULTIPLE: u64 = 1000; // 0.01 basis points
+const MIN_TAKER_STABLE: u64 = 10000; // 0.1 basis points
+const MAX_TAKER_STABLE: u64 = 100000; // 1 basis points
+const MIN_MAKER_STABLE: u64 = 0;
+const MAX_MAKER_STABLE: u64 = 50000; // 0.5 basis points
+const MIN_TAKER_VOLATILE: u64 = 100000; // 1 basis points
+const MAX_TAKER_VOLATILE: u64 = 1000000; // 10 basis points
+const MIN_MAKER_VOLATILE: u64 = 0;
+const MAX_MAKER_VOLATILE: u64 = 500000; // 5 basis points
+const MAX_PROPOSALS: u64 = 100;
+const VOTING_POWER_THRESHOLD: u64 = 100_000_000_000; // 100k deep
 
 // === Structs ===
-/// `Proposal` struct that holds the parameters of a proposal and its current total votes.
-public struct Proposal has store, drop, copy {
+/// `Proposal` struct that holds the parameters of a proposal and its current
+/// total votes.
+public struct Proposal has copy, drop, store {
     taker_fee: u64,
     maker_fee: u64,
     stake_required: u64,
@@ -53,122 +70,3 @@ public struct TradeParamsUpdateEvent has copy, drop {
     maker_fee: u64,
     stake_required: u64,
 }
-
-// === Public-Package Functions ===
-public(package) fun empty(stable_pool: bool, ctx: &TxContext): Governance {
-    let default_taker = if (stable_pool) {
-        MAX_TAKER_STABLE
-    } else {
-        MAX_TAKER_VOLATILE
-    };
-    let default_maker = if (stable_pool) {
-        MAX_MAKER_STABLE
-    } else {
-        MAX_MAKER_VOLATILE
-    };
-    Governance {
-        epoch: ctx.epoch(),
-        whitelisted: false,
-        stable: stable_pool,
-        proposals: vec_map::empty(),
-        trade_params: trade_params::new(
-            default_taker,
-            default_maker,
-            constants::default_stake_required(),
-        ),
-        next_trade_params: trade_params::new(
-            default_taker,
-            default_maker,
-            constants::default_stake_required(),
-        ),
-        voting_power: 0,
-        quorum: 0,
-    }
-}
-
-/// Whitelist a pool. This pool can be used as a DEEP reference price for
-/// other pools. This pool will have zero fees.
-// ... existing code ...
-
-public(package) fun set_whitelist(_self: &mut Governance, _whitelisted: bool) {
-    abort 0
-}
-
-public(package) fun whitelisted(_self: &Governance): bool {
-    abort 0
-}
-
-public(package) fun update(_self: &mut Governance, _ctx: &TxContext) {
-    abort 0
-}
-
-public(package) fun add_proposal(
-    _self: &mut Governance,
-    _taker_fee: u64,
-    _maker_fee: u64,
-    _stake_required: u64,
-    _stake_amount: u64,
-    _balance_manager_id: ID,
-) {
-    abort 0
-}
-
-public(package) fun adjust_vote(
-    _self: &mut Governance,
-    _from_proposal_id: Option<ID>,
-    _to_proposal_id: Option<ID>,
-    _stake_amount: u64,
-) {
-    abort 0
-}
-
-public(package) fun adjust_voting_power(
-    _self: &mut Governance,
-    _stake_before: u64,
-    _stake_after: u64,
-) {
-    abort 0
-}
-
-public(package) fun trade_params(_self: &Governance): TradeParams {
-    abort 0
-}
-
-
-// === Test Functions ===
-#[test_only]
-public fun voting_power(_self: &Governance): u64 {
-    abort 0
-}
-
-#[test_only]
-public fun stable(_self: &Governance): bool {
-    abort 0
-}
-
-#[test_only]
-public fun quorum(_self: &Governance): u64 {
-    abort 0
-}
-
-#[test_only]
-public fun proposals(_self: &Governance): VecMap<ID, Proposal> {
-    abort 0
-}
-
-#[test_only]
-public fun next_trade_params(_self: &Governance): TradeParams {
-    abort 0
-}
-
-#[test_only]
-public fun votes(_proposal: &Proposal): u64 {
-    abort 0
-}
-
-#[test_only]
-public fun params(_proposal: &Proposal): (u64, u64, u64) {
-    abort 0
-}
-
-// ... existing code ...

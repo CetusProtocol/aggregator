@@ -10,6 +10,7 @@ Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-fram
 Steamm = { local = "../externals/steamm", override = true }
 suilend = { local = "../externals/suilend/suilend", override = true }
 oracles = { local = "../externals/suilend/oracles", override = true }
+mmt_v3 = { git = "https://github.com/mmt-finance/mmt-contract-interface.git", subdir = "mmt_v3", rev = "mainnet", override = true }
 
 [addresses]
 cetus_aggregator_v2_extend_v2 = "0x368d13376443a8051b22b42a9125f6a3bc836422bb2d9c4a53984b8d6624c326"

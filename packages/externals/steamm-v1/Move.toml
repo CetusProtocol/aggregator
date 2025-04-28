@@ -2,7 +2,7 @@
 name = "Steamm"
 version = "0.1.1"
 edition = "2024.beta"
-published-at = "0xf0e2245d9351b94a6aca77c91a9a4b310508fee953a97667b4dee5f9d59ad025" #pre
+published-at = "0x4fb1cf45dffd6230305f1d269dd1816678cc8e3ba0b747a813a556921219f261" #pre
 
 [dependencies.Sui]
 git = "https://github.com/MystenLabs/sui.git"

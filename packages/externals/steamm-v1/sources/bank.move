@@ -45,25 +45,3 @@ public fun burn_btokens<LENGDING_MARKET, COIN, BCOIN>(
 ): Coin<COIN> {
     abort 0
 }
-
-public fun mint_btoken<LENGDING_MARKET, COIN, BCOIN>(
-    bank: &mut Bank<LENGDING_MARKET, COIN, BCOIN>,
-    lending_market: &LendingMarket<LENGDING_MARKET>,
-    coin_t: &mut Coin<COIN>,
-    coin_amount: u64,
-    clock: &Clock,
-    ctx: &mut TxContext,
-): Coin<BCOIN> {
-    abort 0
-}
-
-public fun burn_btoken<LENGDING_MARKET, COIN, BToken>(
-    bank: &mut Bank<LENGDING_MARKET, COIN, BToken>,
-    lending_market: &LendingMarket<LENGDING_MARKET>,
-    btokens: &mut Coin<BToken>,
-    mut btoken_amount: u64,
-    clock: &Clock,
-    ctx: &mut TxContext,
-): Coin<COIN> {
-    abort 0
-}

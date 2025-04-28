@@ -3,7 +3,7 @@
 name = "CetusAggregatorV2ExtendV1"
 version = "0.1.1"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae"
+published-at = "0xf1c574d526222c6ab4003b4d343a0ff0c3174a886ddd312ac72a8c26e39e644e"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.35.2", override = true }
@@ -19,7 +19,7 @@ BluefinSpot = { local = "../externals/bluefin", override = true }
 haedal_pmm = { local = "../externals/haedal-pmm", override = true }
 Pyth = { git = "https://github.com/pyth-network/pyth-crosschain.git", subdir = "target_chains/sui/contracts", rev = "sui-contract-mainnet", override = true }
 alphafi_liquid_staking = { local = "../externals/alphafi", override = true }
-Steamm = { local = "../externals/steamm", override = true }
+Steamm = { local = "../externals/steamm-v1", override = true }
 aftermath_mstable = { local = "../externals/metastable", override = true }
 obric = { local = "../externals/obric", override = true }
 Walrus = { local = "../externals/walrus/walrus", override = true }
@@ -27,4 +27,4 @@ WAL = { local = "../externals/walrus/wal", override = true }
 Hawal = { local = "../externals/hawal", override = true }
 
 [addresses]
-cetus_aggregator_v2_extend_v1 = "0x39402d188b7231036e52266ebafad14413b4bf3daea4ac17115989444e6cd516"
+cetus_aggregator_v2_extend_v1 = "0x43811be4677f5a5de7bf2dac740c10abddfaa524aee6b18e910eeadda8a2f6ae"
