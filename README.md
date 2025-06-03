@@ -44,7 +44,7 @@ npm install @cetusprotocol/aggregator-sdk
 ### 1. Init client with rpc and package config
 
 ```typescript
-const client = new AggregatorClient()
+const client = new AggregatorClient({})
 ```
 
 ### 2. Get best router swap result from aggregator service
