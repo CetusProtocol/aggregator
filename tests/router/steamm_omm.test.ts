@@ -64,7 +64,7 @@ describe("Test steammfe module", () => {
         byAmountIn: true,
         depth: 3,
         splitCount: 1,
-        providers: ["STEAMM"],
+        providers: ["STEAMM_OMM"],
       })
 
       if (res != null) {
@@ -84,7 +84,7 @@ describe("Test steammfe module", () => {
       amount: new BN(amount),
       byAmountIn: true,
       depth: 3,
-      providers: ["STEAMM"],
+      providers: ["STEAMM_OMM"],
     })
 
     console.log("amount in", res?.amountIn.toString())
@@ -117,12 +117,12 @@ describe("Test steammfe module", () => {
         console.log("event", JSON.stringify(event, null, 2))
       }
 
-      // if (result.effects.status.status === "success") {
-      //   const result = await client.signAndExecuteTransaction(txb, keypair)
-      //   console.log("result", result)
-      // } else {
-      //   console.log("result", result)
-      // }
+      if (result.effects.status.status === "success") {
+        const result = await client.signAndExecuteTransaction(txb, keypair)
+        console.log("result", result)
+      } else {
+        console.log("result", result)
+      }
     }
   }, 600000)
 })

@@ -17,12 +17,15 @@ export function buildTestAccount(): Ed25519Keypair {
   return testAccountObject
 }
 
-describe("Test steammfe module", () => {
+describe("Test scallop provider", () => {
   let client: AggregatorClient
   let keypair: Ed25519Keypair
 
-  const T_WAL = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL"
+  const T_HASUI = "0xbde4ba4c2e274a60ce15c1cfff9e5c42e41654ac8b6d906a57efa4bd3c29f47d::hasui::HASUI"
+  const T_SHASUI = "0x9a2376943f7d22f88087c259c5889925f332ca4347e669dc37d54c2bf651af3c::scallop_ha_sui::SCALLOP_HA_SUI"
+  
   const T_SUI = "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+  const T_SSUI  = "0xaafc4f740de0dd0dde642a31148fb94517087052f19afb0f7bed1dc41a50c77b::scallop_sui::SCALLOP_SUI"
 
   beforeAll(() => {
     const fullNodeURL = process.env.SUI_RPC!
@@ -54,17 +57,17 @@ describe("Test steammfe module", () => {
   })
 
   test("Find Routers", async () => {
-    const amounts = ["1000", "1000000", "100000000", "5000000000", "10000000000000"]
+    const amounts = ["1000", "1000000", "100000000", "5000000000", "1000000000000000000000000000"]
     
-    for (const amount of amounts) {
+    while (true) {
       const res = await client.findRouters({
-        from: T_WAL,
-        target: T_SUI,
-        amount: new BN(amount),
+        from: T_SUI,
+        target: T_SSUI,
+        amount: new BN("1000000000000000000000000000"),
         byAmountIn: true,
         depth: 3,
         splitCount: 1,
-        providers: ["STEAMM"],
+        providers: ["SCALLOP"],
       })
 
       if (res != null) {
@@ -73,18 +76,18 @@ describe("Test steammfe module", () => {
       console.log("amount in", res?.amountIn.toString())
       console.log("amount out", res?.amountOut.toString())
     }
-  })
+  }, 6000000)
 
   test("Build Router TX", async () => {
-    const amount = "100000000"
+    const amount = "10000000"
 
     const res = await client.findRouters({
-      from: T_WAL,
-      target: T_SUI,
+      from: T_HASUI,
+      target: T_SHASUI,
       amount: new BN(amount),
       byAmountIn: true,
       depth: 3,
-      providers: ["STEAMM"],
+      providers: ["SCALLOP"],
     })
 
     console.log("amount in", res?.amountIn.toString())
@@ -102,14 +105,13 @@ describe("Test steammfe module", () => {
         payDeepFeeAmount: 0,
       })
 
-      printTransaction(txb)
-
       txb.setSender(client.signer)
       const buildTxb = await txb.build({ client: client.client })
       // const buildTxb = await txb.getData()
       
       console.log("buildTxb", buildTxb)
 
+      printTransaction(txb)
 
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result)
@@ -117,12 +119,12 @@ describe("Test steammfe module", () => {
         console.log("event", JSON.stringify(event, null, 2))
       }
 
-      // if (result.effects.status.status === "success") {
-      //   const result = await client.signAndExecuteTransaction(txb, keypair)
-      //   console.log("result", result)
-      // } else {
-      //   console.log("result", result)
-      // }
+      if (result.effects.status.status === "success") {
+        const result = await client.signAndExecuteTransaction(txb, keypair)
+        console.log("result", result)
+      } else {
+        console.log("result", result)
+      }
     }
   }, 600000)
 })

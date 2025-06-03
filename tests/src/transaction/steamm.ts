@@ -2,9 +2,9 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2Extend2PublishedAt, Path } from ".."
+import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2ExtendPublishedAt, Path } from ".."
 
-export class SteammCPMM implements Dex {
+export class Steamm implements Dex {
   constructor(env: Env) {
     if (env !== Env.Mainnet) {
       throw new Error("Steamm only supported on mainnet")
@@ -21,8 +21,8 @@ export class SteammCPMM implements Dex {
     const { direction, from, target } = path
 
     const [func, coinAType, coinBType] = direction
-      ? ["swap_a2b_v2", from, target]
-      : ["swap_b2a_v2", target, from]
+      ? ["swap_a2b", from, target]
+      : ["swap_b2a", target, from]
 
     if (path.extendedDetails == null) {
       throw new Error("Extended details not supported")
@@ -58,9 +58,9 @@ export class SteammCPMM implements Dex {
       inputCoin,
       txb.object(CLOCK_ADDRESS),
     ]
-    const publishedAt = getAggregatorV2Extend2PublishedAt(client.publishedAtV2Extend2(), packages)
+    const publishedAt = getAggregatorV2ExtendPublishedAt(client.publishedAtV2Extend(), packages)
     const res = txb.moveCall({
-      target: `${publishedAt}::steamm_cpmm::${func}`,
+      target: `${publishedAt}::steammfe::${func}`,
       typeArguments: [
         path.extendedDetails.steammLendingMarketType,
         coinAType, 

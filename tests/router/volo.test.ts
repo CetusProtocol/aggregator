@@ -17,12 +17,12 @@ export function buildTestAccount(): Ed25519Keypair {
   return testAccountObject
 }
 
-describe("Test steammfe module", () => {
+describe("Test volo provider", () => {
   let client: AggregatorClient
   let keypair: Ed25519Keypair
 
-  const T_WAL = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL"
   const T_SUI = "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+  const T_VSUI = "0x549e8b69270defbfafd4f94e17ec44cdbdd99820b33bda2278dea3b9a32d3f55::cert::CERT"
 
   beforeAll(() => {
     const fullNodeURL = process.env.SUI_RPC!
@@ -43,28 +43,29 @@ describe("Test steammfe module", () => {
     const suiClient = new SuiClient({
       url: fullNodeURL,
     })
-
     client = new AggregatorClient({
       endpoint,
       signer: wallet,
       client: suiClient,
       env: Env.Mainnet,
       pythUrls: ["https://cetus-pythnet-a648.mainnet.pythnet.rpcpool.com/219cf7a8-6d75-432d-a648-d487a6dd5dc3/hermes"],
+      overlayFeeRate: 0.01,
+      overlayFeeReceiver: "0xa6c8f6e7058442e5a05778d46b721c12b5b930e0859717e05eed1b275bbafc2e",
     })
   })
 
-  test("Find Routers", async () => {
-    const amounts = ["1000", "1000000", "100000000", "5000000000", "10000000000000"]
+  test("Find Routers --> SUI -> VSUI, locked", async () => {
+    const amounts = ["2000000000"]
     
     for (const amount of amounts) {
       const res = await client.findRouters({
-        from: T_WAL,
+        from: T_VSUI,
         target: T_SUI,
         amount: new BN(amount),
         byAmountIn: true,
         depth: 3,
         splitCount: 1,
-        providers: ["STEAMM"],
+        providers: ["VOLO"],
       })
 
       if (res != null) {
@@ -72,19 +73,42 @@ describe("Test steammfe module", () => {
       }
       console.log("amount in", res?.amountIn.toString())
       console.log("amount out", res?.amountOut.toString())
+
+      const txb = new Transaction()
+
+      if (res != null) {
+        console.log(JSON.stringify(res, null, 2))
+        await client.fastRouterSwap({
+          routers: res,
+          txb,
+          slippage: 0.01,
+          refreshAllCoins: true,
+          payDeepFeeAmount: 0,
+        })
+  
+        printTransaction(txb)
+
+        txb.setSender(client.signer)
+
+        let result = await client.devInspectTransactionBlock(txb)
+        console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result.results)
+        for (const event of result.events) {
+          console.log("event", JSON.stringify(event, null, 2))
+        }
+      }
     }
-  })
+  }, 50000)
 
   test("Build Router TX", async () => {
-    const amount = "100000000"
+    const amount = "1000000"
 
     const res = await client.findRouters({
-      from: T_WAL,
-      target: T_SUI,
+      from: T_SUI,
+      target: T_VSUI,
       amount: new BN(amount),
-      byAmountIn: true,
+      byAmountIn: false,
       depth: 3,
-      providers: ["STEAMM"],
+      providers: ["VOLO"],
     })
 
     console.log("amount in", res?.amountIn.toString())
@@ -102,14 +126,12 @@ describe("Test steammfe module", () => {
         payDeepFeeAmount: 0,
       })
 
-      printTransaction(txb)
-
       txb.setSender(client.signer)
+      printTransaction(txb)
       const buildTxb = await txb.build({ client: client.client })
       // const buildTxb = await txb.getData()
-      
-      console.log("buildTxb", buildTxb)
 
+      console.log("buildTxb", buildTxb)
 
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result)
@@ -117,12 +139,12 @@ describe("Test steammfe module", () => {
         console.log("event", JSON.stringify(event, null, 2))
       }
 
-      // if (result.effects.status.status === "success") {
-      //   const result = await client.signAndExecuteTransaction(txb, keypair)
-      //   console.log("result", result)
-      // } else {
-      //   console.log("result", result)
-      // }
+      if (result.effects.status.status === "success") {
+        const result = await client.signAndExecuteTransaction(txb, keypair)
+        console.log("result", result)
+      } else {
+        console.log("result", result)
+      }
     }
   }, 600000)
 })

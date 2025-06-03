@@ -17,12 +17,15 @@ export function buildTestAccount(): Ed25519Keypair {
   return testAccountObject
 }
 
-describe("Test steammfe module", () => {
+describe("Test momentum module", () => {
   let client: AggregatorClient
   let keypair: Ed25519Keypair
 
+  const T_STSUI = "0xd1b72982e40348d069bb1ff701e634c117bb5f741f44dff91e472d3b01461e55::stsui::STSUI"
+  const T_ALPHA = "0xfe3afec26c59e874f3c1d60b8203cb3852d2bb2aa415df9548b8d688e6683f93::alpha::ALPHA"
   const T_WAL = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL"
   const T_SUI = "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+  const T_USDC = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC"
 
   beforeAll(() => {
     const fullNodeURL = process.env.SUI_RPC!
@@ -64,7 +67,7 @@ describe("Test steammfe module", () => {
         byAmountIn: true,
         depth: 3,
         splitCount: 1,
-        providers: ["STEAMM"],
+        providers: ["MOMENTUM"],
       })
 
       if (res != null) {
@@ -76,15 +79,16 @@ describe("Test steammfe module", () => {
   })
 
   test("Build Router TX", async () => {
-    const amount = "100000000"
+    const amount = "10000000000"
 
     const res = await client.findRouters({
-      from: T_WAL,
-      target: T_SUI,
+      from: T_STSUI,
+      target: T_ALPHA,
       amount: new BN(amount),
       byAmountIn: true,
-      depth: 3,
-      providers: ["STEAMM"],
+      depth: 1,
+      splitCount: 1,
+      providers: ["MOMENTUM"],
     })
 
     console.log("amount in", res?.amountIn.toString())
@@ -117,12 +121,12 @@ describe("Test steammfe module", () => {
         console.log("event", JSON.stringify(event, null, 2))
       }
 
-      // if (result.effects.status.status === "success") {
-      //   const result = await client.signAndExecuteTransaction(txb, keypair)
-      //   console.log("result", result)
-      // } else {
-      //   console.log("result", result)
-      // }
+      if (result.effects.status.status === "success") {
+        const result = await client.signAndExecuteTransaction(txb, keypair)
+        console.log("result", result)
+      } else {
+        console.log("result", result)
+      }
     }
   }, 600000)
 })

@@ -8,8 +8,6 @@ import {
 } from "./errors"
 import { parseRouterResponse } from "./client"
 
-const SDK_VERSION = 1001101
-
 export interface FindRouterParams {
   from: string
   target: string
@@ -53,22 +51,6 @@ export type ExtendedDetails = {
   steammBCoinAType?: string
   steammBCoinBType?: string
   steammLPToken?: string
-  steammOracleRegistryId?: string
-  steammOraclePythPriceSeedA?: string
-  steammOraclePythPriceSeedB?: string
-  steammOracleIndexA?: number
-  steammOracleIndexB?: number
-  metastablePriceSeed?: string
-  metastableETHPriceSeed?: string
-  metastableWhitelistedAppId?: string
-  metastableCreateCapPkgId?: string
-  metastableCreateCapModule?: string
-  metastableCreateCapAllTypeParams?: boolean
-  metastableRegistryId?: string
-  obricCoinAPriceSeed?: string
-  obricCoinBPriceSeed?: string
-  obricCoinAPriceId?: string
-  obricCoinBPriceId?: string
 }
 
 export type Path = {
@@ -105,7 +87,6 @@ export type RouterData = {
   packages?: Map<string, string>
   totalDeepFee?: number
   error?: RouterError
-  overlayFee?: number
 }
 
 export type AggregatorResponse = {
@@ -116,16 +97,13 @@ export type AggregatorResponse = {
 
 export async function getRouterResult(
   endpoint: string,
-  apiKey: string,
-  params: FindRouterParams,
-  overlayFee: number,
-  overlayFeeReceiver: string
+  params: FindRouterParams
 ): Promise<RouterData | null> {
   let response
   if (params.liquidityChanges && params.liquidityChanges.length > 0) {
     response = await postRouterWithLiquidityChanges(endpoint, params)
   } else {
-    response = await getRouter(endpoint, apiKey, params)
+    response = await getRouter(endpoint, params)
   }
 
   if (!response) {
@@ -133,11 +111,6 @@ export async function getRouterResult(
   }
 
   if (!response.ok) {
-    let errorCode = AggregatorServerErrorCode.NumberTooLarge
-    if (response.status === 429) {
-      errorCode = AggregatorServerErrorCode.RateLimitExceeded
-    }
-
     return {
       amountIn: ZERO,
       amountOut: ZERO,
@@ -145,8 +118,10 @@ export async function getRouterResult(
       byAmountIn: params.byAmountIn,
       insufficientLiquidity: false,
       error: {
-        code: errorCode,
-        msg: getAggregatorServerErrorMessage(errorCode),
+        code: AggregatorServerErrorCode.NumberTooLarge,
+        msg: getAggregatorServerErrorMessage(
+          AggregatorServerErrorCode.NumberTooLarge
+        ),
       },
     }
   }
@@ -169,22 +144,8 @@ export async function getRouterResult(
     }
   }
   if (data.data != null) {
+    console.log("data.data", JSON.stringify(data.data, null, 2))
     const res = parseRouterResponse(data.data, params.byAmountIn)
-    if (overlayFee > 0 && overlayFeeReceiver !== "0x0") {
-      if (params.byAmountIn) {
-        const overlayFeeAmount = res.amountOut
-          .mul(new BN(overlayFee))
-          .div(new BN(1000000))
-        res.overlayFee = Number(overlayFeeAmount.toString())
-        res.amountOut = res.amountOut.sub(overlayFeeAmount)
-      } else {
-        const overlayFeeAmount = res.amountIn
-          .mul(new BN(overlayFee))
-          .div(new BN(1000000))
-        res.overlayFee = Number(overlayFeeAmount.toString())
-        res.amountIn = res.amountIn.add(overlayFeeAmount)
-      }
-    }
     return res
   }
 
@@ -203,11 +164,7 @@ export async function getRouterResult(
   }
 }
 
-async function getRouter(
-  endpoint: string,
-  apiKey: string,
-  params: FindRouterParams
-) {
+async function getRouter(endpoint: string, params: FindRouterParams) {
   try {
     const {
       from,
@@ -247,12 +204,8 @@ async function getRouter(
       }
     }
 
-    if (apiKey.length > 0) {
-      url += `&apiKey=${apiKey}`
-    }
-
     // set newest sdk version
-    url += `&v=${SDK_VERSION}`
+    url += "&v=1000327"
 
     const response = await fetch(url)
     return response
@@ -299,7 +252,6 @@ async function postRouterWithLiquidityChanges(
       tick_upper: change.tickUpper,
       delta_liquidity: change.deltaLiquidity,
     })),
-    v: SDK_VERSION,
   }
 
   try {

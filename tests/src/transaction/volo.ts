@@ -2,10 +2,10 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorClient, Dex, Env, getAggregatorV2Extend2PublishedAt, Path } from ".."
+import { AggregatorClient, Dex, Env, getAggregatorV2PublishedAt, Path } from ".."
 
 export class Volo implements Dex {
-  private stakePool: string
+  private nativePool: string
   private metadata: string
 
   constructor(env: Env) {
@@ -13,8 +13,8 @@ export class Volo implements Dex {
       throw new Error("Volo only supported on mainnet")
     }
 
-    this.stakePool =
-      "0x2d914e23d82fedef1b5f56a32d5c64bdcc3087ccfea2b4d6ea51a71f587840e5"
+    this.nativePool =
+      "0x7fa2faa111b8c65bea48a23049bfd81ca8f971a262d981dcd9a17c3825cb5baf"
     this.metadata =
       "0x680cd26af32b2bde8d3361e804c53ec1d1cfe24c7f039eb7f549e8dfde389a60"
   }
@@ -28,16 +28,20 @@ export class Volo implements Dex {
   ): Promise<TransactionObjectArgument> {
     const { direction } = path
 
-    const func = direction ? "swap_a2b" : "swap_b2a"
+    if (!direction) {
+      throw new Error("Volo not support b2a swap")
+    }
+
+    const func = "swap_a2b"
 
     const args = [
-      txb.object(this.stakePool),
+      txb.object(this.nativePool),
       txb.object(this.metadata),
       txb.object("0x5"),
       inputCoin,
     ]
 
-    const publishedAt = getAggregatorV2Extend2PublishedAt(client.publishedAtV2Extend2(), packages)
+    const publishedAt = getAggregatorV2PublishedAt(client.publishedAtV2(), packages)
     const res = txb.moveCall({
       target: `${publishedAt}::volo::${func}`,
       typeArguments: [],

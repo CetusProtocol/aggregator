@@ -23,6 +23,7 @@ describe("Test steammfe module", () => {
 
   const T_WAL = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL"
   const T_SUI = "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+  const T_USDC = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC"
 
   beforeAll(() => {
     const fullNodeURL = process.env.SUI_RPC!
@@ -76,10 +77,10 @@ describe("Test steammfe module", () => {
   })
 
   test("Build Router TX", async () => {
-    const amount = "100000000"
+    const amount = "1000000"
 
     const res = await client.findRouters({
-      from: T_WAL,
+      from: T_USDC,
       target: T_SUI,
       amount: new BN(amount),
       byAmountIn: true,
@@ -117,12 +118,12 @@ describe("Test steammfe module", () => {
         console.log("event", JSON.stringify(event, null, 2))
       }
 
-      // if (result.effects.status.status === "success") {
-      //   const result = await client.signAndExecuteTransaction(txb, keypair)
-      //   console.log("result", result)
-      // } else {
-      //   console.log("result", result)
-      // }
+      if (result.effects.status.status === "success") {
+        const result = await client.signAndExecuteTransaction(txb, keypair)
+        console.log("result", result)
+      } else {
+        console.log("result", result)
+      }
     }
   }, 600000)
 })

@@ -4,14 +4,14 @@ import {
 } from "@mysten/sui/transactions"
 import { AggregatorClient, CLOCK_ADDRESS, Dex, Env, getAggregatorV2Extend2PublishedAt, Path } from ".."
 
-export class SteammOmm implements Dex {
+export class SteammOmmV2 implements Dex {
   private pythPriceIDs: Map<string, string>
 
   private oraclePackageId: string
 
   constructor(env: Env, pythPriceIDs: Map<string, string>) {
     if (env !== Env.Mainnet) {
-      throw new Error("Steamm omm only supported on mainnet")
+      throw new Error("Steamm omm v2 only supported on mainnet")
     }
     this.pythPriceIDs = pythPriceIDs
     this.oraclePackageId = "0xe84b649199654d18c38e727212f5d8dacfc3cf78d60d0a7fc85fd589f280eb2b"
@@ -68,8 +68,8 @@ export class SteammOmm implements Dex {
     }
 
     const [func, coinAType, coinBType] = direction
-      ? ["swap_a2b_v2", from, target]
-      : ["swap_b2a_v2", target, from]
+      ? ["swap_a2b", from, target]
+      : ["swap_b2a", target, from]
 
     const priceSeedA = path.extendedDetails.steammOraclePythPriceSeedA
     const priceSeedB = path.extendedDetails.steammOraclePythPriceSeedB
@@ -113,7 +113,7 @@ export class SteammOmm implements Dex {
     ]
     const publishedAt = getAggregatorV2Extend2PublishedAt(client.publishedAtV2Extend2(), packages)
     const res = txb.moveCall({
-      target: `${publishedAt}::steamm_omm::${func}`,
+      target: `${publishedAt}::steamm_omm_v2::${func}`,
       typeArguments: [
         path.extendedDetails.steammLendingMarketType,
         coinAType, 

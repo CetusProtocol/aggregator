@@ -7,7 +7,7 @@ import { printTransaction } from "~/utils/transaction"
 import BN from "bn.js"
 import { fromB64 } from "@mysten/sui/utils"
 import { SuiClient } from "@mysten/sui/client"
-import { Env } from "~/index"
+import { Env, getAllProviders, getProvidersExcluding } from "~/index"
 import { Transaction } from "@mysten/sui/transactions"
 
 dotenv.config()
@@ -35,6 +35,7 @@ describe("router module", () => {
 
     const wallet = keypair.getPublicKey().toSuiAddress()
 
+    // const wallet = "0x53e1ce2a16c5bd6ca586c58576d7f1245bedb9c83686ea46f67b4720fb5bf712"
     console.log("wallet: ", wallet)
 
     const endpoint = aggregatorURL
@@ -43,11 +44,17 @@ describe("router module", () => {
       url: fullNodeURL,
     })
 
-    client = new AggregatorClient(endpoint, wallet, suiClient, Env.Mainnet)
+    client = new AggregatorClient({
+      endpoint,
+      signer: wallet,
+      client: suiClient,
+      env: Env.Mainnet,
+      pythUrls: ["https://cetus-pythnet-a648.mainnet.pythnet.rpcpool.com/219cf7a8-6d75-432d-a648-d487a6dd5dc3/hermes"],
+    })
   })
 
   test("Get coins", () => {
-    return client.getCoins(testData.M_wUSDC).then((coins) => {
+    return client.getCoins(testData.M_USDC).then((coins) => {
       console.log(coins)
     })
   })
@@ -97,7 +104,7 @@ describe("router module", () => {
       byAmountIn: true,
       depth: 3,
       splitCount: 1,
-      providers: ["CETUS"],
+      providers: getProvidersExcluding(["CETUS"]),
     })
 
     if (res != null) {
@@ -108,20 +115,20 @@ describe("router module", () => {
   })
 
   test("Build router tx", async () => {
-    const byAmountIn = true
-    const amount = "100000"
+    const byAmountIn = false
+    const amount = "20000000"
     const from =
-      "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC"
-    const target = "0x2::sui::SUI"
+      "0x2::sui::SUI"
+    const target = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC"
 
     const res = await client.findRouters({
       from,
       target,
       amount: new BN(amount),
       byAmountIn,
-      depth: 3,
+      depth: 1,
       providers: ["CETUS"],
-      splitCount: 1,
+      splitCount: 2,
     })
 
     if (res != null) {
@@ -147,12 +154,12 @@ describe("router module", () => {
 
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result)
-      for (const event of result.events) {
-        console.log("event", JSON.stringify(event, null, 2))
-      }
+      // for (const event of result.events) {
+      //   console.log("event", JSON.stringify(event, null, 2))
+      // }
 
       if (result.effects.status.status === "success") {
-        // console.log("Sim exec transaction success")
+        console.log("Sim exec transaction success")
         const result = await client.signAndExecuteTransaction(txb, keypair)
         console.log("result", result)
       } else {
@@ -370,4 +377,12 @@ describe("router module", () => {
     console.log("amount in", res?.amountIn.toString())
     console.log("amount out", res?.amountOut.toString())
   })
+
+  test("All providers", async () => {
+    const providers = getAllProviders()
+    console.log("providers", providers)
+    
+    const providersExcept = getProvidersExcluding(["CETUS"])
+    console.log("providersExcept", providersExcept)
+  }, 60000)
 })

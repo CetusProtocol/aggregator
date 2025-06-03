@@ -17,12 +17,12 @@ export function buildTestAccount(): Ed25519Keypair {
   return testAccountObject
 }
 
-describe("Test steammfe module", () => {
+describe("Test hawal provider", () => {
   let client: AggregatorClient
   let keypair: Ed25519Keypair
 
-  const T_WAL = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL"
-  const T_SUI = "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+  const T_HAWAL = "0x8b4d553839b219c3fd47608a0cc3d5fcc572cb25d41b7df3833208586a8d2470::hawal::HAWAL"
+  const T_WAL  = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL"
 
   beforeAll(() => {
     const fullNodeURL = process.env.SUI_RPC!
@@ -34,8 +34,9 @@ describe("Test steammfe module", () => {
     } else {
       keypair = buildTestAccount()
     }
+    console.log("keypair wallet: ", keypair.getPublicKey().toSuiAddress().toString())
 
-    const wallet = keypair.getPublicKey().toSuiAddress()
+    const wallet =keypair.getPublicKey().toSuiAddress()
     console.log("wallet: ", wallet)
 
     const endpoint = aggregatorURL
@@ -50,21 +51,25 @@ describe("Test steammfe module", () => {
       client: suiClient,
       env: Env.Mainnet,
       pythUrls: ["https://cetus-pythnet-a648.mainnet.pythnet.rpcpool.com/219cf7a8-6d75-432d-a648-d487a6dd5dc3/hermes"],
+      apiKey: "8MJDUzLDPJxCgbc7I0bHXSg994mVfh8NRMqV6hcQ",
+      overlayFeeRate: 0.01,
+      overlayFeeReceiver: "0xa6c8f6e7058442e5a05778d46b721c12b5b930e0859717e05eed1b275bbafc2e",
     })
   })
 
   test("Find Routers", async () => {
-    const amounts = ["1000", "1000000", "100000000", "5000000000", "10000000000000"]
+    const amounts = ["100000000", "1000000000", "5000000000", "10000000000000"]
     
-    for (const amount of amounts) {
+    let i = 0
+    while (i < amounts.length) {
       const res = await client.findRouters({
         from: T_WAL,
-        target: T_SUI,
-        amount: new BN(amount),
+        target: T_HAWAL,
+        amount: new BN(amounts[i]),
         byAmountIn: true,
         depth: 3,
         splitCount: 1,
-        providers: ["STEAMM"],
+        providers: ["HAWAL"],
       })
 
       if (res != null) {
@@ -72,19 +77,21 @@ describe("Test steammfe module", () => {
       }
       console.log("amount in", res?.amountIn.toString())
       console.log("amount out", res?.amountOut.toString())
+      i++
     }
-  })
+  }, 6000000)
 
   test("Build Router TX", async () => {
-    const amount = "100000000"
+    const amount = "1000000000"
 
     const res = await client.findRouters({
       from: T_WAL,
-      target: T_SUI,
+      target: T_HAWAL,
       amount: new BN(amount),
       byAmountIn: true,
       depth: 3,
-      providers: ["STEAMM"],
+      splitCount: 2,
+      providers: ["HAWAL"],
     })
 
     console.log("amount in", res?.amountIn.toString())
@@ -97,12 +104,10 @@ describe("Test steammfe module", () => {
       await client.fastRouterSwap({
         routers: res,
         txb,
-        slippage: 0.01,
+        slippage: 0.02,
         refreshAllCoins: true,
-        payDeepFeeAmount: 0,
+        payDeepFeeAmount: 0
       })
-
-      printTransaction(txb)
 
       txb.setSender(client.signer)
       const buildTxb = await txb.build({ client: client.client })
@@ -110,6 +115,7 @@ describe("Test steammfe module", () => {
       
       console.log("buildTxb", buildTxb)
 
+      printTransaction(txb)
 
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result)
@@ -117,12 +123,12 @@ describe("Test steammfe module", () => {
         console.log("event", JSON.stringify(event, null, 2))
       }
 
-      // if (result.effects.status.status === "success") {
-      //   const result = await client.signAndExecuteTransaction(txb, keypair)
-      //   console.log("result", result)
-      // } else {
-      //   console.log("result", result)
-      // }
+      if (result.effects.status.status === "success") {
+        const result = await client.signAndExecuteTransaction(txb, keypair)
+        console.log("result", result)
+      } else {
+        console.log("result", result)
+      }
     }
   }, 600000)
 })
