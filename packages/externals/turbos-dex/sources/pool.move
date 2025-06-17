@@ -41,4 +41,8 @@ module turbos_dex::pool {
         reward_infos: vector<PoolRewardInfo>,
         reward_last_updated_time_ms: u64,
     }
+
+    public fun check_version(arg0: &Versioned) {
+        abort 0
+    }
 }
