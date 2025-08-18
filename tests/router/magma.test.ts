@@ -21,9 +21,12 @@ describe("Test magma module", () => {
   let client: AggregatorClient
   let keypair: Ed25519Keypair
 
-  const T_WAL = "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL"
-  const T_SUI = "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
-  const T_USDC = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC"
+  const T_WAL =
+    "0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59::wal::WAL"
+  const T_SUI =
+    "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+  const T_USDC =
+    "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC"
 
   beforeAll(() => {
     const fullNodeURL = process.env.SUI_RPC!
@@ -50,13 +53,21 @@ describe("Test magma module", () => {
       signer: wallet,
       client: suiClient,
       env: Env.Mainnet,
-      pythUrls: ["https://cetus-pythnet-a648.mainnet.pythnet.rpcpool.com/219cf7a8-6d75-432d-a648-d487a6dd5dc3/hermes"],
+      pythUrls: [
+        "https://cetus-pythnet-a648.mainnet.pythnet.rpcpool.com/219cf7a8-6d75-432d-a648-d487a6dd5dc3/hermes",
+      ],
     })
   })
 
   test("Find Routers", async () => {
-    const amounts = ["1000", "1000000", "100000000", "5000000000", "10000000000000"]
-    
+    const amounts = [
+      "1000",
+      "1000000",
+      "100000000",
+      "5000000000",
+      "10000000000000",
+    ]
+
     for (const amount of amounts) {
       const res = await client.findRouters({
         from: T_WAL,
@@ -108,9 +119,8 @@ describe("Test magma module", () => {
       txb.setSender(client.signer)
       const buildTxb = await txb.build({ client: client.client })
       // const buildTxb = await txb.getData()
-      
-      console.log("buildTxb", buildTxb)
 
+      console.log("buildTxb", buildTxb)
 
       let result = await client.devInspectTransactionBlock(txb)
       console.log("🚀 ~ file: router.test.ts:180 ~ test ~ result:", result)
