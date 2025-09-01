@@ -1,0 +1,43 @@
+import { describe, test, beforeAll, expect } from "@jest/globals"
+import { AggregatorClient } from "~/index"
+import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
+import { setupTestClient, testDexRouter, testData } from "./setup"
+
+describe("MOMENTUM Router", () => {
+  let client: AggregatorClient
+  let keypair: Ed25519Keypair
+
+  beforeAll(async () => {
+    const setup = await setupTestClient()
+    client = setup.client
+    keypair = setup.keypair
+  })
+
+  test("MOMENTUM router - find and swap a2b", async () => {
+    const setup = await setupTestClient(testData.M_AUSD)
+    client = setup.client
+    keypair = setup.keypair
+    await testDexRouter(
+      client,
+      "MOMENTUM",
+      testData.M_AUSD,
+      testData.M_SUI,
+      "1000000000",
+      false
+    )
+  }, 30000)
+
+  test("MOMENTUM router - find and swap -> b2a", async () => {
+    const setup = await setupTestClient(testData.M_USDC)
+    client = setup.client
+    keypair = setup.keypair
+    await testDexRouter(
+      client,
+      "MOMENTUM",
+      testData.M_USDC,
+      testData.M_SUI,
+      "100000",
+      true
+    )
+  }, 30000)
+})

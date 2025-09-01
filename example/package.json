@@ -7,7 +7,7 @@
     "swap": "ts-node swap.ts"
   },
   "dependencies": {
-    "@cetusprotocol/aggregator-sdk": "^0.7.0",
+    "@cetusprotocol/aggregator-sdk": "^1.1.4",
     "@mysten/sui.js": "^0.49.1"
   },
   "devDependencies": {

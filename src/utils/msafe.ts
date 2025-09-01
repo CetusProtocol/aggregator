@@ -7,13 +7,23 @@ export const dealWithFastRouterSwapParamsForMsafe = (data: any) => {
     ...data,
     amountIn: data?.amountIn?.toString(),
     amountOut: data?.amountIn?.toString(),
-    routes: data?.routes?.map((item:any) => {
-      return {
+    paths: data?.paths?.map((item:any) => {
+      const info = {
         ...item,
         amountIn: item?.amountIn?.toString(),
         amountOut: item?.amountOut?.toString(),
-        initialPrice: item?.initialPrice?.toString()
       }
+
+      if(item?.initialPrice) {
+        info['initialPrice'] = item?.initialPrice?.toString()
+      }
+
+      if (item?.extendedDetails?.after_sqrt_price) {
+        info['extendedDetails'] = {
+          after_sqrt_price: item?.extendedDetails?.afterSqrtPrice?.toString(),
+        }
+      }
+      return info
     })
   }
 
@@ -26,13 +36,21 @@ export const restituteMsafeFastRouterSwapParams = (data: any) => {
     ...data,
     amountIn: new BN(data?.amountIn),
     amountOut: new BN(data?.amountIn),
-    routes: data?.routes?.map((item:any) => {
-      return {
+    paths: data?.paths?.map((item:any) => {
+      const info = {
         ...item,
-        amountIn: new BN(item?.amountIn),
-        amountOut: new BN(item?.amountOut),
-        initialPrice: new Decimal(item?.initialPrice?.toString())
       }
+
+      if (item?.initialPrice) {
+        info['initialPrice'] = new Decimal(item?.initialPrice?.toString())
+      }
+
+      if (item?.extendedDetails?.after_sqrt_price) {
+        info['extendedDetails'] = {
+          after_sqrt_price: new Decimal(item?.extendedDetails?.after_sqrt_price?.toString())
+        }
+      }
+      return info
     })
   }
 

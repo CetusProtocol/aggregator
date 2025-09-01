@@ -118,6 +118,7 @@ if (routerRes != null) {
 
 | Contract                  | Tag of Repo | Latest published at address                                        |
 | ------------------------- | ----------- | ------------------------------------------------------------------ |
+| CetusAggregatorV3         | mainnet     | 0x07c27e879ba9282506284b0fef26d393978906fc9496550d978c6f493dbfa3e5 |
 | CetusAggregatorV2         | mainnet     | 0x3864c7c59a4889fec05d1aae4bc9dba5a0e0940594b424fbed44cb3f6ac4c032 |
 | CetusAggregatorV2ExtendV1 | mainnet     | 0x39402d188b7231036e52266ebafad14413b4bf3daea4ac17115989444e6cd516 |
 | CetusAggregatorV2ExtendV2 | mainnet     | 0x368d13376443a8051b22b42a9125f6a3bc836422bb2d9c4a53984b8d6624c326 |

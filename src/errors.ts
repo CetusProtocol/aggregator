@@ -19,10 +19,29 @@ export enum TransactionErrorCode {
   MissAftermathLpSupplyType = `MissAftermathLpSupplyType`,
 }
 
-export type AggregatorErrorCode =
-  | TypesErrorCode
-  | ConfigErrorCode
-  | TransactionErrorCode
+export enum AggregatorServerErrorCode {
+  NumberTooLarge = 1000,
+  RateLimitExceeded = 1001,
+  InsufficientLiquidity = 1002,
+  HoneyPot = 1003,
+}
+
+export type AggregatorErrorCode = TypesErrorCode
+
+export function getAggregatorServerErrorMessage(code: AggregatorServerErrorCode): string {
+  switch (code) {
+    case AggregatorServerErrorCode.NumberTooLarge:
+      return "Number too large"
+    case AggregatorServerErrorCode.RateLimitExceeded:
+      return "Rate limit exceeded"
+    case AggregatorServerErrorCode.InsufficientLiquidity:
+      return "Insufficient liquidity"
+    case AggregatorServerErrorCode.HoneyPot:
+      return "HoneyPot scam detected"
+    default:
+      return "Unknown error"
+  }
+}
 
 /**
  * AggregatorError is a custom error class that extends the built-in Error class. It is used to represent errors that occur during aggregation operations.
@@ -43,35 +62,5 @@ export class AggregatorError extends Error {
 
   static isAggregatorErrorCode(e: any, code: AggregatorErrorCode): boolean {
     return e instanceof AggregatorError && e.errorCode === code
-  }
-}
-
-export enum AggregatorServerErrorCode {
-  CalculateError = 10000,
-  NumberTooLarge = 10001,
-  NoRouter = 10002,
-  InsufficientLiquidity = 10003,
-  HoneyPot = 10004,
-  RateLimitExceeded = 10005,
-}
-
-export function getAggregatorServerErrorMessage(
-  code: AggregatorServerErrorCode
-): string {
-  switch (code) {
-    case AggregatorServerErrorCode.CalculateError:
-      return "Calculate error"
-    case AggregatorServerErrorCode.NumberTooLarge:
-      return "Input number too large can not fit in target type"
-    case AggregatorServerErrorCode.NoRouter:
-      return "No router"
-    case AggregatorServerErrorCode.InsufficientLiquidity:
-      return "Insufficient Liquidity"
-    case AggregatorServerErrorCode.HoneyPot:
-      return "Target token is detected as a HoneyPot scam"
-    case AggregatorServerErrorCode.RateLimitExceeded:
-      return "Too many requests. Please try again later"
-    default:
-      return "Unknown error"
   }
 }

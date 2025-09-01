@@ -1,5 +1,5 @@
 import BN from "bn.js"
-import { CalculateAmountLimit, sqrtPriceX64ToPrice } from "~/math"
+import { CalculateAmountLimitBN, sqrtPriceX64ToPrice } from "~/math"
 
 describe("test math functions", () => {
   test("test sqrt price x64 to price", () => {
@@ -12,10 +12,10 @@ describe("test math functions", () => {
   })
 
   test("calculate amount limit", () => {
-    const amount = new BN(80017351)
+    const amount = new BN(107738590)
     const byAmountIn = true
 
-    const amountLimit = CalculateAmountLimit(amount, byAmountIn, 0.01)
+    const amountLimit = CalculateAmountLimitBN(amount, byAmountIn, 0.01)
     console.log("amount limit", amountLimit.toString())
   })
 })

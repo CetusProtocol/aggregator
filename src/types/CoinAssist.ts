@@ -1,8 +1,8 @@
-import type { SuiMoveObject } from '@mysten/sui/client'
-import type { CoinAsset, SuiAddress } from './sui'
-import { extractStructTagFromType, normalizeCoinType } from '../utils/contracts' 
+import type { SuiMoveObject } from "@mysten/sui/client"
+import type { CoinAsset, SuiAddress } from "./sui"
+import { extractStructTagFromType, normalizeCoinType } from "../utils/contracts"
 
-const COIN_TYPE = '0x2::coin::Coin'
+const COIN_TYPE = "0x2::coin::Coin"
 const COIN_TYPE_ARG_REGEX = /^0x2::coin::Coin<(.+)>$/
 
 export const DEFAULT_GAS_BUDGET_FOR_SPLIT = 1000
@@ -10,11 +10,13 @@ export const DEFAULT_GAS_BUDGET_FOR_MERGE = 500
 export const DEFAULT_GAS_BUDGET_FOR_TRANSFER = 100
 export const DEFAULT_GAS_BUDGET_FOR_TRANSFER_SUI = 100
 export const DEFAULT_GAS_BUDGET_FOR_STAKE = 1000
-export const GAS_TYPE_ARG = '0x2::sui::SUI'
-export const GAS_TYPE_ARG_LONG = '0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI'
-export const GAS_SYMBOL = 'SUI'
+export const GAS_TYPE_ARG = "0x2::sui::SUI"
+export const GAS_TYPE_ARG_LONG =
+  "0x0000000000000000000000000000000000000000000000000000000000000002::sui::SUI"
+export const GAS_SYMBOL = "SUI"
 export const DEFAULT_NFT_TRANSFER_GAS_FEE = 450
-export const SUI_SYSTEM_STATE_OBJECT_ID = '0x0000000000000000000000000000000000000005'
+export const SUI_SYSTEM_STATE_OBJECT_ID =
+  "0x0000000000000000000000000000000000000000000000000000000000000005"
 
 /**
  * This class provides helper methods for working with coins.
@@ -39,7 +41,7 @@ export class CoinUtils {
    */
   public static isSUI(obj: SuiMoveObject) {
     const arg = CoinUtils.getCoinTypeArg(obj)
-    return arg ? CoinUtils.getCoinSymbol(arg) === 'SUI' : false
+    return arg ? CoinUtils.getCoinSymbol(arg) === "SUI" : false
   }
 
   /**
@@ -49,7 +51,7 @@ export class CoinUtils {
    * @returns The coin symbol.
    */
   public static getCoinSymbol(coinTypeArg: string) {
-    return coinTypeArg.substring(coinTypeArg.lastIndexOf(':') + 1)
+    return coinTypeArg.substring(coinTypeArg.lastIndexOf(":") + 1)
   }
 
   /**
@@ -69,9 +71,12 @@ export class CoinUtils {
    * @param coinAddress The coin address to get the total balance for.
    * @returns The total balance of the CoinAsset objects for the given coin address.
    */
-  public static totalBalance(objs: CoinAsset[], coinAddress: SuiAddress): bigint {
+  public static totalBalance(
+    objs: CoinAsset[],
+    coinAddress: SuiAddress
+  ): bigint {
     let balanceTotal = BigInt(0)
-    objs.forEach((obj) => {
+    objs.forEach(obj => {
       if (coinAddress === obj.coinAddress) {
         balanceTotal += BigInt(obj.balance)
       }
@@ -106,10 +111,15 @@ export class CoinUtils {
    * @param allSuiObjects The list of all SuiMoveObjects.
    * @returns The CoinAsset objects for the given coin type.
    */
-  public static getCoinAssets(coinType: string, allSuiObjects: CoinAsset[]): CoinAsset[] {
+  public static getCoinAssets(
+    coinType: string,
+    allSuiObjects: CoinAsset[]
+  ): CoinAsset[] {
     const coins: CoinAsset[] = []
-    allSuiObjects.forEach((anObj) => {
-      if (normalizeCoinType(anObj.coinAddress) === normalizeCoinType(coinType)) {
+    allSuiObjects.forEach(anObj => {
+      if (
+        normalizeCoinType(anObj.coinAddress) === normalizeCoinType(coinType)
+      ) {
         coins.push(anObj)
       }
     })
@@ -138,11 +148,23 @@ export class CoinUtils {
     coins: CoinAsset[],
     amount: bigint,
     exclude: string[] = []
-  ): { objectArray: string[]; remainCoins: CoinAsset[]; amountArray: string[] } {
-    const selectedResult = CoinUtils.selectCoinAssetGreaterThanOrEqual(coins, amount, exclude)
-    const objectArray = selectedResult.selectedCoins.map((item) => item.coinObjectId)
+  ): {
+    objectArray: string[]
+    remainCoins: CoinAsset[]
+    amountArray: string[]
+  } {
+    const selectedResult = CoinUtils.selectCoinAssetGreaterThanOrEqual(
+      coins,
+      amount,
+      exclude
+    )
+    const objectArray = selectedResult.selectedCoins.map(
+      item => item.coinObjectId
+    )
     const remainCoins = selectedResult.remainingCoins
-    const amountArray = selectedResult.selectedCoins.map((item) => item.balance.toString())
+    const amountArray = selectedResult.selectedCoins.map(item =>
+      item.balance.toString()
+    )
     return { objectArray, remainCoins, amountArray }
   }
 
@@ -159,7 +181,9 @@ export class CoinUtils {
     amount: bigint,
     exclude: string[] = []
   ): { selectedCoins: CoinAsset[]; remainingCoins: CoinAsset[] } {
-    const sortedCoins = CoinUtils.sortByBalance(coins.filter((c) => !exclude.includes(c.coinObjectId)))
+    const sortedCoins = CoinUtils.sortByBalance(
+      coins.filter(c => !exclude.includes(c.coinObjectId))
+    )
 
     const total = CoinUtils.calculateTotalBalance(sortedCoins)
 
@@ -175,9 +199,13 @@ export class CoinUtils {
     const remainingCoins = [...sortedCoins]
     while (sum < total) {
       const target = amount - sum
-      const coinWithSmallestSufficientBalanceIndex = remainingCoins.findIndex((c) => c.balance >= target)
+      const coinWithSmallestSufficientBalanceIndex = remainingCoins.findIndex(
+        c => c.balance >= target
+      )
       if (coinWithSmallestSufficientBalanceIndex !== -1) {
-        selectedCoins.push(remainingCoins[coinWithSmallestSufficientBalanceIndex])
+        selectedCoins.push(
+          remainingCoins[coinWithSmallestSufficientBalanceIndex]
+        )
         remainingCoins.splice(coinWithSmallestSufficientBalanceIndex, 1)
         break
       }
@@ -188,7 +216,10 @@ export class CoinUtils {
         sum += coinWithLargestBalance.balance
       }
     }
-    return { selectedCoins: CoinUtils.sortByBalance(selectedCoins), remainingCoins: CoinUtils.sortByBalance(remainingCoins) }
+    return {
+      selectedCoins: CoinUtils.sortByBalance(selectedCoins),
+      remainingCoins: CoinUtils.sortByBalance(remainingCoins),
+    }
   }
 
   /**
@@ -198,11 +229,15 @@ export class CoinUtils {
    * @returns The sorted CoinAsset objects.
    */
   static sortByBalance(coins: CoinAsset[]): CoinAsset[] {
-    return coins.sort((a, b) => (a.balance < b.balance ? -1 : a.balance > b.balance ? 1 : 0))
+    return coins.sort((a, b) =>
+      a.balance < b.balance ? -1 : a.balance > b.balance ? 1 : 0
+    )
   }
 
   static sortByBalanceDes(coins: CoinAsset[]): CoinAsset[] {
-    return coins.sort((a, b) => (a.balance > b.balance ? -1 : a.balance < b.balance ? 0 : 1))
+    return coins.sort((a, b) =>
+      a.balance > b.balance ? -1 : a.balance < b.balance ? 0 : 1
+    )
   }
 
   /**

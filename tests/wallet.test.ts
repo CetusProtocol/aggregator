@@ -1,9 +1,7 @@
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 
 describe("router module", () => {
-  const keystoreSecret = [
-    "0xd36441c734b1967dd4e65956d0b3e7e5dccc8c92306ad71419e6741b4a7ce6c9",
-  ]
+  const keystoreSecret = ["0x0"]
 
   test("Parse public key", () => {
     for (const secret of keystoreSecret) {

@@ -1,63 +1,69 @@
-import Decimal from "decimal.js"
-import { getFullnodeUrl, SuiClient } from "@mysten/sui/client"
 import {
   Transaction,
   TransactionArgument,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { Signer } from "@mysten/sui/cryptography"
 import BN from "bn.js"
-import { SUI_FRAMEWORK_ADDRESS } from "@mysten/sui/utils"
 import {
-  Dex,
-  Env,
-  extractStructTagFromType,
+  DeepbookV3ConfigResponse,
   FindRouterParams,
-  getRouterResult,
-  Router,
-  RouterData,
+  Path,
+  RouterDataV3,
+} from "./types/shared"
+import {
   getDeepbookV3Config,
-  processEndpoint,
-  DeepbookV3Config,
-  getAggregatorV2PublishedAt,
-  getAggregatorV2ExtendPublishedAt,
-} from "."
-import { Aftermath } from "./transaction/aftermath"
-import { DeepbookV2 } from "./transaction/deepbook_v2"
-import { KriyaV2 } from "./transaction/kriya_v2"
-import { KriyaV3 } from "./transaction/kriya_v3"
-import { FlowxV2 } from "./transaction/flowx_v2"
-import { FlowxV3 } from "./transaction/flowx_v3"
-import { Turbos } from "./transaction/turbos"
-import { Cetus } from "./transaction/cetus"
-import { swapInPools } from "./transaction/swap"
+  getRouterResult,
+  processFlattenRoutes,
+} from "./api"
+import { Env } from "./config"
 import { CalculateAmountLimit, CalculateAmountLimitBN } from "./math"
-import { Haedal } from "./transaction/haedal"
-import { Afsui } from "./transaction/afsui"
-import { Volo } from "./transaction/volo"
-import { Bluemove } from "./transaction/bluemove"
-import { CoinAsset } from "./types/sui"
-import { buildInputCoin } from "./utils/coin"
-import { DeepbookV3 } from "./transaction/deepbook_v3"
-import { Scallop } from "./transaction/scallop"
-import { Suilend } from "./transaction/suilend"
-import { Bluefin } from "./transaction/bluefin"
-import { HaedalPmm } from "./transaction/haedal_pmm"
-import { Alphafi } from "./transaction/alphafi"
 import { CoinUtils } from "./types/CoinAssist"
+import * as Constants from "./const"
+import { DexRouter } from "./movecall"
+import { CetusRouter } from "./movecall/cetus"
+import { KriyaV3Router } from "./movecall/kriya_v3"
+import { FlowxV3Router } from "./movecall/flowx_v3"
+import { TurbosRouter } from "./movecall/turbos"
+import { BluefinRouter } from "./movecall/bluefin"
+import { MomentumRouter } from "./movecall/momentum"
+import { MagmaRouter } from "./movecall/magma"
+import { KriyaV2Router } from "./movecall/kriya_v2"
+import { FlowxV2Router } from "./movecall/flowx_v2"
+import { BluemoveRouter } from "./movecall/bluemove"
+import { DeepbookV3Router } from "./movecall/deepbook_v3"
+import { AftermathRouter } from "./movecall/aftermath"
+import { SteammCPMMRouter } from "./movecall/steamm_cpmm"
+import { ScallopRouter } from "./movecall/scallop"
+import { SpringsuiRouter } from "./movecall/springsui"
+import { HaedalPmmRouter } from "./movecall/haedal_pmm"
+import { ObricRouter } from "./movecall/obric"
+import { SevenkRouter } from "./movecall/sevenk"
+import { SteammOmmRouter } from "./movecall/steamm_omm"
+import { SteammOmmV2Router } from "./movecall/steamm_omm_v2"
+import { MetastableRouter } from "./movecall/metastable"
+import { AlphafiRouter } from "./movecall/alphafi"
+import { VoloRouter } from "./movecall/volo"
+import { AfsuiRouter } from "./movecall/afsui"
+import { HaedalRouter } from "./movecall/haedal"
+import { HawalRouter } from "./movecall/hawal"
+import {
+  newSwapContext,
+  confirmSwap,
+  transferOrDestroyCoin,
+  takeBalance,
+  transferBalance,
+} from "./movecall/router"
+import { completionCoin, compareCoins } from "./utils/coin"
+import { coinWithBalance } from "@mysten/sui/transactions"
+import { getFullnodeUrl, SuiClient } from "@mysten/sui/client"
 import {
   SuiPriceServiceConnection,
   SuiPythClient,
 } from "@pythnetwork/pyth-sui-js"
-import { SteammCPMM } from "./transaction/steamm_cpmm"
-import { SteammOmm } from "./transaction/steamm_omm"
-import { Metastable } from "./transaction/metastable"
-import { Obric } from "./transaction/obric"
-import { HaWAL } from "./transaction/hawal"
-import { Momentum } from "./transaction/momentum"
-import { SteammOmmV2 } from "./transaction/steamm_omm_v2"
-import { Magma } from "./transaction/magma"
-import { Sevenk } from "./transaction/sevenk"
+import { processEndpoint } from "./utils"
+import { Signer } from "@mysten/sui/cryptography"
+import { HaedalHMMV2Router } from "./movecall/haedal_hmm_v2"
+import { FullsailRouter } from "./movecall/fullsail"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -87,7 +93,9 @@ export const MOMENTUM = "MOMENTUM"
 export const STEAMM_OMM_V2 = "STEAMM_OMM_V2"
 export const MAGMA = "MAGMA"
 export const SEVENK = "SEVENK"
-export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v2"
+export const HAEDALHMMV2 = "HAEDALHMMV2"
+export const FULLSAIL = "FULLSAIL"
+export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v3"
 
 export const ALL_DEXES = [
   CETUS,
@@ -117,11 +125,12 @@ export const ALL_DEXES = [
   STEAMM_OMM_V2,
   MAGMA,
   SEVENK,
+  HAEDALHMMV2,
+  FULLSAIL,
 ]
 
-export type BuildRouterSwapParams = {
-  routers: Router[]
-  byAmountIn: boolean
+export type BuildRouterSwapParamsV3 = {
+  router: RouterDataV3
   inputCoin: TransactionObjectArgument
   slippage: number
   txb: Transaction
@@ -130,33 +139,11 @@ export type BuildRouterSwapParams = {
   // This parameter is used to pass the Deep token object. When using the DeepBook V3 provider,
   // users must pay fees with Deep tokens in non-whitelisted pools.
   deepbookv3DeepFee?: TransactionObjectArgument
+  fixable?: boolean
 }
 
-export type BuildFastRouterSwapParams = {
-  routers: Router[]
-  byAmountIn: boolean
-  slippage: number
-  txb: Transaction
-  // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
-  partner?: string
-  refreshAllCoins?: boolean
-  payDeepFeeAmount?: number
-}
-
-export type BuildRouterSwapParamsV2 = {
-  routers: RouterData
-  inputCoin: TransactionObjectArgument
-  slippage: number
-  txb: Transaction
-  // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
-  partner?: string
-  // This parameter is used to pass the Deep token object. When using the DeepBook V3 provider,
-  // users must pay fees with Deep tokens in non-whitelisted pools.
-  deepbookv3DeepFee?: TransactionObjectArgument
-}
-
-export type BuildFastRouterSwapParamsV2 = {
-  routers: RouterData
+export type BuildFastRouterSwapParamsV3 = {
+  router: RouterDataV3
   slippage: number
   txb: Transaction
   // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
@@ -173,26 +160,9 @@ export interface SwapInPoolsParams {
   pools: string[]
 }
 
-interface PythConfig {
-  wormholeStateId: string
-  pythStateId: string
-}
-
-export interface SwapInPoolsResult {
+export interface SwapInPoolsResultV3 {
   isExceed: boolean
-  routeData?: RouterData
-}
-
-function isBuilderRouterSwapParams(
-  params: BuildRouterSwapParams | BuildRouterSwapParamsV2
-): params is BuildRouterSwapParams {
-  return Array.isArray((params as BuildRouterSwapParams).routers)
-}
-
-function isBuilderFastRouterSwapParams(
-  params: BuildFastRouterSwapParams | BuildFastRouterSwapParamsV2
-): params is BuildFastRouterSwapParams {
-  return Array.isArray((params as BuildFastRouterSwapParams).routers)
+  routeData?: RouterDataV3
 }
 
 export function getAllProviders(): string[] {
@@ -205,7 +175,7 @@ export function getAllProviders(): string[] {
  * @returns Filtered provider list
  */
 export function getProvidersExcluding(excludeProviders: string[]): string[] {
-  return ALL_DEXES.filter((provider) => !excludeProviders.includes(provider))
+  return ALL_DEXES.filter(provider => !excludeProviders.includes(provider))
 }
 
 /**
@@ -214,7 +184,85 @@ export function getProvidersExcluding(excludeProviders: string[]): string[] {
  * @returns Filtered provider list
  */
 export function getProvidersIncluding(includeProviders: string[]): string[] {
-  return ALL_DEXES.filter((provider) => includeProviders.includes(provider))
+  return ALL_DEXES.filter(provider => includeProviders.includes(provider))
+}
+
+function findPythPriceIDs(paths: Path[]): string[] {
+  const priceIDs = new Set<string>()
+
+  for (const path of paths) {
+    if (path.provider === HAEDALPMM) {
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.haedal_pmm_base_price_seed &&
+        path.extendedDetails.haedal_pmm_quote_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.haedal_pmm_base_price_seed)
+        priceIDs.add(path.extendedDetails.haedal_pmm_quote_price_seed)
+      }
+    }
+    if (path.provider === METASTABLE) {
+      if (path.extendedDetails && path.extendedDetails.metastable_price_seed) {
+        priceIDs.add(path.extendedDetails.metastable_price_seed)
+      }
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.metastable_eth_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.metastable_eth_price_seed)
+      }
+    }
+    if (path.provider === OBRIC) {
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.obric_coin_a_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.obric_coin_a_price_seed)
+      }
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.obric_coin_b_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.obric_coin_b_price_seed)
+      }
+    }
+    if (path.provider === STEAMM_OMM || path.provider === STEAMM_OMM_V2) {
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.steamm_oracle_pyth_price_seed_a
+      ) {
+        priceIDs.add(path.extendedDetails.steamm_oracle_pyth_price_seed_a)
+      }
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.steamm_oracle_pyth_price_seed_b
+      ) {
+        priceIDs.add(path.extendedDetails.steamm_oracle_pyth_price_seed_b)
+      }
+    }
+    if (path.provider === SEVENK) {
+      // Support both camelCase (v2) and snake_case (v3) field names
+      if (path.extendedDetails) {
+        const extDetails = path.extendedDetails as any
+        // Check snake_case fields (v3)
+        if (extDetails.sevenk_coin_a_price_seed) {
+          priceIDs.add(extDetails.sevenk_coin_a_price_seed)
+        }
+        if (extDetails.sevenk_coin_b_price_seed) {
+          priceIDs.add(extDetails.sevenk_coin_b_price_seed)
+        }
+      }
+    }
+    if (path.provider === HAEDALHMMV2) {
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.haedalhmmv2_base_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.haedalhmmv2_base_price_seed)
+      }
+    }
+  }
+  return Array.from(priceIDs)
 }
 
 export type AggregatorClientParams = {
@@ -229,19 +277,23 @@ export type AggregatorClientParams = {
   overlayFeeReceiver?: string
 }
 
+interface PythConfig {
+  wormholeStateId: string
+  pythStateId: string
+}
+
 export class AggregatorClient {
   public endpoint: string
   public signer: string
   public client: SuiClient
   public env: Env
   public apiKey: string
-  private allCoins: Map<string, CoinAsset[]>
 
-  private pythConnections: SuiPriceServiceConnection[]
-  private pythClient: SuiPythClient
-  private overlayFeeRate: number
-  private overlayFeeReceiver: string
-  private partner?: string
+  protected pythConnections: SuiPriceServiceConnection[]
+  protected pythClient: SuiPythClient
+  protected overlayFeeRate: number
+  protected overlayFeeReceiver: string
+  protected partner?: string
 
   private static readonly CONFIG: Record<Env, PythConfig> = {
     [Env.Testnet]: {
@@ -259,6 +311,7 @@ export class AggregatorClient {
   }
 
   constructor(params: AggregatorClientParams) {
+    // Initialize the base client with v3 endpoint
     this.endpoint = params.endpoint
       ? processEndpoint(params.endpoint)
       : DEFAULT_ENDPOINT
@@ -266,7 +319,6 @@ export class AggregatorClient {
       params.client || new SuiClient({ url: getFullnodeUrl("mainnet") })
     this.signer = params.signer || ""
     this.env = params.env || Env.Mainnet
-    this.allCoins = new Map<string, CoinAsset[]>()
 
     const config = AggregatorClient.CONFIG[this.env]
     this.pythConnections = this.newPythClients(params.pythUrls ?? [])
@@ -277,16 +329,33 @@ export class AggregatorClient {
     )
     this.apiKey = params.apiKey || ""
     this.partner = params.partner
+
+    // Override overlay fee rate calculation for v3
     if (params.overlayFeeRate) {
-      if (params.overlayFeeRate > 0 && params.overlayFeeRate <= 0.01) {
-        this.overlayFeeRate = params.overlayFeeRate * 1000000
+      if (
+        params.overlayFeeRate > 0 &&
+        params.overlayFeeRate <=
+          Constants.CLIENT_CONFIG.MAX_OVERLAY_FEE_RATE_PARAMS
+      ) {
+        // Convert to contract format (multiply by 1000000 as per REFACTOR.md)
+        this.overlayFeeRate =
+          params.overlayFeeRate * Constants.AGGREGATOR_V3_CONFIG.FEE_DENOMINATOR
+
+        // Validate against contract's MAX_FEE_RATE
+        if (this.overlayFeeRate > Constants.AGGREGATOR_V3_CONFIG.MAX_FEE_RATE) {
+          throw new Error(
+            Constants.CLIENT_CONFIG.ERRORS.INVALID_OVERLAY_FEE_RATE
+          )
+        }
       } else {
-        throw new Error("Overlay fee rate must be between 0 and 0.01")
+        throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_OVERLAY_FEE_RATE)
       }
     } else {
       this.overlayFeeRate = 0
     }
-    this.overlayFeeReceiver = params.overlayFeeReceiver ?? "0x0"
+    this.overlayFeeReceiver =
+      params.overlayFeeReceiver ??
+      Constants.CLIENT_CONFIG.DEFAULT_OVERLAY_FEE_RECEIVER
   }
 
   newPythClients(pythUrls: string[]) {
@@ -295,60 +364,40 @@ export class AggregatorClient {
     }
 
     const connections = pythUrls.map(
-      (url) => new SuiPriceServiceConnection(url, { timeout: 3000 })
+      url => new SuiPriceServiceConnection(url, { timeout: 3000 })
     )
     return connections
   }
 
-  async getCoins(
-    coinType: string,
-    refresh: boolean = true
-  ): Promise<CoinAsset[]> {
-    if (this.signer === "") {
-      throw new Error("Signer is required, but not provided.")
+  deepbookv3DeepFeeType(): string {
+    if (this.env === Env.Mainnet) {
+      return Constants.DEEPBOOK_V3_DEEP_FEE_TYPES.Mainnet
+    } else {
+      return Constants.DEEPBOOK_V3_DEEP_FEE_TYPES.Testnet
     }
-
-    let cursor = null
-    let limit = 50
-
-    if (!refresh) {
-      const gotFromCoins = this.allCoins.get(coinType)
-      if (gotFromCoins) {
-        return gotFromCoins
-      }
-    }
-
-    const allCoins: CoinAsset[] = []
-    while (true) {
-      try {
-        const gotCoins = await this.client.getCoins({
-          owner: this.signer,
-          coinType,
-          cursor,
-          limit,
-        })
-        for (const coin of gotCoins.data) {
-          allCoins.push({
-            coinAddress: extractStructTagFromType(coin.coinType).source_address,
-            coinObjectId: coin.coinObjectId,
-            balance: BigInt(coin.balance),
-          })
-        }
-        if (!gotCoins.hasNextPage) {
-          break
-        }
-        cursor = gotCoins.nextCursor
-      } catch (e) {
-        console.error("getCoins error:", e)
-        break
-      }
-    }
-
-    this.allCoins.set(coinType, allCoins)
-    return allCoins
   }
 
-  async findRouters(params: FindRouterParams): Promise<RouterData | null> {
+  async getDeepbookV3Config(): Promise<DeepbookV3ConfigResponse | null> {
+    return await getDeepbookV3Config(this.endpoint)
+  }
+
+  async getOneCoinUsedToMerge(coinType: string): Promise<string | null> {
+    try {
+      const gotCoin = await this.client.getCoins({
+        owner: this.signer,
+        coinType,
+        limit: 1,
+      })
+      if (gotCoin.data.length === 1) {
+        return gotCoin.data[0].coinObjectId
+      }
+      return null
+    } catch (error) {
+      return null
+    }
+  }
+
+  async findRouters(params: FindRouterParams): Promise<RouterDataV3 | null> {
     return getRouterResult(
       this.endpoint,
       this.apiKey,
@@ -361,274 +410,307 @@ export class AggregatorClient {
   async executeFlexibleInputSwap(
     txb: Transaction,
     inputCoin: TransactionObjectArgument,
-    routers: Router[],
+    routerData: RouterDataV3,
     expectedAmountOut: string,
     amountLimit: string,
     pythPriceIDs: Map<string, string>,
     partner?: string,
     deepbookv3DeepFee?: TransactionObjectArgument,
     packages?: Map<string, string>
-  ) {
-    if (routers.length === 0) {
-      throw new Error("No router found")
+  ) {}
+
+  newDexRouterV3(
+    provider: string,
+    pythPriceIDs: Map<string, string>,
+    partner?: string
+  ): DexRouter {
+    switch (provider) {
+      case CETUS:
+        return new CetusRouter(this.env, partner)
+      case KRIYAV3:
+        return new KriyaV3Router(this.env)
+      case FLOWXV3:
+        return new FlowxV3Router(this.env)
+      case TURBOS:
+        return new TurbosRouter(this.env)
+      case BLUEFIN:
+        return new BluefinRouter(this.env)
+      case MOMENTUM:
+        return new MomentumRouter(this.env)
+      case MAGMA:
+        return new MagmaRouter(this.env)
+      case KRIYA:
+        return new KriyaV2Router(this.env)
+      case FLOWXV2:
+        return new FlowxV2Router(this.env)
+      case BLUEMOVE:
+        return new BluemoveRouter(this.env)
+      case DEEPBOOKV3:
+        return new DeepbookV3Router(this.env)
+      case AFTERMATH:
+        return new AftermathRouter(this.env)
+      case STEAMM:
+        return new SteammCPMMRouter(this.env)
+      case SCALLOP:
+        return new ScallopRouter(this.env)
+      case SUILEND:
+        return new SpringsuiRouter(this.env)
+      case SPRINGSUI:
+        return new SpringsuiRouter(this.env)
+      case HAEDALPMM:
+        return new HaedalPmmRouter(this.env, pythPriceIDs)
+      case OBRIC:
+        return new ObricRouter(this.env, pythPriceIDs)
+      case SEVENK:
+        return new SevenkRouter(this.env, pythPriceIDs)
+      case STEAMM_OMM:
+        return new SteammOmmRouter(this.env, pythPriceIDs)
+      case STEAMM_OMM_V2:
+        return new SteammOmmV2Router(this.env, pythPriceIDs)
+      case METASTABLE:
+        return new MetastableRouter(this.env, pythPriceIDs)
+      case ALPHAFI:
+        return new AlphafiRouter(this.env)
+      case VOLO:
+        return new VoloRouter(this.env)
+      case AFSUI:
+        return new AfsuiRouter(this.env)
+      case HAEDAL:
+        return new HaedalRouter(this.env)
+      case HAWAL:
+        return new HawalRouter(this.env)
+      case HAEDALHMMV2:
+        return new HaedalHMMV2Router(this.env, pythPriceIDs)
+      case FULLSAIL:
+        return new FullsailRouter(this.env)
+      default:
+        throw new Error(
+          `${Constants.CLIENT_CONFIG.ERRORS.UNSUPPORTED_DEX} ${provider}`
+        )
     }
+  }
 
-    const outputCoinType = routers[0].path[routers[0].path.length - 1].target
-    const outputCoins = []
+  expectInputSwapV3(
+    txb: Transaction,
+    inputCoin: TransactionObjectArgument,
+    routerData: RouterDataV3,
+    expectAmountOut: string,
+    amountOutLimit: string,
+    pythPriceIDs: Map<string, string>,
+    partner?: string
+  ): TransactionObjectArgument {
+    if (routerData.quoteID == null) {
+      throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
+    }
+    // Step 1: Flatten and sort routes for V3 execution
+    const processedData = processFlattenRoutes(routerData)
 
-    for (let i = 0; i < routers.length - 1; i++) {
-      if (routers[i].path.length === 0) {
-        throw new Error("Empty path")
-      }
-      const splitCoin = txb.splitCoins(inputCoin, [
-        routers[i].amountIn.toString(),
-      ])
-      let nextCoin = splitCoin[0] as TransactionObjectArgument
+    const swapCtx = newSwapContext(
+      {
+        quoteID: processedData.quoteID,
+        fromCoinType: processedData.fromCoinType,
+        targetCoinType: processedData.targetCoinType,
+        expectAmountOut,
+        amountOutLimit,
+        inputCoin,
+        feeRate: this.overlayFeeRate,
+        feeRecipient: this.overlayFeeReceiver,
+        packages: processedData.packages,
+      },
+      txb
+    )
 
-      for (const path of routers[i].path) {
-        const dex = this.newDex(path.provider, pythPriceIDs, partner)
-        nextCoin = await dex.swap(
-          this,
-          txb,
-          path,
-          nextCoin,
-          packages,
-          deepbookv3DeepFee
+    // Step 2: Execute swaps in flattened order using V3 routers only
+    let dexRouters = new Map<string, DexRouter>()
+    for (const flattenedPath of processedData.flattenedPaths) {
+      const path = flattenedPath.path
+      if (!dexRouters.has(path.provider)) {
+        dexRouters.set(
+          path.provider,
+          this.newDexRouterV3(path.provider, pythPriceIDs, partner)
         )
       }
-      outputCoins.push(nextCoin)
+      const dex = dexRouters.get(path.provider)!
+      dex.swap(txb, flattenedPath, swapCtx, { pythPriceIDs })
     }
 
-    if (routers[routers.length - 1].path.length === 0) {
-      throw new Error("Empty path")
-    }
-    let lastCoin = inputCoin
-    for (const path of routers[routers.length - 1].path) {
-      const dex = this.newDex(path.provider, pythPriceIDs, partner)
-      lastCoin = await dex.swap(
-        this,
+    const outputCoin = confirmSwap(
+      {
+        swapContext: swapCtx,
+        targetCoinType: processedData.targetCoinType,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    return outputCoin
+  }
+
+  expectOutputSwapV3(
+    txb: Transaction,
+    inputCoin: TransactionObjectArgument,
+    routerData: RouterDataV3,
+    amountOut: string,
+    _amountLimit: string, // it will set when build inputcoin
+    partner?: string
+  ): TransactionObjectArgument {
+    const receipts: TransactionObjectArgument[] = []
+    const dex = new CetusRouter(this.env, partner)
+    const processedData = processFlattenRoutes(routerData)
+    const swapCtx = newSwapContext(
+      {
+        quoteID: processedData.quoteID,
+        fromCoinType: processedData.fromCoinType,
+        targetCoinType: processedData.targetCoinType,
+        expectAmountOut: amountOut,
+        amountOutLimit: amountOut, // amountOutLimit equals expectAmountOut when fix amout out
+        inputCoin,
+        feeRate: this.overlayFeeRate,
+        feeRecipient: this.overlayFeeReceiver,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    // Record all from token first exist index
+    // key: from token, value: path index
+    const firstCoinRecord = recordFirstCoinIndex(routerData.paths)
+
+    let needRepayRecord = new Map<string, TransactionArgument>()
+    let payRecord = new Map<string, bigint>()
+
+    for (let j = routerData.paths.length - 1; j >= 0; j--) {
+      const path = routerData.paths[j]
+      const firstFromTokenIndex = firstCoinRecord.get(path.from)
+      let amountArg: TransactionArgument
+      if (
+        j !== firstFromTokenIndex ||
+        path.target === processedData.targetCoinType
+      ) {
+        if (path.target !== processedData.targetCoinType) {
+          let payAmount = BigInt(path.amountOut)
+          if (payRecord.has(path.target)) {
+            const oldPayAmount = payRecord.get(path.target)!
+            payAmount = oldPayAmount + payAmount
+          }
+          payRecord.set(path.target, payAmount)
+        }
+
+        amountArg = txb.pure.u64(
+          path.amountOut.toString()
+        ) as TransactionArgument
+      } else {
+        if (!needRepayRecord.has(path.target)) {
+          throw Error("no need repay record")
+        }
+
+        if (payRecord.has(path.target)) {
+          // total need repay - payRecord
+          const oldPayAmount = payRecord.get(path.target)!
+          const oldNeedRepay = needRepayRecord.get(path.target)!
+          amountArg = dex.sub(
+            txb,
+            oldNeedRepay,
+            txb.pure.u64(oldPayAmount),
+            path.publishedAt!
+          )
+        } else {
+          // total need repay
+          amountArg = needRepayRecord.get(path.target)!
+        }
+      }
+
+      const flashSwapResult = dex.flashSwapFixedOutput(
         txb,
         path,
-        lastCoin,
-        packages,
-        deepbookv3DeepFee
+        amountArg,
+        swapCtx
       )
-    }
-    outputCoins.push(lastCoin)
-
-    const aggregatorV2ExtendPublishedAt = getAggregatorV2ExtendPublishedAt(
-      this.publishedAtV2Extend(),
-      packages
-    )
-
-    const mergedTargetCoin = this.checkCoinThresholdAndMergeCoin(
-      txb,
-      outputCoins,
-      outputCoinType,
-      expectedAmountOut,
-      amountLimit,
-      aggregatorV2ExtendPublishedAt
-    )
-    return mergedTargetCoin
-  }
-
-  async expectInputSwap(
-    txb: Transaction,
-    inputCoin: TransactionObjectArgument,
-    routers: Router[],
-    expectedAmountOut: string,
-    amountLimit: string,
-    pythPriceIDs: Map<string, string>,
-    partner?: string,
-    deepbookv3DeepFee?: TransactionObjectArgument,
-    packages?: Map<string, string>
-  ) {
-    if (routers.length === 0) {
-      throw new Error("No router found")
-    }
-    const splitAmounts = routers.map((router) => router.amountIn.toString())
-    const inputCoinType = routers[0].path[0].from
-    const outputCoinType = routers[0].path[routers[0].path.length - 1].target
-    const inputCoins = txb.splitCoins(inputCoin, splitAmounts)
-    const outputCoins = []
-    for (let i = 0; i < routers.length; i++) {
-      if (routers[i].path.length === 0) {
-        throw new Error("Empty path")
-      }
-      let nextCoin = inputCoins[i] as TransactionObjectArgument
-      for (const path of routers[i].path) {
-        const dex = this.newDex(path.provider, pythPriceIDs, partner)
-        nextCoin = await dex.swap(
-          this,
-          txb,
-          path,
-          nextCoin,
-          packages,
-          deepbookv3DeepFee
-        )
-      }
-
-      outputCoins.push(nextCoin)
-    }
-
-    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(
-      this.publishedAtV2(),
-      packages
-    )
-
-    const aggregatorV2ExtendPublishedAt = getAggregatorV2ExtendPublishedAt(
-      this.publishedAtV2Extend(),
-      packages
-    )
-
-    this.transferOrDestoryCoin(
-      txb,
-      inputCoin,
-      inputCoinType,
-      aggregatorV2PublishedAt
-    )
-    const mergedTargetCoins = this.checkCoinThresholdAndMergeCoin(
-      txb,
-      outputCoins,
-      outputCoinType,
-      expectedAmountOut,
-      amountLimit,
-      aggregatorV2ExtendPublishedAt
-    )
-    return mergedTargetCoins
-  }
-
-  async expectOutputSwap(
-    txb: Transaction,
-    inputCoin: TransactionObjectArgument,
-    routers: Router[],
-    partner?: string,
-    packages?: Map<string, string>
-  ): Promise<TransactionObjectArgument> {
-    const returnCoins: TransactionObjectArgument[] = []
-    const receipts: TransactionObjectArgument[] = []
-    const targetCoins = []
-    const dex = new Cetus(this.env, partner)
-
-    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(
-      this.publishedAtV2(),
-      packages
-    )
-
-    for (let i = 0; i < routers.length; i++) {
-      const router = routers[i]
-      let amount_arg = txb.pure.u64(
-        router.amountOut.toString()
-      ) as TransactionArgument
-      for (let j = router.path.length - 1; j >= 0; j--) {
-        const path = router.path[j]
-        const flashSwapResult = dex.flash_swap(
-          this,
-          txb,
-          path,
-          amount_arg,
-          false
-        )
-        amount_arg = flashSwapResult.payAmount
-        returnCoins.unshift(flashSwapResult.targetCoin)
-        receipts.unshift(flashSwapResult.flashReceipt)
-      }
-
-      let nextRepayCoin = inputCoin
-      for (let j = 0; j < router.path.length; j++) {
-        const path = router.path[j]
-        const repayResult = dex.repay_flash_swap(
-          this,
-          txb,
-          path,
-          nextRepayCoin,
-          receipts[j]
-        )
-        nextRepayCoin = returnCoins[j]
-        if (j === 0) {
-          inputCoin = repayResult
-        } else {
-          this.transferOrDestoryCoin(
+      receipts.unshift(flashSwapResult.flashReceipt)
+      if (needRepayRecord.has(path.from)) {
+        const oldNeedRepay = needRepayRecord.get(path.from)!
+        needRepayRecord.set(
+          path.from,
+          dex.add(
             txb,
-            repayResult,
-            path.from,
-            aggregatorV2PublishedAt
+            oldNeedRepay,
+            flashSwapResult.repayAmount,
+            path.publishedAt!
           )
-        }
-        if (j === router.path.length - 1) {
-          targetCoins.push(nextRepayCoin)
-        }
+        )
+      } else {
+        needRepayRecord.set(path.from, flashSwapResult.repayAmount)
       }
     }
-    const inputCoinType = routers[0].path[0].from
-    this.transferOrDestoryCoin(
-      txb,
-      inputCoin,
-      inputCoinType,
-      aggregatorV2PublishedAt
+
+    for (let j = 0; j < routerData.paths.length; j++) {
+      const path = routerData.paths[j]
+      dex.repayFlashSwapFixedOutput(txb, path, swapCtx, receipts[j])
+    }
+
+    const remainInputBalance = takeBalance(
+      {
+        coinType: processedData.fromCoinType,
+        amount: Constants.U64_MAX,
+        swapCtx,
+        packages: processedData.packages,
+      },
+      txb
     )
-    if (targetCoins.length > 1) {
-      const vec = txb.makeMoveVec({ elements: targetCoins.slice(1) })
-      txb.moveCall({
-        target: `${SUI_FRAMEWORK_ADDRESS}::pay::join_vec`,
-        typeArguments: [routers[0].path[routers[0].path.length - 1].target],
-        arguments: [targetCoins[0], vec],
-      })
-    }
 
-    return targetCoins[0]
-  }
+    transferBalance(
+      {
+        balance: remainInputBalance,
+        coinType: processedData.fromCoinType,
+        recipient: this.signer,
+        packages: processedData.packages,
+      },
+      txb
+    )
 
-  async swapInPools(
-    params: SwapInPoolsParams
-  ): Promise<SwapInPoolsResult | null> {
-    let result
-    try {
-      result = await swapInPools(this.client, params, this.signer, this.env)
-    } catch (e) {
-      console.error("swapInPools error:", e)
-      return null
-    }
-    return result
+    const outputCoin = confirmSwap(
+      {
+        swapContext: swapCtx,
+        targetCoinType: processedData.targetCoinType,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    return outputCoin
   }
 
   async routerSwap(
-    params: BuildRouterSwapParams | BuildRouterSwapParamsV2
+    params: BuildRouterSwapParamsV3
   ): Promise<TransactionObjectArgument> {
-    const { routers, inputCoin, slippage, txb, deepbookv3DeepFee, partner } =
-      params
+    const { router, inputCoin, slippage, txb, partner } = params
 
     if (slippage > 1 || slippage < 0) {
-      throw new Error(
-        "Invalid slippage value. Must be between 0 and 1 (e.g., 0.01 represents 1% slippage)"
-      )
+      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
     }
 
-    const routerData = Array.isArray(routers) ? routers : routers.routes
-    const byAmountIn = isBuilderRouterSwapParams(params)
-      ? params.byAmountIn
-      : params.routers.byAmountIn
+    if (
+      !params.router.packages ||
+      !params.router.packages.get(Constants.PACKAGE_NAMES.AGGREGATOR_V3)
+    ) {
+      throw new Error(Constants.CLIENT_CONFIG.ERRORS.PACKAGES_REQUIRED)
+    }
 
-    const amountIn = routerData.reduce(
-      (acc, router) => acc.add(router.amountIn),
-      new BN(0)
-    )
-    const amountOut = routerData.reduce(
-      (acc, router) => acc.add(router.amountOut),
-      new BN(0)
-    )
+    const byAmountIn = params.router.byAmountIn
 
+    const amountIn = router.amountIn
+    const amountOut = router.amountOut
+
+    checkOverlayFeeConfig(this.overlayFeeRate, this.overlayFeeReceiver)
     let overlayFee = new BN(0)
-    if (this.overlayFeeRate > 0 && this.overlayFeeReceiver !== "0x0") {
-      if (byAmountIn) {
-        overlayFee = amountOut
-          .mul(new BN(this.overlayFeeRate))
-          .div(new BN(1000000))
-      } else {
-        overlayFee = amountIn
-          .mul(new BN(this.overlayFeeRate))
-          .div(new BN(1000000))
-      }
+    if (byAmountIn) {
+      overlayFee = amountOut
+        .mul(new BN(this.overlayFeeRate))
+        .div(new BN(1000000))
+    } else {
+      overlayFee = amountIn
+        .mul(new BN(this.overlayFeeRate))
+        .div(new BN(1000000))
     }
 
     const expectedAmountOut = byAmountIn ? amountOut.sub(overlayFee) : amountOut
@@ -640,203 +722,67 @@ export class AggregatorClient {
       slippage
     )
 
-    const packages = isBuilderRouterSwapParams(params)
-      ? undefined
-      : params.routers.packages
-
-    const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(
-      this.publishedAtV2(),
-      packages
-    )
-
-    const priceIDs = findPythPriceIDs(routerData)
-
+    const priceIDs = findPythPriceIDs(router.paths)
     const priceInfoObjectIds =
       priceIDs.length > 0
         ? await this.updatePythPriceIDs(priceIDs, txb)
         : new Map<string, string>()
 
     if (byAmountIn) {
-      const targetCoin = await this.expectInputSwap(
+      return this.expectInputSwapV3(
         txb,
         inputCoin,
-        routerData,
+        router,
         amountOut.toString(),
         amountLimit.toString(),
         priceInfoObjectIds,
-        partner ?? this.partner,
-        deepbookv3DeepFee,
-        packages
+        partner ?? this.partner
       )
-      return targetCoin
-    }
-
-    if (this.overlayFeeRate > 0 && this.overlayFeeReceiver !== "0x0") {
-      const overlayFeeCoin = txb.splitCoins(inputCoin, [overlayFee.toString()])
-      txb.transferObjects([overlayFeeCoin], this.overlayFeeReceiver)
-    }
-
-    // When exact output, we will set slippage limit in split coin.
-    const splitedInputCoins = txb.splitCoins(inputCoin, [
-      amountLimit.sub(overlayFee).toString(),
-    ])
-    this.transferOrDestoryCoin(
-      txb,
-      inputCoin,
-      routerData[0].path[0].from,
-      aggregatorV2PublishedAt
-    )
-    const targetCoin = await this.expectOutputSwap(
-      txb,
-      splitedInputCoins[0],
-      routerData,
-      partner ?? this.partner
-    )
-    return targetCoin
-  }
-
-  async fixableRouterSwap(
-    params: BuildRouterSwapParamsV2
-  ): Promise<TransactionObjectArgument> {
-    const { routers, inputCoin, slippage, txb, deepbookv3DeepFee, partner } =
-      params
-
-    const routerData = Array.isArray(routers) ? routers : routers.routes
-    const byAmountIn = params.routers.byAmountIn
-
-    const amountIn = routerData.reduce(
-      (acc, router) => acc.add(router.amountIn),
-      new BN(0)
-    )
-    const amountOut = routerData.reduce(
-      (acc, router) => acc.add(router.amountOut),
-      new BN(0)
-    )
-    let overlayFee = 0
-    if (this.overlayFeeRate > 0 && this.overlayFeeReceiver !== "0x0") {
-      if (byAmountIn) {
-        overlayFee = Number(
-          amountOut
-            .mul(new BN(this.overlayFeeRate))
-            .div(new BN(1000000))
-            .toString()
-        )
-      } else {
-        overlayFee = Number(
-          amountIn
-            .mul(new BN(this.overlayFeeRate))
-            .div(new BN(1000000))
-            .toString()
-        )
-      }
-    }
-
-    const expectedAmountOut = byAmountIn
-      ? amountOut.sub(new BN(overlayFee))
-      : amountOut
-    const expectedAmountIn = byAmountIn
-      ? amountIn
-      : amountIn.add(new BN(overlayFee))
-
-    const amountLimit = CalculateAmountLimitBN(
-      byAmountIn ? expectedAmountOut : expectedAmountIn,
-      byAmountIn,
-      slippage
-    )
-
-    const packages = isBuilderRouterSwapParams(params)
-      ? undefined
-      : params.routers.packages
-
-    const priceIDs = findPythPriceIDs(routerData)
-
-    const priceInfoObjectIds =
-      priceIDs.length > 0
-        ? await this.updatePythPriceIDs(priceIDs, txb)
-        : new Map<string, string>()
-
-    if (byAmountIn) {
-      const targetCoin = await this.executeFlexibleInputSwap(
+    } else {
+      return this.expectOutputSwapV3(
         txb,
         inputCoin,
-        routerData,
-        expectedAmountOut.toString(),
+        router,
+        amountOut.toString(),
         amountLimit.toString(),
-        priceInfoObjectIds,
-        partner ?? this.partner,
-        deepbookv3DeepFee,
-        packages
+        partner ?? this.partner
       )
-      return targetCoin
     }
-
-    const targetCoin = await this.expectOutputSwap(
-      txb,
-      inputCoin,
-      routerData,
-      partner ?? this.partner
-    )
-    return targetCoin
   }
 
   // auto build input coin
   // auto merge, transfer or destory target coin.
-  async fastRouterSwap(
-    params: BuildFastRouterSwapParams | BuildFastRouterSwapParamsV2
-  ) {
-    const {
-      routers,
-      slippage,
-      txb,
-      partner,
-      refreshAllCoins,
-      payDeepFeeAmount,
-    } = params
+  async fastRouterSwap(params: BuildFastRouterSwapParamsV3) {
+    const { router, slippage, txb, partner, payDeepFeeAmount } = params
 
-    const routerData = Array.isArray(routers) ? routers : routers.routes
-    const fromCoinType = routerData[0].path[0].from
-    let fromCoins = await this.getCoins(fromCoinType, refreshAllCoins)
+    const fromCoinType = router.paths[0].from
+    const targetCoinType = router.paths[router.paths.length - 1].target
+    const byAmountIn = router.byAmountIn
 
-    const targetCoinType =
-      routerData[0].path[routerData[0].path.length - 1].target
-    const amountIn = routerData.reduce(
-      (acc, router) => acc.add(router.amountIn),
-      new BN(0)
-    )
-    const amountOut = routerData.reduce(
-      (acc, router) => acc.add(router.amountOut),
-      new BN(0)
-    )
-
-    const byAmountIn = isBuilderFastRouterSwapParams(params)
-      ? params.byAmountIn
-      : params.routers.byAmountIn
-
+    checkOverlayFeeConfig(this.overlayFeeRate, this.overlayFeeReceiver)
     let overlayFee = 0
-    if (this.overlayFeeRate > 0 && this.overlayFeeReceiver !== "0x0") {
-      if (byAmountIn) {
-        overlayFee = Number(
-          amountOut
-            .mul(new BN(this.overlayFeeRate))
-            .div(new BN(1000000))
-            .toString()
-        )
-      } else {
-        overlayFee = Number(
-          amountIn
-            .mul(new BN(this.overlayFeeRate))
-            .div(new BN(1000000))
-            .toString()
-        )
-      }
+    if (byAmountIn) {
+      overlayFee = Number(
+        router.amountOut
+          .mul(new BN(this.overlayFeeRate))
+          .div(new BN(1000000))
+          .toString()
+      )
+    } else {
+      overlayFee = Number(
+        router.amountIn
+          .mul(new BN(this.overlayFeeRate))
+          .div(new BN(1000000))
+          .toString()
+      )
     }
 
     const expectedAmountOut = byAmountIn
-      ? amountOut.sub(new BN(overlayFee))
-      : amountOut
+      ? router.amountOut.sub(new BN(overlayFee))
+      : router.amountOut
     const expectedAmountIn = byAmountIn
-      ? amountIn
-      : amountIn.add(new BN(overlayFee))
+      ? router.amountIn
+      : router.amountIn.add(new BN(overlayFee))
 
     const amountLimit = CalculateAmountLimit(
       byAmountIn ? expectedAmountOut : expectedAmountIn,
@@ -844,277 +790,250 @@ export class AggregatorClient {
       slippage
     )
 
-    console.log("amountLimit", amountLimit.toString())
     const amount = byAmountIn ? expectedAmountIn : amountLimit
-    const buildFromCoinRes = buildInputCoin(
-      txb,
-      fromCoins,
-      BigInt(amount.toString()),
-      fromCoinType
-    )
+
+    let inputCoin = coinWithBalance({
+      balance: BigInt(amount.toString()),
+      useGasCoin: true,
+      type: fromCoinType,
+    })
 
     let deepCoin
     if (payDeepFeeAmount && payDeepFeeAmount > 0) {
-      let deepCoins = await this.getCoins(this.deepbookv3DeepFeeType())
-      deepCoin = buildInputCoin(
-        txb,
-        deepCoins,
-        BigInt(payDeepFeeAmount),
-        this.deepbookv3DeepFeeType()
-      ).targetCoin
+      deepCoin = coinWithBalance({
+        balance: BigInt(payDeepFeeAmount),
+        type: this.deepbookv3DeepFeeType(),
+      })
     }
 
-    const routerSwapParams = isBuilderFastRouterSwapParams(params)
-      ? {
-          routers: routerData,
-          inputCoin: buildFromCoinRes.targetCoin,
-          slippage,
-          byAmountIn,
-          txb,
-          partner: partner ?? this.partner,
-          deepbookv3DeepFee: deepCoin,
-        }
-      : {
-          routers: params.routers,
-          inputCoin: buildFromCoinRes.targetCoin,
-          slippage,
-          byAmountIn,
-          txb,
-          partner: partner ?? this.partner,
-          deepbookv3DeepFee: deepCoin,
-        }
+    const routerSwapParams: BuildRouterSwapParamsV3 = {
+      router,
+      inputCoin,
+      slippage,
+      txb,
+      partner: partner ?? this.partner,
+      deepbookv3DeepFee: deepCoin,
+    }
 
     const targetCoin = await this.routerSwap(routerSwapParams)
 
     if (CoinUtils.isSuiCoin(targetCoinType)) {
       txb.mergeCoins(txb.gas, [targetCoin])
     } else {
-      let targetCoins = await this.getCoins(targetCoinType, refreshAllCoins)
-      const targetCoinRes = buildInputCoin(
-        txb,
-        targetCoins,
-        BigInt(0),
-        targetCoinType
-      )
-
-      const packages = isBuilderFastRouterSwapParams(params)
-        ? undefined
-        : params.routers.packages
-      const aggregatorV2PublishedAt = getAggregatorV2PublishedAt(
-        this.publishedAtV2(),
-        packages
-      )
-
-      txb.mergeCoins(targetCoinRes.targetCoin, [targetCoin])
-      if (targetCoinRes.isMintZeroCoin) {
-        this.transferOrDestoryCoin(
-          txb,
-          targetCoinRes.targetCoin,
-          targetCoinType,
-          aggregatorV2PublishedAt
+      const targetCoinObjID = await this.getOneCoinUsedToMerge(targetCoinType)
+      if (targetCoinObjID != null) {
+        txb.mergeCoins(txb.object(targetCoinObjID), [targetCoin])
+      } else {
+        transferOrDestroyCoin(
+          {
+            coin: targetCoin,
+            coinType: targetCoinType,
+            packages: router.packages,
+          },
+          txb
         )
       }
     }
   }
 
-  // Include cetus、deepbookv2、flowxv2 & v3、kriyav2 & v3、turbos、aftermath、haedal、afsui、volo、bluemove
-  publishedAtV2(): string {
-    if (this.env === Env.Mainnet) {
-      return "0x8ae871505a80d8bf6bf9c05906cda6edfeea460c85bebe2e26a4313f5e67874a" // version 12
+  async fixableRouterSwapV3(
+    params: BuildRouterSwapParamsV3
+  ): Promise<TransactionObjectArgument> {
+    const { router, inputCoin, slippage, txb, partner } = params
+
+    checkOverlayFeeConfig(this.overlayFeeRate, this.overlayFeeReceiver)
+    let overlayFee = 0
+    if (router.byAmountIn) {
+      overlayFee = Number(
+        router.amountOut
+          .mul(new BN(this.overlayFeeRate))
+          .div(new BN(1000000))
+          .toString()
+      )
     } else {
-      // return "0x0ed287d6c3fe4962d0994ffddc1d19a15fba6a81533f3f0dcc2bbcedebce0637" // version 2
-      return "0x52eae33adeb44de55cfb3f281d4cc9e02d976181c0952f5323648b5717b33934"
+      overlayFee = Number(
+        router.amountIn
+          .mul(new BN(this.overlayFeeRate))
+          .div(new BN(1000000))
+          .toString()
+      )
+    }
+
+    const expectedAmountOut = router.byAmountIn
+      ? router.amountOut.sub(new BN(overlayFee))
+      : router.amountOut
+    const expectedAmountIn = router.byAmountIn
+      ? router.amountIn
+      : router.amountIn.add(new BN(overlayFee))
+
+    const amountLimit = CalculateAmountLimitBN(
+      router.byAmountIn ? expectedAmountOut : expectedAmountIn,
+      router.byAmountIn,
+      slippage
+    )
+
+    const priceIDs = findPythPriceIDs(router.paths)
+
+    const priceInfoObjectIds =
+      priceIDs.length > 0
+        ? await this.updatePythPriceIDs(priceIDs, txb)
+        : new Map<string, string>()
+
+    if (router.byAmountIn) {
+      return this.expectInputSwapV3(
+        txb,
+        inputCoin,
+        router,
+        expectedAmountOut.toString(),
+        amountLimit.toString(),
+        priceInfoObjectIds,
+        partner ?? this.partner
+      )
+    } else {
+      return this.expectOutputSwapV3(
+        txb,
+        inputCoin,
+        router,
+        expectedAmountOut.toString(),
+        amountLimit.toString(),
+        partner ?? this.partner
+      )
     }
   }
 
-  // Include deepbookv3, scallop, bluefin
-  publishedAtV2Extend(): string {
-    if (this.env === Env.Mainnet) {
-      return "0x8a2f7a5b20665eeccc79de3aa37c3b6c473eca233ada1e1cd4678ec07d4d4073" // version 17
-    } else {
-      return "0xabb6a81c8a216828e317719e06125de5bb2cb0fe8f9916ff8c023ca5be224c78"
-    }
-  }
+  async swapInPools(params: SwapInPoolsParams): Promise<SwapInPoolsResultV3> {
+    const { from, target, amount, byAmountIn, pools } = params
+    const fromCoin = completionCoin(from)
+    const targetCoin = completionCoin(target)
 
-  publishedAtV2Extend2(): string {
-    if (this.env === Env.Mainnet) {
-      return "0x5cb7499fc49c2642310e24a4ecffdbee00133f97e80e2b45bca90c64d55de880" // version 8
-    } else {
-      return "0x0"
-    }
-  }
+    const tx = new Transaction()
+    const direction = compareCoins(fromCoin, targetCoin)
+    const coinA = direction ? fromCoin : targetCoin
+    const coinB = direction ? targetCoin : fromCoin
 
-  deepbookv3DeepFeeType(): string {
-    if (this.env === Env.Mainnet) {
-      return "0xdeeb7a4662eec9f2f3def03fb937a663dddaa2e215b8078a284d026b7946c270::deep::DEEP"
-    } else {
-      return "0x36dbef866a1d62bf7328989a10fb2f07d769f4ee587c0de4a0a256e57e0a58a8::deep::DEEP"
-    }
-  }
+    const typeArguments = [coinA, coinB]
 
-  transferOrDestoryCoin(
-    txb: Transaction,
-    coin: TransactionObjectArgument,
-    coinType: string,
-    aggregatorV2PublishedAt: string
-  ) {
-    txb.moveCall({
-      target: `${aggregatorV2PublishedAt}::utils::transfer_or_destroy_coin`,
-      typeArguments: [coinType],
-      arguments: [coin],
-    })
-  }
+    // Use the Cetus V3 published-at constant
+    const integratePublishedAt =
+      this.env === Env.Mainnet
+        ? "0xb2db7142fa83210a7d78d9c12ac49c043b3cbbd482224fea6e3da00aa5a5ae2d"
+        : "0x4f920e1ef6318cfba77e20a0538a419a5a504c14230169438b99aba485db40a6"
 
-  checkCoinThresholdAndMergeCoin(
-    txb: Transaction,
-    coins: TransactionObjectArgument[],
-    coinType: string,
-    expectedAmountOut: string,
-    threshold: string,
-    aggregatorV2ExtendPublishedAt: string
-  ) {
-    let targetCoin = coins[0]
-    if (coins.length > 1) {
-      let vec = txb.makeMoveVec({ elements: coins.slice(1) })
-      txb.moveCall({
-        target: `${SUI_FRAMEWORK_ADDRESS}::pay::join_vec`,
-        typeArguments: [coinType],
-        arguments: [coins[0], vec],
+    for (let i = 0; i < pools.length; i++) {
+      const args = [
+        tx.object(pools[i]),
+        tx.pure.bool(direction),
+        tx.pure.bool(byAmountIn),
+        tx.pure.u64(amount.toString()),
+      ]
+      tx.moveCall({
+        target: `${integratePublishedAt}::fetcher_script::calculate_swap_result`,
+        arguments: args,
+        typeArguments,
       })
-      targetCoin = coins[0]
     }
 
-    if (this.overlayFeeRate === 0 || this.overlayFeeReceiver === "0x0") {
-      txb.moveCall({
-        target: `${aggregatorV2ExtendPublishedAt}::utils::check_coin_threshold_v1`,
-        typeArguments: [coinType],
-        arguments: [
-          targetCoin,
-          txb.pure.u64(expectedAmountOut),
-          txb.pure.u64(threshold),
-        ],
-      })
-    } else {
-      txb.moveCall({
-        target: `${aggregatorV2ExtendPublishedAt}::utils::check_coin_threshold_v2`,
-        typeArguments: [coinType],
-        arguments: [
-          targetCoin,
-          txb.pure.u64(expectedAmountOut),
-          txb.pure.u64(threshold),
-          txb.pure.u64(this.overlayFeeRate),
-          txb.pure.address(this.overlayFeeReceiver),
-        ],
-      })
+    if (!this.signer) {
+      this.signer = "0x0"
     }
 
-    return targetCoin
-  }
-
-  newDex(
-    provider: string,
-    pythPriceIDs: Map<string, string>,
-    partner?: string
-  ): Dex {
-    switch (provider) {
-      case CETUS:
-        return new Cetus(this.env, partner)
-      case DEEPBOOKV2:
-        return new DeepbookV2(this.env)
-      case DEEPBOOKV3:
-        return new DeepbookV3(this.env)
-      case KRIYA:
-        return new KriyaV2(this.env)
-      case KRIYAV3:
-        return new KriyaV3(this.env)
-      case FLOWXV2:
-        return new FlowxV2(this.env)
-      case FLOWXV3:
-        return new FlowxV3(this.env)
-      case TURBOS:
-        return new Turbos(this.env)
-      case AFTERMATH:
-        return new Aftermath(this.env)
-      case HAEDAL:
-        return new Haedal(this.env)
-      case AFSUI:
-        return new Afsui(this.env)
-      case VOLO:
-        return new Volo(this.env)
-      case BLUEMOVE:
-        return new Bluemove(this.env)
-      case SCALLOP:
-        return new Scallop(this.env)
-      case SUILEND:
-        return new Suilend(this.env)
-      case SPRINGSUI:
-        return new Suilend(this.env)
-      case BLUEFIN:
-        return new Bluefin(this.env)
-      case HAEDALPMM:
-        return new HaedalPmm(this.env, pythPriceIDs)
-      case ALPHAFI:
-        return new Alphafi(this.env)
-      case STEAMM:
-        return new SteammCPMM(this.env)
-      case STEAMM_OMM:
-        return new SteammOmm(this.env, pythPriceIDs)
-      case METASTABLE:
-        return new Metastable(this.env, pythPriceIDs)
-      case OBRIC:
-        return new Obric(this.env, pythPriceIDs)
-      case HAWAL:
-        return new HaWAL(this.env)
-      case MOMENTUM:
-        return new Momentum(this.env)
-      case STEAMM_OMM_V2:
-        return new SteammOmmV2(this.env, pythPriceIDs)
-      case MAGMA:
-        return new Magma(this.env)
-      case SEVENK:
-        return new Sevenk(this.env, pythPriceIDs)
-      default:
-        throw new Error(`Unsupported dex ${provider}`)
-    }
-  }
-
-  async signAndExecuteTransaction(txb: Transaction, signer: Signer) {
-    const res = await this.client.signAndExecuteTransaction({
-      transaction: txb,
-      signer,
-      options: {
-        showEffects: true,
-        showEvents: true,
-        showInput: true,
-        showBalanceChanges: true,
-      },
-    })
-    return res
-  }
-
-  async devInspectTransactionBlock(txb: Transaction) {
-    const res = await this.client.devInspectTransactionBlock({
-      transactionBlock: txb,
+    const simulateRes = await this.client.devInspectTransactionBlock({
+      transactionBlock: tx,
       sender: this.signer,
     })
 
-    return res
-  }
-
-  async sendTransaction(txb: Transaction, signer: Signer) {
-    const res = await this.client.signAndExecuteTransaction({
-      transaction: txb,
-      signer,
-    })
-    return res
-  }
-
-  async getDeepbookV3Config(): Promise<DeepbookV3Config | null> {
-    const res = await getDeepbookV3Config(this.endpoint)
-    if (res) {
-      return res.data
+    if (simulateRes.error != null) {
+      throw new Error("Simulation error: " + simulateRes.error)
     }
-    return null
+
+    const valueData: any = simulateRes.events?.filter((item: any) => {
+      return item.type.includes("CalculatedSwapResultEvent")
+    })
+
+    if (valueData.length === 0 || valueData.length !== pools.length) {
+      throw new Error("Simulate event result error")
+    }
+
+    let tempMaxAmount = byAmountIn ? new BN(0) : new BN(Constants.U64_MAX)
+    let tempIndex = 0
+    for (let i = 0; i < valueData.length; i += 1) {
+      if (valueData[i].parsedJson.data.is_exceed) {
+        continue
+      }
+
+      if (params.byAmountIn) {
+        const amount = new BN(valueData[i].parsedJson.data.amount_out)
+        if (amount.gt(tempMaxAmount)) {
+          tempIndex = i
+          tempMaxAmount = amount
+        }
+      } else {
+        const amount = new BN(valueData[i].parsedJson.data.amount_out)
+        if (amount.lt(tempMaxAmount)) {
+          tempIndex = i
+          tempMaxAmount = amount
+        }
+      }
+    }
+
+    const event = valueData[tempIndex].parsedJson.data
+
+    const [decimalA, decimalB] = await Promise.all([
+      this.client
+        .getCoinMetadata({ coinType: coinA })
+        .then(metadata => metadata?.decimals),
+      this.client
+        .getCoinMetadata({ coinType: coinB })
+        .then(metadata => metadata?.decimals),
+    ])
+
+    if (decimalA == null || decimalB == null) {
+      throw new Error("Cannot get coin decimals")
+    }
+
+    const feeRate = Number(event.fee_rate) / 1000000
+    const pureAmountIn = new BN(event.amount_in ?? 0)
+    const feeAmount = new BN(event.fee_amount ?? 0)
+    const amountIn = pureAmountIn.add(feeAmount)
+
+    // Return RouterData in v3 format
+    const routeData: RouterDataV3 = {
+      amountIn: amountIn,
+      amountOut: new BN(event.amount_out ?? 0),
+      deviationRatio: 0,
+      paths: [
+        {
+          id: pools[tempIndex],
+          direction,
+          provider: CETUS,
+          from: fromCoin,
+          target: targetCoin,
+          feeRate,
+          amountIn: amountIn.toString(),
+          amountOut: event.amount_out,
+          publishedAt: Constants.CETUS_V3_PUBLISHED_AT,
+          extendedDetails: {
+            afterSqrtPrice: event.after_sqrt_price,
+          },
+        },
+      ],
+      insufficientLiquidity: false,
+      byAmountIn: params.byAmountIn,
+      quoteID: `degraded-${generateUUID()}`,
+      packages: new Map([
+        [
+          Constants.PACKAGE_NAMES.AGGREGATOR_V3,
+          Constants.AGGREGATOR_V3_CONFIG.DEFAULT_PUBLISHED_AT.Mainnet,
+        ],
+      ]),
+    }
+
+    const result: SwapInPoolsResultV3 = {
+      isExceed: event.is_exceed,
+      routeData,
+    }
+
+    return result
   }
 
   async updatePythPriceIDs(
@@ -1160,198 +1079,53 @@ export class AggregatorClient {
     }
     return priceInfoObjectIdsMap
   }
+
+  async devInspectTransactionBlock(txb: Transaction) {
+    const res = await this.client.devInspectTransactionBlock({
+      transactionBlock: txb,
+      sender: this.signer,
+    })
+
+    return res
+  }
+
+  async sendTransaction(txb: Transaction, signer: Signer) {
+    const res = await this.client.signAndExecuteTransaction({
+      transaction: txb,
+      signer,
+    })
+    return res
+  }
 }
 
-export function findPythPriceIDs(routes: Router[]): string[] {
-  const priceIDs = new Set<string>()
-
-  for (const route of routes) {
-    for (const path of route.path) {
-      if (path.provider === HAEDALPMM) {
-        if (
-          path.extendedDetails &&
-          path.extendedDetails.haedalPmmBasePriceSeed &&
-          path.extendedDetails.haedalPmmQuotePriceSeed
-        ) {
-          priceIDs.add(path.extendedDetails.haedalPmmBasePriceSeed)
-          priceIDs.add(path.extendedDetails.haedalPmmQuotePriceSeed)
-        }
-      }
-      if (path.provider === METASTABLE) {
-        if (path.extendedDetails && path.extendedDetails.metastablePriceSeed) {
-          priceIDs.add(path.extendedDetails.metastablePriceSeed)
-        }
-        if (
-          path.extendedDetails &&
-          path.extendedDetails.metastableETHPriceSeed
-        ) {
-          priceIDs.add(path.extendedDetails.metastableETHPriceSeed)
-        }
-      }
-      if (path.provider === OBRIC) {
-        if (path.extendedDetails && path.extendedDetails.obricCoinAPriceSeed) {
-          priceIDs.add(path.extendedDetails.obricCoinAPriceSeed)
-        }
-        if (path.extendedDetails && path.extendedDetails.obricCoinBPriceSeed) {
-          priceIDs.add(path.extendedDetails.obricCoinBPriceSeed)
-        }
-      }
-      if (path.provider === STEAMM_OMM || path.provider === STEAMM_OMM_V2) {
-        if (
-          path.extendedDetails &&
-          path.extendedDetails.steammOraclePythPriceSeedA
-        ) {
-          priceIDs.add(path.extendedDetails.steammOraclePythPriceSeedA)
-        }
-        if (
-          path.extendedDetails &&
-          path.extendedDetails.steammOraclePythPriceSeedB
-        ) {
-          priceIDs.add(path.extendedDetails.steammOraclePythPriceSeedB)
-        }
-      }
-      if (path.provider === SEVENK) {
-        if (path.extendedDetails && path.extendedDetails.sevenkCoinAPriceSeed) {
-          priceIDs.add(path.extendedDetails.sevenkCoinAPriceSeed)
-        }
-        if (path.extendedDetails && path.extendedDetails.sevenkCoinBPriceSeed) {
-          priceIDs.add(path.extendedDetails.sevenkCoinBPriceSeed)
-        }
-      }
-    }
-  }
-  return Array.from(priceIDs)
+function generateUUID(): string {
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0
+    const v = c === "x" ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
 }
 
-export function parseRouterResponse(
-  data: any,
-  byAmountIn: boolean
-): RouterData {
-  let totalDeepFee = 0
-  for (const route of data.routes) {
-    for (const path of route.path) {
-      if (path.extended_details && path.extended_details.deepbookv3_deep_fee) {
-        totalDeepFee += Number(path.extended_details.deepbookv3_deep_fee)
-      }
+function recordFirstCoinIndex(paths: Path[]): Map<string, number> {
+  let newCoinRecord = new Map<string, number>()
+  for (let i = 0; i < paths.length; i++) {
+    if (!newCoinRecord.has(paths[i].from)) {
+      newCoinRecord.set(paths[i].from, i)
     }
   }
+  return newCoinRecord
+}
 
-  let packages = undefined
-  if (data.packages != null) {
-    packages = new Map<string, string>()
-    for (const [key, value] of Object.entries(data.packages)) {
-      packages.set(key, value as string)
-    }
+function checkOverlayFeeConfig(
+  overlayFeeRate: number,
+  overlayFeeReceiver: string
+) {
+  if (overlayFeeRate > Constants.CLIENT_CONFIG.MAX_FEE_RATE) {
+    throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_OVERLAY_FEE_RATE)
   }
-
-  let routerData: RouterData = {
-    amountIn: new BN(data.amount_in.toString()),
-    amountOut: new BN(data.amount_out.toString()),
-    deviationRatio: data.deviation_ratio ? Number(data.deviation_ratio) : undefined,
-    byAmountIn,
-    insufficientLiquidity: false,
-    routes: data.routes.map((route: any) => {
-      return {
-        path: route.path.map((path: any) => {
-          let version
-          if (path.provider === AFTERMATH) {
-            version =
-              path.extended_details.aftermath_pool_flatness === 0 ? "v2" : "v3"
-          }
-
-          let extendedDetails
-          if (
-            path.provider === TURBOS ||
-            path.provider === AFTERMATH ||
-            path.provider === CETUS ||
-            path.provider === DEEPBOOKV3 ||
-            path.provider === SCALLOP ||
-            path.provider === HAEDALPMM ||
-            path.provider === METASTABLE ||
-            path.provider === OBRIC ||
-            path.provider === STEAMM ||
-            path.provider === STEAMM_OMM ||
-            path.provider === STEAMM_OMM_V2 ||
-            path.provider === SEVENK
-          ) {
-            extendedDetails = {
-              aftermathLpSupplyType:
-                path.extended_details?.aftermath_lp_supply_type,
-              turbosFeeType: path.extended_details?.turbos_fee_type,
-              afterSqrtPrice: path.extended_details?.after_sqrt_price,
-              deepbookv3DeepFee: path.extended_details?.deepbookv3_deep_fee,
-              scallopScoinTreasury:
-                path.extended_details?.scallop_scoin_treasury,
-              haedalPmmBasePriceSeed:
-                path.extended_details?.haedal_pmm_base_price_seed,
-              haedalPmmQuotePriceSeed:
-                path.extended_details?.haedal_pmm_quote_price_seed,
-              steammBankA: path.extended_details?.steamm_bank_a,
-              steammBankB: path.extended_details?.steamm_bank_b,
-              steammLendingMarket: path.extended_details?.steamm_lending_market,
-              steammLendingMarketType:
-                path.extended_details?.steamm_lending_market_type,
-              steammBCoinAType: path.extended_details?.steamm_btoken_a_type,
-              steammBCoinBType: path.extended_details?.steamm_btoken_b_type,
-              steammLPToken: path.extended_details?.steamm_lp_token_type,
-              steammOracleRegistryId:
-                path.extended_details?.steamm_oracle_registry_id,
-              steammOracleIndexA: path.extended_details?.steamm_oracle_index_a,
-              steammOracleIndexB: path.extended_details?.steamm_oracle_index_b,
-              steammOraclePythPriceSeedA:
-                path.extended_details?.steamm_oracle_pyth_price_seed_a,
-              steammOraclePythPriceSeedB:
-                path.extended_details?.steamm_oracle_pyth_price_seed_b,
-              metastablePriceSeed: path.extended_details?.metastable_price_seed,
-              metastableETHPriceSeed:
-                path.extended_details?.metastable_eth_price_seed,
-              metastableWhitelistedAppId:
-                path.extended_details?.metastable_whitelisted_app_id,
-              metastableCreateCapPkgId:
-                path.extended_details?.metastable_create_cap_pkg_id,
-              metastableCreateCapModule:
-                path.extended_details?.metastable_create_cap_module,
-              metastableCreateCapAllTypeParams:
-                path.extended_details?.metastable_create_cap_all_type_params,
-              metastableRegistryId:
-                path.extended_details?.metastable_registry_id,
-              obricCoinAPriceSeed:
-                path.extended_details?.obric_coin_a_price_seed,
-              obricCoinBPriceSeed:
-                path.extended_details?.obric_coin_b_price_seed,
-              obricCoinAPriceId: path.extended_details?.obric_coin_a_price_id,
-              obricCoinBPriceId: path.extended_details?.obric_coin_b_price_id,
-              sevenkCoinAPriceSeed:
-                path.extended_details?.sevenk_coin_a_price_seed,
-              sevenkCoinBPriceSeed:
-                path.extended_details?.sevenk_coin_b_price_seed,
-              sevenkCoinAOracleId: path.extended_details?.sevenk_oracle_config_a,
-              sevenkCoinBOracleId: path.extended_details?.sevenk_oracle_config_b,
-              sevenkLPCapType: path.extended_details?.sevenk_lp_cap_type,
-            }
-          }
-
-          return {
-            id: path.id,
-            direction: path.direction,
-            provider: path.provider,
-            from: path.from,
-            target: path.target,
-            feeRate: path.fee_rate,
-            amountIn: path.amount_in,
-            amountOut: path.amount_out,
-            extendedDetails,
-            version,
-          }
-        }),
-        amountIn: new BN(route.amount_in.toString()),
-        amountOut: new BN(route.amount_out.toString()),
-        initialPrice: new Decimal(route.initial_price.toString()),
-      }
-    }),
-    totalDeepFee,
-    packages,
+  if (overlayFeeReceiver === "0x0" && overlayFeeRate > 0) {
+    throw new Error(
+      Constants.CLIENT_CONFIG.ERRORS.OVERLAY_FEE_RECEIVER_REQUIRED
+    )
   }
-
-  return routerData
 }

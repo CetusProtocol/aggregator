@@ -3,7 +3,6 @@
 // `byAmountIn` means fixed amount in or out.
 
 import BN from "bn.js"
-import { TEN_POW_NINE, ZERO } from "./const"
 import Decimal from "decimal.js"
 
 // `slippage` is a percentage, for example, 0.01 means 1%.
@@ -12,37 +11,39 @@ export function CalculateAmountLimit(
   byAmountIn: boolean,
   slippage: number
 ): number {
-  let amountLimit = ZERO
-  if (byAmountIn) {
-    amountLimit = expectAmount
-      .mul(new BN(TEN_POW_NINE - slippage * TEN_POW_NINE))
-      .div(new BN(TEN_POW_NINE))
-  } else {
-    amountLimit = expectAmount
-      .mul(new BN(TEN_POW_NINE + slippage * TEN_POW_NINE))
-      .div(new BN(TEN_POW_NINE))
-  }
-
-  return Number(amountLimit.toString())
+  return Number(
+    CalculateAmountLimitByDecimal(
+      new Decimal(expectAmount.toString()),
+      byAmountIn,
+      slippage
+    ).toFixed(0)
+  )
 }
 
+// BN version of CalculateAmountLimit
 export function CalculateAmountLimitBN(
   expectAmount: BN,
   byAmountIn: boolean,
   slippage: number
 ): BN {
-  let amountLimit = ZERO
-  if (byAmountIn) {
-    amountLimit = expectAmount
-      .mul(new BN(TEN_POW_NINE - slippage * TEN_POW_NINE))
-      .div(new BN(TEN_POW_NINE))
-  } else {
-    amountLimit = expectAmount
-      .mul(new BN(TEN_POW_NINE + slippage * TEN_POW_NINE))
-      .div(new BN(TEN_POW_NINE))
-  }
+  const amountLimit = CalculateAmountLimitByDecimal(
+    new Decimal(expectAmount.toString()),
+    byAmountIn,
+    slippage
+  )
+  return new BN(amountLimit.toFixed(0))
+}
 
-  return amountLimit
+function CalculateAmountLimitByDecimal(
+  expectAmount: Decimal,
+  byAmountIn: boolean,
+  slippage: number
+): Decimal {
+  if (byAmountIn) {
+    return expectAmount.mul(1 - slippage)
+  } else {
+    return expectAmount.mul(1 + slippage)
+  }
 }
 
 const MAX_SQER_PRICE_X64 = "79226673515401279992447579055"

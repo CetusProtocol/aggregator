@@ -1,5 +1,4 @@
 import BN from "bn.js"
-import Decimal from "decimal.js"
 import JSONbig from "json-bigint"
 import { completionCoin } from "~/utils/coin"
 import { ZERO } from "./const"
@@ -7,119 +6,71 @@ import {
   AggregatorServerErrorCode,
   getAggregatorServerErrorMessage,
 } from "./errors"
-import { parseRouterResponse } from "./client"
 
-const SDK_VERSION = 1001402
+// Remove import of parseRouterResponse from client.ts
+import {
+  FindRouterParams,
+  FlattenedPath,
+  ProcessedRouterData,
+  DeepbookV3ConfigResponse,
+  RouterDataV3,
+} from "./types/shared"
 
-export interface FindRouterParams {
-  from: string
-  target: string
-  amount: BN
-  byAmountIn: boolean
-  depth?: number
-  splitAlgorithm?: string
-  splitFactor?: number
-  splitCount?: number
-  providers?: string[]
-  liquidityChanges?: PreSwapLpChangeParams[]
+const SDK_VERSION = 1010104
+
+function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
+  // Parse packages map from API response
+  let packages = new Map<string, string>()
+  if (data.packages) {
+    if (data.packages instanceof Map) {
+      packages = data.packages
+    } else if (typeof data.packages === "object") {
+      // Convert object to Map
+      Object.entries(data.packages).forEach(([key, value]) => {
+        packages.set(key, value as string)
+      })
+    }
+  }
+
+  return {
+    quoteID: data.request_id || "",
+    amountIn: new BN(data.amount_in.toString()),
+    amountOut: new BN(data.amount_out.toString()),
+    byAmountIn,
+    insufficientLiquidity: false,
+    deviationRatio: data.deviation_ratio,
+    packages,
+    paths: data.paths.map((path: any) => ({
+      id: path.id,
+      direction: path.direction,
+      provider: path.provider,
+      from: path.from,
+      target: path.target,
+      feeRate: path.fee_rate,
+      amountIn: path.amount_in.toString(),
+      amountOut: path.amount_out.toString(),
+      version: path.version,
+      publishedAt: path.published_at,
+      extendedDetails: path.extended_details,
+    })),
+  }
 }
 
-export interface PreSwapLpChangeParams {
-  poolID: string
-  ticklower: number
-  tickUpper: number
-  deltaLiquidity: number
-}
-
-export type ExtendedDetails = {
-  // aftermath
-  aftermathPoolFlatness?: number
-  aftermathLpSupplyType?: string
-  // turbos
-  turbosFeeType?: string
-  // cetus
-  afterSqrtPrice?: string
-  // deepbookv3
-  deepbookv3DeepFee?: number
-  // scallop
-  scallopScoinTreasury?: string
-  // haedal
-  haedalPmmBasePriceSeed?: string
-  haedalPmmQuotePriceSeed?: string
-  // steamm
-  steammBankA?: string
-  steammBankB?: string
-  steammLendingMarket?: string
-  steammLendingMarketType?: string
-  steammBCoinAType?: string
-  steammBCoinBType?: string
-  steammLPToken?: string
-  steammOracleRegistryId?: string
-  steammOraclePythPriceSeedA?: string
-  steammOraclePythPriceSeedB?: string
-  steammOracleIndexA?: number
-  steammOracleIndexB?: number
-  metastablePriceSeed?: string
-  metastableETHPriceSeed?: string
-  metastableWhitelistedAppId?: string
-  metastableCreateCapPkgId?: string
-  metastableCreateCapModule?: string
-  metastableCreateCapAllTypeParams?: boolean
-  metastableRegistryId?: string
-  obricCoinAPriceSeed?: string
-  obricCoinBPriceSeed?: string
-  obricCoinAPriceId?: string
-  obricCoinBPriceId?: string
-  sevenkCoinAPriceSeed?: string
-  sevenkCoinBPriceSeed?: string
-  sevenkCoinAOracleId?: string
-  sevenkCoinBOracleId?: string
-  sevenkLPCapType?: string
-}
-
-export type Path = {
-  id: string
-  direction: boolean
-  provider: string
-  from: string
-  target: string
-  feeRate: number
-  amountIn: string
-  amountOut: string
-  version?: string
-  extendedDetails?: ExtendedDetails
-}
-
-export type Router = {
-  path: Path[]
-  amountIn: BN
-  amountOut: BN
-  initialPrice: Decimal
-}
-
-export type RouterError = {
-  code: number
-  msg: string
-}
-
-export type RouterData = {
-  amountIn: BN
-  amountOut: BN
-  byAmountIn: boolean
-  routes: Router[]
-  insufficientLiquidity: boolean
-  deviationRatio?: number
-  packages?: Map<string, string>
-  totalDeepFee?: number
-  error?: RouterError
-  overlayFee?: number
-}
-
-export type AggregatorResponse = {
-  code: number
-  msg: string
-  data: RouterData
-}
+// Re-export shared types for backwards compatibility
+export type {
+  FindRouterParams,
+  PreSwapLpChangeParams,
+  ExtendedDetails,
+  Path,
+  Router,
+  RouterError,
+  RouterData,
+  FlattenedPath,
+  ProcessedRouterData,
+  AggregatorResponse,
+  DeepbookV3Config,
+  DeepbookV3ConfigResponse,
+} from "./types/shared"
 
 export async function getRouterResult(
   endpoint: string,
@@ -127,7 +78,7 @@ export async function getRouterResult(
   params: FindRouterParams,
   overlayFee: number,
   overlayFeeReceiver: string
-): Promise<RouterData | null> {
+): Promise<RouterDataV3 | null> {
   let response
   if (params.liquidityChanges && params.liquidityChanges.length > 0) {
     response = await postRouterWithLiquidityChanges(endpoint, params)
@@ -146,9 +97,10 @@ export async function getRouterResult(
     }
 
     return {
+      quoteID: "",
       amountIn: ZERO,
       amountOut: ZERO,
-      routes: [],
+      paths: [],
       byAmountIn: params.byAmountIn,
       insufficientLiquidity: false,
       deviationRatio: 0,
@@ -163,9 +115,10 @@ export async function getRouterResult(
 
   if (data.msg && data.msg.indexOf("HoneyPot scam") > -1) {
     return {
+      quoteID: "",
       amountIn: ZERO,
       amountOut: ZERO,
-      routes: [],
+      paths: [],
       byAmountIn: params.byAmountIn,
       insufficientLiquidity,
       deviationRatio: 0,
@@ -194,13 +147,28 @@ export async function getRouterResult(
         res.amountIn = res.amountIn.add(overlayFeeAmount)
       }
     }
+
+    // Ensure packages map is initialized for V3 compatibility and add default aggregator_v3 package
+    if (!res.packages) {
+      res.packages = new Map<string, string>()
+    }
+
+    // Add default aggregator_v3 package if missing
+    if (!res.packages.has("aggregator_v3")) {
+      res.packages.set(
+        "aggregator_v3",
+        "0x3864c7c59a4889fec05d1aae4bc9dba5a0e0940594b424fbed44cb3f6ac4c032"
+      )
+    }
+
     return res
   }
 
   return {
+    quoteID: "",
     amountIn: ZERO,
     amountOut: ZERO,
-    routes: [],
+    paths: [],
     insufficientLiquidity,
     byAmountIn: params.byAmountIn,
     deviationRatio: 0,
@@ -264,6 +232,8 @@ async function getRouter(
     // set newest sdk version
     url += `&v=${SDK_VERSION}`
 
+    console.log("url", url)
+
     const response = await fetch(url)
     return response
   } catch (error) {
@@ -303,7 +273,7 @@ async function postRouterWithLiquidityChanges(
     split_factor: splitFactor,
     split_count: splitCount,
     providers: providersStr,
-    liquidity_changes: liquidityChanges!.map((change) => ({
+    liquidity_changes: liquidityChanges!.map(change => ({
       pool: change.poolID,
       tick_lower: change.ticklower,
       tick_upper: change.tickUpper,
@@ -328,26 +298,6 @@ async function postRouterWithLiquidityChanges(
   }
 }
 
-export type DeepbookV3Config = {
-  id: string
-  is_alternative_payment: boolean
-  alternative_payment_amount: number
-  trade_cap: string
-  balance_manager: string
-  deep_fee_vault: number
-  whitelist: number
-  package_version: 0
-  // unix timestamp in seconds
-  last_updated_time: number
-  whitelist_pools: string[]
-}
-
-export type DeepbookV3ConfigResponse = {
-  code: number
-  msg: string
-  data: DeepbookV3Config
-}
-
 export async function getDeepbookV3Config(
   endpoint: string
 ): Promise<DeepbookV3ConfigResponse | null> {
@@ -358,5 +308,51 @@ export async function getDeepbookV3Config(
   } catch (error) {
     console.error("Error:", error)
     return null
+  }
+}
+
+export function processFlattenRoutes(
+  routerData: RouterDataV3
+): ProcessedRouterData {
+  const paths = routerData.paths
+  const fromCoinType = paths[0].from
+  const targetCoinType = paths[paths.length - 1].target
+
+  const flattenedPaths: FlattenedPath[] = []
+
+  // Build dependency relationships based on route sequences
+  for (const path of paths) {
+    flattenedPaths.push({
+      path,
+      isLastUseOfIntermediateToken: false,
+    })
+  }
+
+  // Second pass: reverse traverse to mark the last usage of each intermediate token
+  const seenTokens = new Map<string, boolean>()
+  for (let i = flattenedPaths.length - 1; i >= 0; i--) {
+    const { from } = flattenedPaths[i].path
+    // Only track intermediate tokens (not the original input token)
+    // and only mark if it's the first time we see this token in reverse order
+    if (!seenTokens.has(from)) {
+      seenTokens.set(from, true)
+      flattenedPaths[i].isLastUseOfIntermediateToken = true
+    }
+  }
+
+  console.log("flattenedPaths", flattenedPaths)
+
+  return {
+    quoteID: routerData.quoteID || "",
+    amountIn: routerData.amountIn,
+    amountOut: routerData.amountOut,
+    byAmountIn: routerData.byAmountIn,
+    flattenedPaths,
+    fromCoinType,
+    targetCoinType,
+    packages: routerData.packages,
+    totalDeepFee: routerData.totalDeepFee,
+    error: routerData.error,
+    overlayFee: routerData.overlayFee,
   }
 }

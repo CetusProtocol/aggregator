@@ -6,10 +6,20 @@ export async function printTransaction(tx: Transaction, isPrint = true) {
 
   tx.getData().commands.forEach((item, index) => {
     if (isPrint) {
-      console.log(`transaction ${index}: `, JSON.stringify(item, null, 2))
+      console.log(
+        `transaction ${index}: `,
+        JSON.stringify(item, bigIntReplacer, 2)
+      )
       i++
     }
   })
+}
+
+function bigIntReplacer(key: string, value: any) {
+  if (typeof value === "bigint") {
+    return value.toString()
+  }
+  return value
 }
 
 export function checkInvalidSuiAddress(address: string): boolean {
