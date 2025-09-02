@@ -1,6 +1,6 @@
 [package]
 name = "Vsui"
-published-at = "0x549e8b69270defbfafd4f94e17ec44cdbdd99820b33bda2278dea3b9a32d3f55"
+published-at = "0x68d22cf8bdbcd11ecba1e094922873e4080d4d11133e2443fddda0bfd11dae20"
 edition = "2024.beta"
 
 [dependencies]

@@ -1,7 +1,7 @@
 [package]
 name = "FlowxClmm"
 version = "0.1.1"
-published-at = "0xcd83322a271ef764063a44fc079a7e349fb7b0744465d76e2f39c8bcf5708bd2"
+published-at = "0xe882cd54551e73e64ff5b257146a0c5264546974cf00d78ecc871017cb22df67"
 edition = "2024.beta"
 
 [dependencies]
