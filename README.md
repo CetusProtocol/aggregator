@@ -135,18 +135,18 @@ CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator
 
 # Simple Aggregator Contract Interface
 
-- include: cetus, flowxv3, turbos, bluefin, haedalhmm, momentum, obric
+- include: cetus, flowxv3, turbos, bluefin, haedalhmm, momentum, obric, deepbookv3
 
 ## Tags corresponding to different networks
 
 | Contract              | Tag of Repo | Latest published at address                                        |
 | --------------------- | ----------- | ------------------------------------------------------------------ |
-| CetusAggregatorSimple | mainnet     | 0x9c00abb0d4ae030207918910c541011191b39bf8159039dd2e3290178f806d8c |
+| CetusAggregatorSimple | mainnet     | 0x801f75be2ebfa1e544130b7539744478a10744d78fb1028536a3e48e86867e53 |
 
 ## Example
 
 ```
-CetusAggregatorSimple = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/simple-mainnet", rev = "mainnet-v1.51.1", override = true }
+CetusAggregatorSimple = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/simple-mainnet", rev = "mainnet-v1.53.0", override = true }
 ```
 
 ## Usage
