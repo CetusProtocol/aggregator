@@ -334,8 +334,7 @@ export class AggregatorClient {
     if (params.overlayFeeRate) {
       if (
         params.overlayFeeRate > 0 &&
-        params.overlayFeeRate <=
-          Constants.CLIENT_CONFIG.MAX_OVERLAY_FEE_RATE_PARAMS
+        params.overlayFeeRate <= Constants.CLIENT_CONFIG.MAX_OVERLAY_FEE_RATE
       ) {
         // Convert to contract format (multiply by 1000000 as per REFACTOR.md)
         this.overlayFeeRate =
@@ -697,7 +696,6 @@ export class AggregatorClient {
     }
 
     const byAmountIn = params.router.byAmountIn
-
     const amountIn = router.amountIn
     const amountOut = router.amountOut
 
@@ -1120,7 +1118,7 @@ function checkOverlayFeeConfig(
   overlayFeeRate: number,
   overlayFeeReceiver: string
 ) {
-  if (overlayFeeRate > Constants.CLIENT_CONFIG.MAX_FEE_RATE) {
+  if (overlayFeeRate > Constants.CLIENT_CONFIG.MAX_OVERLAY_FEE_RATE_NUMERATOR) {
     throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_OVERLAY_FEE_RATE)
   }
   if (overlayFeeReceiver === "0x0" && overlayFeeRate > 0) {

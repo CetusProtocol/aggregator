@@ -17,7 +17,8 @@ import {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
 import { DexRouter, Extends } from "."
-import { Env, FlattenedPath, SUI_SYSTEM_STATE_OBJECT_ID } from ".."
+import { Env, FlattenedPath } from ".."
+import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import * as Constants from "../const"
 
 export class SpringsuiRouter implements DexRouter {
@@ -72,7 +73,7 @@ export class SpringsuiRouter implements DexRouter {
     const args = [
       swapContext,
       txb.object(swapData.poolId),
-      txb.object(SUI_SYSTEM_STATE_OBJECT_ID),
+      txb.object("0x5"),
       txb.pure.u64(swapData.amountIn),
       txb.pure.bool(swapData.direction),
     ]

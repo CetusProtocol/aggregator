@@ -16,7 +16,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { FlattenedPath } from "~/api"
+import { Path, FlattenedPath } from "~/api"
 
 export interface Extends {
   deepbookv3DeepFee?: TransactionObjectArgument

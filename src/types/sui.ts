@@ -1,6 +1,6 @@
-import type { TransactionArgument } from '@mysten/sui/transactions'
-import Decimal from 'decimal.js'
-import { TypesErrorCode } from '../errors'
+import type { TransactionArgument } from "@mysten/sui/transactions"
+import Decimal from "decimal.js"
+import { AggregatorError, TypesErrorCode } from "../errors"
 
 /**
  * Represents a SUI address, which is a string.
@@ -16,7 +16,6 @@ export type SuiObjectIdType = string
  * Represents a BigNumber, which can be a Decimal.Value, number, or string.
  */
 export type BigNumber = Decimal.Value | number | string
-
 
 /**
  * Represents a SUI resource, which can be of any type.
@@ -96,7 +95,15 @@ export type SuiStructTag = {
 /**
  * Represents basic SUI data types.
  */
-export type SuiBasicTypes = 'address' | 'bool' | 'u8' | 'u16' | 'u32' | 'u64' | 'u128' | 'u256'
+export type SuiBasicTypes =
+  | "address"
+  | "bool"
+  | "u8"
+  | "u16"
+  | "u32"
+  | "u64"
+  | "u128"
+  | "u256"
 
 /**
  * Represents a SUI transaction argument, which can be of various types.
@@ -106,7 +113,7 @@ export type SuiTxArg = TransactionArgument | string | number | bigint | boolean
 /**
  * Represents input types for SUI data.
  */
-export type SuiInputTypes = 'object' | SuiBasicTypes
+export type SuiInputTypes = "object" | SuiBasicTypes
 
 /**
  * Gets the default SUI input type based on the provided value.
@@ -115,16 +122,19 @@ export type SuiInputTypes = 'object' | SuiBasicTypes
  * @throws Error if the type of the value is unknown.
  */
 export const getDefaultSuiInputType = (value: any): SuiInputTypes => {
-  if (typeof value === 'string' && value.startsWith('0x')) {
-    return 'object'
+  if (typeof value === "string" && value.startsWith("0x")) {
+    return "object"
   }
-  if (typeof value === 'number' || typeof value === 'bigint') {
-    return 'u64'
+  if (typeof value === "number" || typeof value === "bigint") {
+    return "u64"
   }
-  if (typeof value === 'boolean') {
-    return 'bool'
+  if (typeof value === "boolean") {
+    return "bool"
   }
-  throw new AggregateError(`Unknown type for value: ${value}`, TypesErrorCode.InvalidType)
+  throw new AggregatorError(
+    `Unknown type for value: ${value}`,
+    TypesErrorCode.InvalidType
+  )
 }
 
 /**

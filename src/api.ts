@@ -16,7 +16,7 @@ import {
   RouterDataV3,
 } from "./types/shared"
 
-const SDK_VERSION = 1010104
+const SDK_VERSION = 1010106
 
 function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
   // Parse packages map from API response
@@ -232,8 +232,6 @@ async function getRouter(
     // set newest sdk version
     url += `&v=${SDK_VERSION}`
 
-    console.log("url", url)
-
     const response = await fetch(url)
     return response
   } catch (error) {
@@ -339,8 +337,6 @@ export function processFlattenRoutes(
       flattenedPaths[i].isLastUseOfIntermediateToken = true
     }
   }
-
-  console.log("flattenedPaths", flattenedPaths)
 
   return {
     quoteID: routerData.quoteID || "",

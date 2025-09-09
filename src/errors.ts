@@ -28,7 +28,9 @@ export enum AggregatorServerErrorCode {
 
 export type AggregatorErrorCode = TypesErrorCode
 
-export function getAggregatorServerErrorMessage(code: AggregatorServerErrorCode): string {
+export function getAggregatorServerErrorMessage(
+  code: AggregatorServerErrorCode
+): string {
   switch (code) {
     case AggregatorServerErrorCode.NumberTooLarge:
       return "Number too large"
@@ -52,9 +54,9 @@ export function getAggregatorServerErrorMessage(code: AggregatorServerErrorCode)
 export class AggregatorError extends Error {
   override message: string
 
-  errorCode?: AggregatorErrorCode
+  errorCode?: AggregatorErrorCode | string
 
-  constructor(message: string, errorCode?: AggregatorErrorCode) {
+  constructor(message: string, errorCode?: AggregatorErrorCode | string) {
     super(message)
     this.message = message
     this.errorCode = errorCode

@@ -17,7 +17,8 @@ import {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
 import { DexRouter, Extends } from "."
-import { Env, FlattenedPath, SUI_SYSTEM_STATE_OBJECT_ID } from ".."
+import { Env, FlattenedPath } from ".."
+import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import * as Constants from "../const"
 
 export class VoloRouter implements DexRouter {
@@ -87,7 +88,7 @@ export class VoloRouter implements DexRouter {
       swapContext,
       txb.object(this.stakePool),
       txb.object(this.metadata),
-      txb.object(SUI_SYSTEM_STATE_OBJECT_ID),
+      txb.object("0x5"), // SuiSystemState
       txb.pure.bool(swapData.direction),
       txb.pure.u64(swapData.amountIn),
     ]

@@ -18,6 +18,7 @@ import {
 } from "@mysten/sui/transactions"
 import { DexRouter, Extends } from "."
 import { Env, FlattenedPath } from ".."
+import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import * as Constants from "../const"
 
 export class HawalRouter implements DexRouter {

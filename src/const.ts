@@ -92,7 +92,7 @@ export const CETUS_PUBLISHED_AT =
 
 // Cetus V3 published-at constant
 export const CETUS_V3_PUBLISHED_AT =
-  "0x550dcd6070230d8bf18d99d34e3b2ca1d3657b76cc80ffdacdb2b5d28d7e0124"
+  "0xb1e11ceaf3e7cd3031ef5e24804478ec3441c5aecdace910bdaca317a0c1c535"
 
 // Legacy Cetus objects IDs
 export const MAINNET_CETUS_GLOBAL_CONFIG_ID =
@@ -201,9 +201,9 @@ export const DEEPBOOK_V3_DEEP_FEE_TYPES = {
 export const CLIENT_CONFIG = {
   DEFAULT_PYTH_URL: "https://hermes.pyth.network",
   PYTH_TIMEOUT: 3000,
-  MAX_OVERLAY_FEE_RATE_PARAMS: 0.1,
+  MAX_OVERLAY_FEE_RATE: 0.1,
+  MAX_OVERLAY_FEE_RATE_NUMERATOR: 100000,
   FEE_RATE_MULTIPLIER: 1000000,
-  MAX_FEE_RATE: 100000,
   DEFAULT_OVERLAY_FEE_RECEIVER: "0x0",
 
   // Error Messages
@@ -236,7 +236,7 @@ export const AGGREGATOR_V3_CONFIG = {
 
   DEFAULT_PUBLISHED_AT: {
     Mainnet:
-      "0x07c27e879ba9282506284b0fef26d393978906fc9496550d978c6f493dbfa3e5",
+      "0x33ec64e9bb369bf045ddc198c81adbf2acab424da37465d95296ee02045d2b17",
     Testnet: "0x0",
   },
 } as const

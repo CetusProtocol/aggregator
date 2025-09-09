@@ -17,7 +17,7 @@ import {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
 import { DexRouter, Extends } from "."
-import { Env, FlattenedPath, SUI_SYSTEM_STATE_OBJECT_ID } from ".."
+import { Env, FlattenedPath } from ".."
 import * as Constants from "../const"
 
 export class HaedalRouter implements DexRouter {
@@ -77,7 +77,7 @@ export class HaedalRouter implements DexRouter {
     const args = [
       swapContext,
       txb.object(swapData.poolId),
-      txb.object(SUI_SYSTEM_STATE_OBJECT_ID),
+      txb.object("0x5"), // SuiSystemState
       txb.pure.bool(swapData.direction),
       txb.pure.u64(swapData.amountIn),
     ]

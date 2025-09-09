@@ -17,7 +17,7 @@ import {
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
 import { DexRouter, Extends } from "."
-import { Env, FlattenedPath } from ".."
+import { Env, Path, FlattenedPath } from ".."
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import * as Constants from "../const"
 
@@ -95,4 +95,5 @@ export class BluefinRouter implements DexRouter {
       arguments: args,
     })
   }
+
 }

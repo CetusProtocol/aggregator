@@ -2,7 +2,7 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { TransactionErrorCode } from "~/errors"
+import { AggregatorError, TransactionErrorCode } from "~/errors"
 import { CoinUtils } from "~/types/CoinAssist"
 import { CoinAsset } from "~/types/sui"
 
@@ -114,7 +114,7 @@ export function buildInputCoin(
 
   let totalCoinBalance = CoinUtils.calculateTotalBalance(usedCoinAsests)
   if (totalCoinBalance < amount) {
-    throw new AggregateError(
+    throw new AggregatorError(
       "Insufficient balance when build merge coin, coinType: " + coinType,
       TransactionErrorCode.InsufficientBalance + coinType
     )
