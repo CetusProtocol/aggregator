@@ -118,7 +118,6 @@ if (routerRes != null) {
 
 | Contract                  | Tag of Repo | Latest published at address                                        |
 | ------------------------- | ----------- | ------------------------------------------------------------------ |
-| CetusAggregatorV3         | mainnet     | 0x07c27e879ba9282506284b0fef26d393978906fc9496550d978c6f493dbfa3e5 |
 | CetusAggregatorV2         | mainnet     | 0x3864c7c59a4889fec05d1aae4bc9dba5a0e0940594b424fbed44cb3f6ac4c032 |
 | CetusAggregatorV2ExtendV1 | mainnet     | 0x39402d188b7231036e52266ebafad14413b4bf3daea4ac17115989444e6cd516 |
 | CetusAggregatorV2ExtendV2 | mainnet     | 0x368d13376443a8051b22b42a9125f6a3bc836422bb2d9c4a53984b8d6624c326 |
@@ -126,11 +125,11 @@ if (routerRes != null) {
 ## Example
 
 ```
-CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/mainnet", rev = "mainnet-v1.51.1", override = true }
+CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/mainnet", rev = "mainnet-v1.54.0", override = true }
 
-CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet-v1.51.1", override = true }
+CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet-v1.54.0", override = true }
 
-CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v2", rev = "mainnet-v1.51.1", override = true }
+CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v2", rev = "mainnet-v1.54.0", override = true }
 ```
 
 # Simple Aggregator Contract Interface
@@ -141,12 +140,12 @@ CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator
 
 | Contract              | Tag of Repo | Latest published at address                                        |
 | --------------------- | ----------- | ------------------------------------------------------------------ |
-| CetusAggregatorSimple | mainnet     | 0x801f75be2ebfa1e544130b7539744478a10744d78fb1028536a3e48e86867e53 |
+| CetusAggregatorSimple | mainnet     | 0x6cc001bc430cb1fcb0379bed1ffd0668f35728b362caf0d5f9d9701975b2096a |
 
 ## Example
 
 ```
-CetusAggregatorSimple = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/simple-mainnet", rev = "mainnet-v1.53.0", override = true }
+CetusAggregatorSimple = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/simple-mainnet", rev = "mainnet-v1.54.0", override = true }
 ```
 
 ## Usage
