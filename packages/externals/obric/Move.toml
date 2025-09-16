@@ -1,7 +1,7 @@
 [package]
 name = "obric"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0x0faf21b90a31e7d9a233be3b16138b23da34a243bb1d2497e0c01a2cc566b310"
+published-at = "0xba717279ef24335555bd01559381d42063fc93b3e7d4aaeaeac9c439fae8bc8a"
 
 [dependencies.Pyth]
 git = "https://github.com/pyth-network/pyth-crosschain.git"
