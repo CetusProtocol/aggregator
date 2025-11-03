@@ -2,7 +2,7 @@
 name = "CetusAggregatorV2"
 version = "0.1.1"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0x2d25c227be42b1748f916493e36f61f3b8f42664a0f709e55d4e6887570010c8"
+published-at = "0x40e457bc65a398d2db7026881358fcb7cfa2f1bb052bca41f46c55a1103f2d6f"
 # published-at = "0x0"
 
 [dependencies]
