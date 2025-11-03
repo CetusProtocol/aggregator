@@ -18,17 +18,17 @@ published-at = "0x893acede4b666e8cc4d4681918c6019d269da23ecdfb51f6b275f1a3b155fc
 # Deepbookv3VaultsV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/internals/deepbookv3-vaults-v2", rev = "mainnet-v1.50.0", override = true }
 # deepbookv3 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/deepbookv3/deepbook", rev = "mainnet-v1.50.0", override = true }
 IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", rev = "mainnet-v1.3.0", override = true }
-CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/cetus_clmm", rev = "mainnet-v1.50.0", override = true }
-CetusAggregatorSimple = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/simple-mainnet", rev = "mainnet-v1.54.0", override = true }
-FlowxClmm = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/flowx-clmm", rev = "mainnet-v1.54.0", override = true }
+CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/cetus_clmm", rev = "mainnet-v1.52.2", override = true }
+CetusAggregatorSimple = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/simple-mainnet", rev = "mainnet-v1.56.0", override = true }
+FlowxClmm = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/flowx-clmm", rev = "mainnet-v1.56.0", override = true }
 BluefinSpot = { git = "https://github.com/fireflyprotocol/bluefin-spot-contract-interface.git", subdir = "", rev = "main", override = true }
-mmt_v3 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/mmt_v3", rev = "mainnet-v1.54.0", override = true }
-obric = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/obric", rev = "mainnet-v1.54.0", override = true }
+mmt_v3 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/mmt_v3", rev = "mainnet-v1.56.0", override = true }
+obric = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/obric", rev = "mainnet-v1.56.0", override = true }
 Pyth = { git = "https://github.com/pyth-network/pyth-crosschain.git", subdir = "target_chains/sui/contracts", rev = "sui-contract-mainnet", override = true }
-deepbookv3 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/deepbookv3/deepbook", rev = "mainnet-v1.54.0", override = true }
-# Deepbookv3VaultsV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/deepbookv3-vaults-v2", rev = "mainnet-v1.54.0", override = true }
-token = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/deepbookv3/token", rev = "mainnet-v1.54.0", override = true }
-TurbosDex = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/turbos-dex", rev = "mainnet-v1.54.0", override = true }
+deepbookv3 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/deepbookv3/deepbook", rev = "mainnet-v1.56.0", override = true }
+# Deepbookv3VaultsV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/deepbookv3-vaults-v2", rev = "mainnet-v1.56.0", override = true }
+token = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/deepbookv3/token", rev = "mainnet-v1.56.0", override = true }
+TurbosDex = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/externals/turbos-dex", rev = "mainnet-v1.56.0", override = true }
 
 [addresses]
 test = "0x0"
