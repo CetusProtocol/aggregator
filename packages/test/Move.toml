@@ -2,7 +2,7 @@
 name = "test"
 version = "0.1.1"
 edition = "2024.beta"
-published-at = "0x893acede4b666e8cc4d4681918c6019d269da23ecdfb51f6b275f1a3b155fca5"
+published-at = "0x6b6d74c5dda4686ef95fef476c754ababf6705f1822f4a012f6f0278c91561f4"
 
 [dependencies]
 # IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", subdir = "sui", rev = "sui-v1.2.0", override = true }
