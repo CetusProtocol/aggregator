@@ -1,7 +1,7 @@
 [package]
 name = "aftermath_mstable"
 edition = "2024.beta"
-published-at = "0x74ecdeabc36974da37a3e2052592b2bc2c83e878bbd74690e00816e91f93a505"
+published-at = "0xa17a98f8e62262cbe4b02933f9b362f6f05e97f79ae88d774e7ca89ac3abe498"
 
 [dependencies.Pyth]
 git = "https://github.com/pyth-network/pyth-crosschain.git"

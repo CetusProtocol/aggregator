@@ -2,7 +2,7 @@
 name = "BluefinSpot"
 version = "1.0.0"
 edition = "2024.beta"
-published-at = "0x6c796c3ab3421a68158e0df18e4657b2827b1f8fed5ed4b82dba9c935988711b"
+published-at = "0xd075338d105482f1527cbfd363d6413558f184dec36d9138a70261e87f486e9c"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.35.2", override=true }

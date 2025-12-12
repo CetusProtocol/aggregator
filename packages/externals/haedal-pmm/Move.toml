@@ -1,7 +1,7 @@
 [package]
 name = "haedal_pmm"
 edition = "2024.beta"
-published-at = "0xa0e3b011012b80af4957afa30e556486eb3da0a7d96eeb733cf16ccd3aec32e0"
+published-at = "0x9639fd3f02424cd65d298c16d306354018f420d24c2aef1e88d7ec45d7a32a46"
 
 [dependencies.Pyth]
 git = "https://github.com/pyth-network/pyth-crosschain.git"

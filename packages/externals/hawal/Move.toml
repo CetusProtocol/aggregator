@@ -2,7 +2,7 @@
 name = "Hawal"
 version = "0.0.1"
 edition = "2024.beta"
-published-at = "0x8b4d553839b219c3fd47608a0cc3d5fcc572cb25d41b7df3833208586a8d2470"
+published-at = "0x258daa192ec47cfbc88705b0d8006a60c40f2607305411d9cde16a9cb5e876bc"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }
