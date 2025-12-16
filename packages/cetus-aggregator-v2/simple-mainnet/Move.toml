@@ -2,7 +2,7 @@
 name = "CetusAggregatorSimple"
 version = "0.1.1"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0x8981c5d6bfc235572540426c4f9102f06d5cf1f017a9b9d0572c34a7ea3e0d01"
+published-at = "0x54394cb5bceb8073c60df0964b904a607c9974ef771d9e8b3f9c45b8ce075499"
 
 [dependencies]
 IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", rev = "mainnet-v1.3.0", override = true }
@@ -16,6 +16,7 @@ mmt_v3 = { local = "../../externals/mmt_v3", override = true }
 obric = { local = "../../externals/obric", override = true }
 Deepbookv3VaultsV2 = { local = "../../internals/deepbookv3-vaults-v2", override = true }
 deepbookv3 = { local = "../../externals/deepbookv3/deepbook", override = true}
+magma = { local = "../../externals/magma/magma-clmm", override = true }
 
 [addresses]
 cetus_aggregator_simple = "0x3239061b389dcc35be021bb13d174da82fafcc87bf3d8e176e6c62619311a90c"

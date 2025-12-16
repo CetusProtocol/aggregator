@@ -119,7 +119,7 @@ if (routerRes != null) {
 | Contract                  | Tag of Repo | Latest published at address                                        |
 | ------------------------- | ----------- | ------------------------------------------------------------------ |
 | CetusAggregatorV2         | mainnet     | 0x40e457bc65a398d2db7026881358fcb7cfa2f1bb052bca41f46c55a1103f2d6f |
-| CetusAggregatorV2ExtendV1 | mainnet     | 0xe450c157978058fc23078941924ad91bfe3022db6243ffa432f7209ad5bc9889 |
+| CetusAggregatorV2ExtendV1 | mainnet     | 0x2edc22bf96c85482b2208624fa9339255d5055113c92fd6c33add48ce971b774 |
 | CetusAggregatorV2ExtendV2 | mainnet     | 0x2e227a3cbc6715518b18ed339d2f967153674b7b257da114ca62c72b2011258a |
 
 ## Example

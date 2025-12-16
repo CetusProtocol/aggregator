@@ -1,0 +1,12 @@
+[package]
+name = "GaugeCap"
+version = "1.0.0"
+edition = "2024.beta"
+published-at = "0x2de81c0f5cc2aa176da9f093834efbf846d581afa46516bf4952b6efd3a44992"
+# published-at = "0x0"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }
+
+[addresses]
+gauge_cap = "0x2de81c0f5cc2aa176da9f093834efbf846d581afa46516bf4952b6efd3a44992"

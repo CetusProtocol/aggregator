@@ -1,0 +1,16 @@
+[package]
+name = "magma"
+version = "1.0.0"
+edition = "2024.beta"
+published-at = "0x183af2adf115f331105825ae63e1d7d3c848d67beb4d60bc36208a90a5e92f4b"
+# published-at = "0x0"
+
+[dependencies]
+# Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/mainnet", override = true }
+MagmaMoveSTL = {  local = "../magma_move_stl", override = true }
+MagmaIntegerMate =  { local = "../magma_integer_mate", override = true }
+GaugeCap = { local = "../gauga_cap", override = true }
+
+[addresses]
+magma = "0x4a35d3dfef55ed3631b7158544c6322a23bc434fe4fca1234cb680ce0505f82d"
+# magma = "0x0"

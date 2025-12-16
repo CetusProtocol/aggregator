@@ -1,0 +1,10 @@
+[package]
+name = "MagmaMoveSTL"
+version = "mainnet-v1.39.4"
+published-at = "0x682eaba7450909645bf949db3fc5881432a00b49b4c06d6974ecc4ee684e7992"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.39.4" }
+
+[addresses]
+magma_move_stl = "0x682eaba7450909645bf949db3fc5881432a00b49b4c06d6974ecc4ee684e7992"

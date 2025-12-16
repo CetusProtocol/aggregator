@@ -1,0 +1,10 @@
+[package]
+name = "MagmaIntegerMate"
+version = "1.0.0"
+edition = "2024.beta"
+published-at = "0x599866e9faedafd1c0a451baa4645a504fedc4db2bae88679d1a022221e8cbf6"
+
+[dependencies]
+
+[addresses]
+magma_integer_mate = "0x659c0e9c4c8a416f040fa758d4fc4073a5fdd1fed97edadcd5cba5180fb36246"

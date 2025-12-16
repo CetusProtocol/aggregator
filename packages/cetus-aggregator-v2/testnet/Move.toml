@@ -12,6 +12,7 @@ DeepBook= { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-
 CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/cetus_clmm", rev = "testnet-v1.35.1", override = true }
 haedal_pmm = { local = "../../externals/haedal-pmm", override = true }
 Pyth = { git = "https://github.com/pyth-network/pyth-crosschain.git", subdir = "target_chains/sui/contracts", rev = "sui-contract-testnet", override = true }
+magma = { local = "../../externals/magma/magma-clmm", override = true }
 
 [addresses]
 cetus_aggregator_v2 = "0x0"
