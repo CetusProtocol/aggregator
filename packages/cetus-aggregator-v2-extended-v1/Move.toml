@@ -3,7 +3,7 @@
 name = "CetusAggregatorV2ExtendV1"
 version = "0.1.1"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0xf1c574d526222c6ab4003b4d343a0ff0c3174a886ddd312ac72a8c26e39e644e"
+published-at = "0x497f270786303f201292bf85024df297bfc919b44b6d8da813c574e6b2c396f9"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.35.2", override = true }

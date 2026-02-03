@@ -125,11 +125,11 @@ if (routerRes != null) {
 ## Example
 
 ```
-CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/mainnet", rev = "mainnet-v1.56.0", override = true }
+CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/mainnet", rev = "mainnet-v1.59.0", override = true }
 
-CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet-v1.56.0", override = true }
+CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet-v1.59.0", override = true }
 
-CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v2", rev = "mainnet-v1.56.0", override = true }
+CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v2", rev = "mainnet-v1.59.0", override = true }
 ```
 
 # Simple Aggregator Contract Interface
@@ -140,7 +140,7 @@ CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator
 
 | Contract              | Tag of Repo | Latest published at address                                        |
 | --------------------- | ----------- | ------------------------------------------------------------------ |
-| CetusAggregatorSimple | mainnet     | 0x54394cb5bceb8073c60df0964b904a607c9974ef771d9e8b3f9c45b8ce075499 |
+| CetusAggregatorSimple | mainnet     | 0xb153256f86a6c818b74c03815c36f8a8118865a109840f6fd8bff953add6ab6c |
 
 ## Example
 
