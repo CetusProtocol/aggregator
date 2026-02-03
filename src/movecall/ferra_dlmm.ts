@@ -21,19 +21,16 @@ import { Env, FlattenedPath } from ".."
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import * as Constants from "../const"
 
-export class ScallopRouter implements DexRouter {
-  private readonly version: string
-  private readonly marketData: string
+export class FerraDlmmRouter implements DexRouter {
+  private readonly globalConfig: string
 
   constructor(env: Env) {
     if (env !== Env.Mainnet) {
-      throw new Error("Scallop only supported on mainnet")
+      throw new Error("Ferra DLMM only supported on mainnet")
     }
 
-    this.version =
-      "0x07871c4b3c847a0f674510d4978d5cf6f960452795e8ff6f189fd2088a3f6ac7"
-    this.marketData =
-      "0xa757975255146dc9686aa823b7838b507f315d704f428cbadad2f4ea061939d9"
+    this.globalConfig =
+      "0x5c9dacf5a678ea15b8569d65960330307e23d429289ca380e665b1aa175ebeca"
   }
 
   swap(
@@ -47,28 +44,19 @@ export class ScallopRouter implements DexRouter {
   }
 
   private prepareSwapData(flattenedPath: FlattenedPath) {
-    const path = flattenedPath.path
     if (flattenedPath.path.publishedAt == null) {
-      throw new Error("Scallop not set publishedAt")
+      throw new Error("Ferra DLMM not set publishedAt")
     }
+
+    const path = flattenedPath.path
     const [coinAType, coinBType] = path.direction
       ? [path.from, path.target]
-      : [path.from, path.target]
+      : [path.target, path.from]
 
     // Use MAX_AMOUNT_IN for intermediate tokens on their last usage
     const amountIn = flattenedPath.isLastUseOfIntermediateToken
       ? Constants.AGGREGATOR_V3_CONFIG.MAX_AMOUNT_IN
       : path.amountIn
-
-    // get scallop scoin treasury
-    if (path.extendedDetails == null) {
-      throw new Error("Extended details not supported")
-    }
-    const scallopScoinTreasury =
-      path.extendedDetails.scallop_scoin_treasury
-    if (scallopScoinTreasury == null) {
-      throw new Error("Scallop scoin treasury not supported")
-    }
 
     return {
       coinAType,
@@ -77,7 +65,6 @@ export class ScallopRouter implements DexRouter {
       amountIn,
       publishedAt: path.publishedAt!,
       poolId: path.id,
-      scallopScoinTreasury,
     }
   }
 
@@ -90,24 +77,20 @@ export class ScallopRouter implements DexRouter {
       amountIn: string
       publishedAt: string
       poolId: string
-      scallopScoinTreasury: string
     },
     swapContext: TransactionObjectArgument
   ) {
     const args = [
       swapContext,
-      txb.object(this.version),
-      txb.object(this.marketData),
-      txb.object(swapData.scallopScoinTreasury),
+      txb.object(this.globalConfig),
+      txb.object(swapData.poolId),
+      txb.pure.bool(swapData.direction),
       txb.pure.u64(swapData.amountIn),
       txb.object(SUI_CLOCK_OBJECT_ID),
     ]
 
-    // Use directional functions like V2 implementation
-    const func = swapData.direction ? "swap_a2b" : "swap_b2a"
-
     txb.moveCall({
-      target: `${swapData.publishedAt}::scallop::${func}`,
+      target: `${swapData.publishedAt}::ferra_dlmm::swap`,
       typeArguments: [swapData.coinAType, swapData.coinBType],
       arguments: args,
     })

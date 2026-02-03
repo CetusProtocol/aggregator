@@ -42,6 +42,11 @@ export class DeepbookV3Router implements DexRouter {
     _extends?: Extends
   ) {
     const swapData = this.prepareSwapData(flattenedPath)
+
+    if (swapData.needAddDeepPricePoint) {
+      this.addDeepPricePoint(txb, swapData)
+    }
+
     this.executeSwapContract(txb, swapData, swapContext, _extends)
   }
 
@@ -60,6 +65,34 @@ export class DeepbookV3Router implements DexRouter {
       ? Constants.AGGREGATOR_V3_CONFIG.MAX_AMOUNT_IN
       : path.amountIn
 
+    // Extract add_deep_price_point related fields from extended_details
+    const needAddDeepPricePoint =
+      path.extendedDetails?.deepbookv3_need_add_deep_price_point ?? false
+    const referencePoolId = path.extendedDetails?.deepbookv3_reference_pool_id
+    const referencePoolBaseType =
+      path.extendedDetails?.deepbookv3_reference_pool_base_type
+    const referencePoolQuoteType =
+      path.extendedDetails?.deepbookv3_reference_pool_quote_type
+
+    // Validate required fields when add_deep_price_point is needed
+    if (needAddDeepPricePoint) {
+      if (!referencePoolId) {
+        throw new Error(
+          "DeepBook V3: deepbookv3_reference_pool_id is required when deepbookv3_need_add_deep_price_point is true"
+        )
+      }
+      if (!referencePoolBaseType) {
+        throw new Error(
+          "DeepBook V3: reference_pool_base_type is required when deepbookv3_need_add_deep_price_point is true"
+        )
+      }
+      if (!referencePoolQuoteType) {
+        throw new Error(
+          "DeepBook V3: reference_pool_quote_type is required when deepbookv3_need_add_deep_price_point is true"
+        )
+      }
+    }
+
     return {
       coinAType,
       coinBType,
@@ -67,7 +100,39 @@ export class DeepbookV3Router implements DexRouter {
       amountIn,
       publishedAt: path.publishedAt!,
       poolId: path.id,
+      needAddDeepPricePoint,
+      referencePoolId,
+      referencePoolBaseType,
+      referencePoolQuoteType,
     }
+  }
+
+  private addDeepPricePoint(
+    txb: Transaction,
+    swapData: {
+      coinAType: string
+      coinBType: string
+      publishedAt: string
+      poolId: string
+      referencePoolId?: string
+      referencePoolBaseType?: string
+      referencePoolQuoteType?: string
+    }
+  ) {
+    txb.moveCall({
+      target: `${swapData.publishedAt}::deepbookv3::add_deep_price_point_v2`,
+      typeArguments: [
+        swapData.coinAType,
+        swapData.coinBType,
+        swapData.referencePoolBaseType!,
+        swapData.referencePoolQuoteType!,
+      ],
+      arguments: [
+        txb.object(swapData.poolId),
+        txb.object(swapData.referencePoolId!),
+        txb.object(SUI_CLOCK_OBJECT_ID),
+      ],
+    })
   }
 
   private executeSwapContract(

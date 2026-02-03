@@ -91,14 +91,11 @@ export const CETUS_PUBLISHED_AT =
   "0x70968826ad1b4ba895753f634b0aea68d0672908ca1075a2abdf0fc9e0b2fc6a"
 
 // Cetus V3 published-at constant
-export const CETUS_V3_PUBLISHED_AT =
-  "0xb1e11ceaf3e7cd3031ef5e24804478ec3441c5aecdace910bdaca317a0c1c535"
+export const MAINNET_CETUS_V3_PUBLISHED_AT =
+  "0xd7b0cfc33a3b46c0ae0e2584c44028385da11724d4c94ec5b21a78117c5c1ab9"
 
-// Legacy Cetus objects IDs
-export const MAINNET_CETUS_GLOBAL_CONFIG_ID =
-  "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f"
-export const TESTNET_CETUS_GLOBAL_CONFIG_ID =
-  "0x6f4149091a5aea0e818e7243a13adcfb403842d670b9a2089de058512620687a"
+export const TESTNET_CETUS_V3_PUBLISHED_AT =
+"0x7a82ed4b00a8c68d751b6c0cbd4e989691daa4716a1cf4f875c2f9b28fb72f3a"
 
 export const MAINNET_FLOWX_AMM_CONTAINER_ID =
   "0xb65dcbf63fd3ad5d0ebfbf334780dc9f785eff38a4459e37ab08fa79576ee511"
@@ -235,8 +232,7 @@ export const AGGREGATOR_V3_CONFIG = {
   MAX_AMOUNT_IN: U64_MAX,
 
   DEFAULT_PUBLISHED_AT: {
-    Mainnet:
-      "0x33ec64e9bb369bf045ddc198c81adbf2acab424da37465d95296ee02045d2b17",
-    Testnet: "0x0",
+    Mainnet: "0xde5d696a79714ca5cb910b9aed99d41f67353abb00715ceaeb0663d57ee39640",
+    Testnet: "0x61da681cf2af95cb214a71596b49e662290065536984ed7e06b47e701ef547e3",
   },
 } as const

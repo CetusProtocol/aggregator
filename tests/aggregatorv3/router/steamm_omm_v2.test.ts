@@ -1,4 +1,4 @@
-import { describe, test, beforeAll, expect } from "@jest/globals"
+import { describe, test, beforeAll, expect } from "vitest"
 import { AggregatorClient } from "~/index"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import { setupTestClient, testDexRouter, testData } from "./setup"
@@ -18,7 +18,7 @@ describe("STEAMM_OMM_V2 Router", () => {
       client,
       "STEAMM_OMM_V2",
       testData.M_USDC,
-      testData.M_DEEP,
+      testData.M_SUI,
       "1000000"
     )
   }, 30000)

@@ -5,15 +5,21 @@ import {
 } from "@mysten/sui/transactions"
 import BN from "bn.js"
 import {
-  DeepbookV3ConfigResponse,
   FindRouterParams,
   Path,
   RouterDataV3,
+  MergeSwapParams,
+  BuildMergeSwapParams,
+  BuildFastMergeSwapParams,
+  MergeSwapInputCoin,
+  MergeSwapRouterData,
+  DeepbookV3ConfigResponse,
 } from "./types/shared"
 import {
-  getDeepbookV3Config,
   getRouterResult,
   processFlattenRoutes,
+  getMergeSwapResult,
+  getDeepbookV3Config,
 } from "./api"
 import { Env } from "./config"
 import { CalculateAmountLimit, CalculateAmountLimitBN } from "./math"
@@ -48,6 +54,7 @@ import { HaedalRouter } from "./movecall/haedal"
 import { HawalRouter } from "./movecall/hawal"
 import {
   newSwapContext,
+  newSwapContextV2,
   confirmSwap,
   transferOrDestroyCoin,
   takeBalance,
@@ -64,6 +71,9 @@ import { processEndpoint } from "./utils"
 import { Signer } from "@mysten/sui/cryptography"
 import { HaedalHMMV2Router } from "./movecall/haedal_hmm_v2"
 import { FullsailRouter } from "./movecall/fullsail"
+import { CetusDlmmRouter } from "./movecall/cetus_dlmm"
+import { FerraDlmmRouter } from "./movecall/ferra_dlmm"
+import { FerraClmmRouter } from "./movecall/ferra_clmm"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -95,6 +105,9 @@ export const MAGMA = "MAGMA"
 export const SEVENK = "SEVENK"
 export const HAEDALHMMV2 = "HAEDALHMMV2"
 export const FULLSAIL = "FULLSAIL"
+export const CETUSDLMM = "CETUSDLMM"
+export const FERRADLMM = "FERRADLMM"
+export const FERRACLMM = "FERRACLMM"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v3"
 
 export const ALL_DEXES = [
@@ -127,6 +140,9 @@ export const ALL_DEXES = [
   SEVENK,
   HAEDALHMMV2,
   FULLSAIL,
+  CETUSDLMM,
+  FERRADLMM,
+  FERRACLMM,
 ]
 
 export type BuildRouterSwapParamsV3 = {
@@ -275,6 +291,7 @@ export type AggregatorClientParams = {
   partner?: string
   overlayFeeRate?: number
   overlayFeeReceiver?: string
+  cetusDlmmPartner?: string
 }
 
 interface PythConfig {
@@ -294,6 +311,7 @@ export class AggregatorClient {
   protected overlayFeeRate: number
   protected overlayFeeReceiver: string
   protected partner?: string
+  protected cetusDlmmPartner?: string
 
   private static readonly CONFIG: Record<Env, PythConfig> = {
     [Env.Testnet]: {
@@ -329,6 +347,7 @@ export class AggregatorClient {
     )
     this.apiKey = params.apiKey || ""
     this.partner = params.partner
+    this.cetusDlmmPartner = params.cetusDlmmPartner
 
     // Override overlay fee rate calculation for v3
     if (params.overlayFeeRate) {
@@ -406,6 +425,18 @@ export class AggregatorClient {
     )
   }
 
+  async findMergeSwapRouters(
+    params: MergeSwapParams
+  ): Promise<MergeSwapRouterData | null> {
+    return getMergeSwapResult(
+      this.endpoint,
+      this.apiKey,
+      params,
+      this.overlayFeeRate,
+      this.overlayFeeReceiver
+    )
+  }
+
   async executeFlexibleInputSwap(
     txb: Transaction,
     inputCoin: TransactionObjectArgument,
@@ -421,7 +452,8 @@ export class AggregatorClient {
   newDexRouterV3(
     provider: string,
     pythPriceIDs: Map<string, string>,
-    partner?: string
+    partner?: string,
+    cetusDlmmPartner?: string
   ): DexRouter {
     switch (provider) {
       case CETUS:
@@ -482,6 +514,12 @@ export class AggregatorClient {
         return new HaedalHMMV2Router(this.env, pythPriceIDs)
       case FULLSAIL:
         return new FullsailRouter(this.env)
+      case CETUSDLMM:
+        return new CetusDlmmRouter(this.env, cetusDlmmPartner)
+      case FERRADLMM:
+        return new FerraDlmmRouter(this.env)
+      case FERRACLMM:
+        return new FerraClmmRouter(this.env)
       default:
         throw new Error(
           `${Constants.CLIENT_CONFIG.ERRORS.UNSUPPORTED_DEX} ${provider}`
@@ -496,7 +534,8 @@ export class AggregatorClient {
     expectAmountOut: string,
     amountOutLimit: string,
     pythPriceIDs: Map<string, string>,
-    partner?: string
+    partner?: string,
+    cetusDlmmPartner?: string
   ): TransactionObjectArgument {
     if (routerData.quoteID == null) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
@@ -526,7 +565,76 @@ export class AggregatorClient {
       if (!dexRouters.has(path.provider)) {
         dexRouters.set(
           path.provider,
-          this.newDexRouterV3(path.provider, pythPriceIDs, partner)
+          this.newDexRouterV3(
+            path.provider,
+            pythPriceIDs,
+            partner,
+            cetusDlmmPartner
+          )
+        )
+      }
+      const dex = dexRouters.get(path.provider)!
+      dex.swap(txb, flattenedPath, swapCtx, { pythPriceIDs })
+    }
+
+    const outputCoin = confirmSwap(
+      {
+        swapContext: swapCtx,
+        targetCoinType: processedData.targetCoinType,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    return outputCoin
+  }
+
+  expectInputSwapV3WithMaxAmountIn(
+    txb: Transaction,
+    inputCoin: TransactionObjectArgument,
+    routerData: RouterDataV3,
+    maxAmountIn: BN,
+    expectAmountOut: string,
+    amountOutLimit: string,
+    pythPriceIDs: Map<string, string>,
+    partner?: string,
+    cetusDlmmPartner?: string
+  ): TransactionObjectArgument {
+    if (routerData.quoteID == null) {
+      throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
+    }
+    // Step 1: Flatten and sort routes for V3 execution
+    const processedData = processFlattenRoutes(routerData)
+
+    const swapCtx = newSwapContextV2(
+      {
+        quoteID: processedData.quoteID,
+        fromCoinType: processedData.fromCoinType,
+        targetCoinType: processedData.targetCoinType,
+        maxAmountIn,
+        expectAmountOut,
+        amountOutLimit,
+        inputCoin,
+        feeRate: this.overlayFeeRate,
+        feeRecipient: this.overlayFeeReceiver,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    // Step 2: Execute swaps in flattened order using V3 routers only
+    let dexRouters = new Map<string, DexRouter>()
+    for (const flattenedPath of processedData.flattenedPaths) {
+      const path = flattenedPath.path
+      if (!dexRouters.has(path.provider)) {
+        dexRouters.set(
+          path.provider,
+          this.newDexRouterV3(
+            path.provider,
+            pythPriceIDs,
+            partner,
+            cetusDlmmPartner
+          )
         )
       }
       const dex = dexRouters.get(path.provider)!
@@ -561,6 +669,142 @@ export class AggregatorClient {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
+        expectAmountOut: amountOut,
+        amountOutLimit: amountOut, // amountOutLimit equals expectAmountOut when fix amout out
+        inputCoin,
+        feeRate: this.overlayFeeRate,
+        feeRecipient: this.overlayFeeReceiver,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    // Record all from token first exist index
+    // key: from token, value: path index
+    const firstCoinRecord = recordFirstCoinIndex(routerData.paths)
+
+    let needRepayRecord = new Map<string, TransactionArgument>()
+    let payRecord = new Map<string, bigint>()
+
+    for (let j = routerData.paths.length - 1; j >= 0; j--) {
+      const path = routerData.paths[j]
+      const firstFromTokenIndex = firstCoinRecord.get(path.from)
+      let amountArg: TransactionArgument
+      if (
+        j !== firstFromTokenIndex ||
+        path.target === processedData.targetCoinType
+      ) {
+        if (path.target !== processedData.targetCoinType) {
+          let payAmount = BigInt(path.amountOut)
+          if (payRecord.has(path.target)) {
+            const oldPayAmount = payRecord.get(path.target)!
+            payAmount = oldPayAmount + payAmount
+          }
+          payRecord.set(path.target, payAmount)
+        }
+
+        amountArg = txb.pure.u64(
+          path.amountOut.toString()
+        ) as TransactionArgument
+      } else {
+        if (!needRepayRecord.has(path.target)) {
+          throw Error("no need repay record")
+        }
+
+        if (payRecord.has(path.target)) {
+          // total need repay - payRecord
+          const oldPayAmount = payRecord.get(path.target)!
+          const oldNeedRepay = needRepayRecord.get(path.target)!
+          amountArg = dex.sub(
+            txb,
+            oldNeedRepay,
+            txb.pure.u64(oldPayAmount),
+            path.publishedAt!
+          )
+        } else {
+          // total need repay
+          amountArg = needRepayRecord.get(path.target)!
+        }
+      }
+
+      const flashSwapResult = dex.flashSwapFixedOutput(
+        txb,
+        path,
+        amountArg,
+        swapCtx
+      )
+      receipts.unshift(flashSwapResult.flashReceipt)
+      if (needRepayRecord.has(path.from)) {
+        const oldNeedRepay = needRepayRecord.get(path.from)!
+        needRepayRecord.set(
+          path.from,
+          dex.add(
+            txb,
+            oldNeedRepay,
+            flashSwapResult.repayAmount,
+            path.publishedAt!
+          )
+        )
+      } else {
+        needRepayRecord.set(path.from, flashSwapResult.repayAmount)
+      }
+    }
+
+    for (let j = 0; j < routerData.paths.length; j++) {
+      const path = routerData.paths[j]
+      dex.repayFlashSwapFixedOutput(txb, path, swapCtx, receipts[j])
+    }
+
+    const remainInputBalance = takeBalance(
+      {
+        coinType: processedData.fromCoinType,
+        amount: Constants.U64_MAX,
+        swapCtx,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    transferBalance(
+      {
+        balance: remainInputBalance,
+        coinType: processedData.fromCoinType,
+        recipient: this.signer,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    const outputCoin = confirmSwap(
+      {
+        swapContext: swapCtx,
+        targetCoinType: processedData.targetCoinType,
+        packages: processedData.packages,
+      },
+      txb
+    )
+
+    return outputCoin
+  }
+
+  expectOutputSwapV3WithMaxAmountIn(
+    txb: Transaction,
+    inputCoin: TransactionObjectArgument,
+    routerData: RouterDataV3,
+    maxAmountIn: BN,
+    amountOut: string,
+    _amountLimit: string, // it will set when build inputcoin
+    partner?: string
+  ): TransactionObjectArgument {
+    const receipts: TransactionObjectArgument[] = []
+    const dex = new CetusRouter(this.env, partner)
+    const processedData = processFlattenRoutes(routerData)
+    const swapCtx = newSwapContextV2(
+      {
+        quoteID: processedData.quoteID,
+        fromCoinType: processedData.fromCoinType,
+        targetCoinType: processedData.targetCoinType,
+        maxAmountIn,
         expectAmountOut: amountOut,
         amountOutLimit: amountOut, // amountOutLimit equals expectAmountOut when fix amout out
         inputCoin,
@@ -748,6 +992,87 @@ export class AggregatorClient {
     }
   }
 
+  /**
+   * Router swap with max amount in validation.
+   * This method validates that the input coin amount does not exceed maxAmountIn.
+   * If the validation fails, the transaction will abort with an error.
+   *
+   * @param params - Router swap parameters with maxAmountIn
+   * @returns TransactionObjectArgument - The output coin from the swap
+   * @throws Error if input coin amount exceeds maxAmountIn
+   */
+  async routerSwapWithMaxAmountIn(
+    params: BuildRouterSwapParamsV3 & { maxAmountIn: BN }
+  ): Promise<TransactionObjectArgument> {
+    const { router, inputCoin, slippage, txb, partner, maxAmountIn } = params
+
+    if (slippage > 1 || slippage < 0) {
+      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
+    }
+
+    if (
+      !params.router.packages ||
+      !params.router.packages.get(Constants.PACKAGE_NAMES.AGGREGATOR_V3)
+    ) {
+      throw new Error(Constants.CLIENT_CONFIG.ERRORS.PACKAGES_REQUIRED)
+    }
+
+    const byAmountIn = params.router.byAmountIn
+    const amountIn = router.amountIn
+    const amountOut = router.amountOut
+
+    checkOverlayFeeConfig(this.overlayFeeRate, this.overlayFeeReceiver)
+    let overlayFee = new BN(0)
+    if (byAmountIn) {
+      overlayFee = amountOut
+        .mul(new BN(this.overlayFeeRate))
+        .div(new BN(1000000))
+    } else {
+      overlayFee = amountIn
+        .mul(new BN(this.overlayFeeRate))
+        .div(new BN(1000000))
+    }
+
+    const expectedAmountOut = byAmountIn ? amountOut.sub(overlayFee) : amountOut
+    const expectedAmountIn = byAmountIn ? amountIn : amountIn.add(overlayFee)
+
+    const amountLimit = CalculateAmountLimitBN(
+      byAmountIn ? expectedAmountOut : expectedAmountIn,
+      byAmountIn,
+      slippage
+    )
+
+    const priceIDs = findPythPriceIDs(router.paths)
+    const priceInfoObjectIds =
+      priceIDs.length > 0
+        ? await this.updatePythPriceIDs(priceIDs, txb)
+        : new Map<string, string>()
+
+    if (byAmountIn) {
+      return this.expectInputSwapV3WithMaxAmountIn(
+        txb,
+        inputCoin,
+        router,
+        maxAmountIn,
+        amountOut.toString(),
+        amountLimit.toString(),
+        priceInfoObjectIds,
+        partner ?? this.partner
+      )
+    } else {
+      // For fixed output swaps, we still use the v2 context with max amount validation
+      return this.expectOutputSwapV3WithMaxAmountIn(
+        txb,
+        inputCoin,
+        router,
+        maxAmountIn,
+        amountOut.toString(),
+        amountLimit.toString(),
+        partner ?? this.partner
+      )
+    }
+  }
+
   // auto build input coin
   // auto merge, transfer or destory target coin.
   async fastRouterSwap(params: BuildFastRouterSwapParamsV3) {
@@ -815,6 +1140,137 @@ export class AggregatorClient {
 
     const targetCoin = await this.routerSwap(routerSwapParams)
 
+    if (CoinUtils.isSuiCoin(targetCoinType)) {
+      txb.mergeCoins(txb.gas, [targetCoin])
+    } else {
+      const targetCoinObjID = await this.getOneCoinUsedToMerge(targetCoinType)
+      if (targetCoinObjID != null) {
+        txb.mergeCoins(txb.object(targetCoinObjID), [targetCoin])
+      } else {
+        transferOrDestroyCoin(
+          {
+            coin: targetCoin,
+            coinType: targetCoinType,
+            packages: router.packages,
+          },
+          txb
+        )
+      }
+    }
+  }
+
+  async mergeSwap(
+    params: BuildMergeSwapParams
+  ): Promise<TransactionObjectArgument> {
+    const { router, inputCoins, slippage, txb, partner } = params
+
+    if (slippage > 1 || slippage < 0) {
+      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
+    }
+
+    if (
+      !router.packages ||
+      !router.packages.get(Constants.PACKAGE_NAMES.AGGREGATOR_V3)
+    ) {
+      throw new Error(Constants.CLIENT_CONFIG.ERRORS.PACKAGES_REQUIRED)
+    }
+
+    if (!router.allRoutes || router.allRoutes.length === 0) {
+      throw new Error("No routes found in merge swap response")
+    }
+
+    const outputCoins: TransactionObjectArgument[] = []
+
+    // Execute each route from all_routes with its corresponding input coin
+    for (let i = 0; i < router.allRoutes.length && i < inputCoins.length; i++) {
+      const route = router.allRoutes[i]
+      const inputCoin = inputCoins[i]
+
+      // Create a RouterDataV3 for this specific route
+      const routeRouter: RouterDataV3 = {
+        quoteID: router.quoteID,
+        amountIn: route.amountIn,
+        amountOut: route.amountOut,
+        deviationRatio: Number(route.deviationRatio),
+        byAmountIn: true, // Merge swap is always by amount in
+        paths: route.paths,
+        insufficientLiquidity: false,
+        packages: router.packages,
+      }
+
+      // Execute swap for this route with its own swap context
+      const routerParams: BuildRouterSwapParamsV3 = {
+        router: routeRouter,
+        inputCoin: inputCoin.coin,
+        slippage,
+        txb,
+        partner: partner ?? this.partner,
+      }
+
+      const outputCoin = await this.routerSwap(routerParams)
+      outputCoins.push(outputCoin)
+    }
+
+    // Merge all output coins into a single coin
+    if (outputCoins.length === 0) {
+      throw new Error("No output coins generated from merge swap")
+    }
+
+    let finalOutputCoin = outputCoins[0]
+    if (outputCoins.length > 1) {
+      txb.mergeCoins(finalOutputCoin, outputCoins.slice(1))
+    }
+
+    return finalOutputCoin
+  }
+
+  async fastMergeSwap(params: BuildFastMergeSwapParams) {
+    const { router, slippage, txb, partner } = params
+
+    // Validate router
+    if (!router || !router.allRoutes || router.allRoutes.length === 0) {
+      throw new Error("Invalid router: no routes found")
+    }
+
+    // Get target coin type from the last path of the first route
+    const firstRoute = router.allRoutes[0]
+    const targetCoinType = firstRoute.paths[firstRoute.paths.length - 1].target
+
+    // Build input coins automatically based on each route's first coin type
+    const inputCoins: MergeSwapInputCoin[] = []
+    const coinTypeSet = new Set<string>()
+
+    for (const route of router.allRoutes) {
+      // Get the first coin type from this route
+      const firstCoinType = route.paths[0].from
+
+      // Skip if we've already created a coin for this type
+      if (coinTypeSet.has(firstCoinType)) {
+        continue
+      }
+
+      coinTypeSet.add(firstCoinType)
+
+      const coin = coinWithBalance({
+        balance: BigInt(route.amountIn.toString()),
+        useGasCoin: CoinUtils.isSuiCoin(firstCoinType),
+        type: firstCoinType,
+      })
+      inputCoins.push({ coinType: firstCoinType, coin })
+    }
+
+    // Execute merge swap
+    const mergeSwapParams: BuildMergeSwapParams = {
+      router,
+      inputCoins,
+      slippage,
+      txb,
+      partner: partner ?? this.partner,
+    }
+
+    const targetCoin = await this.mergeSwap(mergeSwapParams)
+
+    // Auto merge, transfer or destroy target coin
     if (CoinUtils.isSuiCoin(targetCoinType)) {
       txb.mergeCoins(txb.gas, [targetCoin])
     } else {
@@ -914,8 +1370,8 @@ export class AggregatorClient {
     // Use the Cetus V3 published-at constant
     const integratePublishedAt =
       this.env === Env.Mainnet
-        ? "0xb2db7142fa83210a7d78d9c12ac49c043b3cbbd482224fea6e3da00aa5a5ae2d"
-        : "0x4f920e1ef6318cfba77e20a0538a419a5a504c14230169438b99aba485db40a6"
+        ? "0xfbb32ac0fa89a3cb0c56c745b688c6d2a53ac8e43447119ad822763997ffb9c3"
+        : "0xab2d58dd28ff0dc19b18ab2c634397b785a38c342a8f5065ade5f53f9dbffa1c"
 
     for (let i = 0; i < pools.length; i++) {
       const args = [
@@ -994,6 +1450,15 @@ export class AggregatorClient {
     const feeAmount = new BN(event.fee_amount ?? 0)
     const amountIn = pureAmountIn.add(feeAmount)
 
+    const cetusRouterV3PublishedAt =
+      this.env === Env.Mainnet
+        ? Constants.MAINNET_CETUS_V3_PUBLISHED_AT
+        : Constants.TESTNET_CETUS_V3_PUBLISHED_AT
+    const aggregatorV3PublishedAt =
+      this.env === Env.Mainnet
+        ? Constants.AGGREGATOR_V3_CONFIG.DEFAULT_PUBLISHED_AT.Mainnet
+        : Constants.AGGREGATOR_V3_CONFIG.DEFAULT_PUBLISHED_AT.Testnet
+      
     // Return RouterData in v3 format
     const routeData: RouterDataV3 = {
       amountIn: amountIn,
@@ -1009,7 +1474,7 @@ export class AggregatorClient {
           feeRate,
           amountIn: amountIn.toString(),
           amountOut: event.amount_out,
-          publishedAt: Constants.CETUS_V3_PUBLISHED_AT,
+          publishedAt: cetusRouterV3PublishedAt,
           extendedDetails: {
             afterSqrtPrice: event.after_sqrt_price,
           },
@@ -1021,7 +1486,7 @@ export class AggregatorClient {
       packages: new Map([
         [
           Constants.PACKAGE_NAMES.AGGREGATOR_V3,
-          Constants.AGGREGATOR_V3_CONFIG.DEFAULT_PUBLISHED_AT.Mainnet,
+          aggregatorV3PublishedAt,
         ],
       ]),
     }

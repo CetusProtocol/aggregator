@@ -1,6 +1,6 @@
 import BN from "bn.js"
 import JSONbig from "json-bigint"
-import { completionCoin } from "~/utils/coin"
+import { completionCoin } from "./utils/coin"
 import { ZERO } from "./const"
 import {
   AggregatorServerErrorCode,
@@ -14,9 +14,12 @@ import {
   ProcessedRouterData,
   DeepbookV3ConfigResponse,
   RouterDataV3,
+  MergeSwapParams,
+  MergeSwapRouterData,
+  MergeRoute,
 } from "./types/shared"
 
-const SDK_VERSION = 1010106
+const SDK_VERSION = 1010404
 
 function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
   // Parse packages map from API response
@@ -56,6 +59,55 @@ function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
   }
 }
 
+function parseMergeSwapResponse(data: any): MergeSwapRouterData {
+  // Parse packages map from API response
+  let packages = new Map<string, string>()
+  if (data.packages) {
+    if (data.packages instanceof Map) {
+      packages = data.packages
+    } else if (typeof data.packages === "object") {
+      // Convert object to Map
+      Object.entries(data.packages).forEach(([key, value]) => {
+        packages.set(key, value as string)
+      })
+    }
+  }
+
+  const allRoutes: MergeRoute[] = []
+
+  if (data.all_routes) {
+    for (const route of data.all_routes) {
+      const mergeRoute: MergeRoute = {
+        amountIn: new BN(route.amount_in.toString()),
+        amountOut: new BN(route.amount_out.toString()),
+        deviationRatio: route.deviation_ratio,
+        paths: route.paths.map((path: any) => ({
+          id: path.id,
+          direction: path.direction,
+          provider: path.provider,
+          from: path.from,
+          target: path.target,
+          feeRate: path.fee_rate,
+          amountIn: path.amount_in.toString(),
+          amountOut: path.amount_out.toString(),
+          version: path.version,
+          publishedAt: path.published_at,
+          extendedDetails: path.extended_details,
+        })),
+      }
+      allRoutes.push(mergeRoute)
+    }
+  }
+
+  return {
+    quoteID: data.request_id || "",
+    totalAmountOut: new BN(data.total_amount_out?.toString() || "0"),
+    allRoutes,
+    packages,
+    gas: data.gas,
+  }
+}
+
 // Re-export shared types for backwards compatibility
 export type {
   FindRouterParams,
@@ -70,6 +122,8 @@ export type {
   AggregatorResponse,
   DeepbookV3Config,
   DeepbookV3ConfigResponse,
+  MergeRoute,
+  MergeSwapRouterData,
 } from "./types/shared"
 
 export async function getRouterResult(
@@ -91,7 +145,7 @@ export async function getRouterResult(
   }
 
   if (!response.ok) {
-    let errorCode = AggregatorServerErrorCode.NumberTooLarge
+    let errorCode = AggregatorServerErrorCode.BadRequest
     if (response.status === 429) {
       errorCode = AggregatorServerErrorCode.RateLimitExceeded
     }
@@ -110,26 +164,9 @@ export async function getRouterResult(
       },
     }
   }
-  const data = JSONbig.parse(await response.text())
-  const insufficientLiquidity = data.msg === "liquidity is not enough"
 
-  if (data.msg && data.msg.indexOf("HoneyPot scam") > -1) {
-    return {
-      quoteID: "",
-      amountIn: ZERO,
-      amountOut: ZERO,
-      paths: [],
-      byAmountIn: params.byAmountIn,
-      insufficientLiquidity,
-      deviationRatio: 0,
-      error: {
-        code: AggregatorServerErrorCode.HoneyPot,
-        msg: getAggregatorServerErrorMessage(
-          AggregatorServerErrorCode.HoneyPot
-        ),
-      },
-    }
-  }
+  const data = JSONbig.parse(await response.text())
+
   if (data.data != null) {
     const res = parseRouterResponse(data.data, params.byAmountIn)
     if (overlayFee > 0 && overlayFeeReceiver !== "0x0") {
@@ -164,6 +201,10 @@ export async function getRouterResult(
     return res
   }
 
+  const code = processErrorStatusCode(data.code)
+  const msg = getAggregatorServerErrorMessage(code, data.msg)
+  const insufficientLiquidity = msg.includes("Insufficient liquidity")
+
   return {
     quoteID: "",
     amountIn: ZERO,
@@ -173,10 +214,8 @@ export async function getRouterResult(
     byAmountIn: params.byAmountIn,
     deviationRatio: 0,
     error: {
-      code: AggregatorServerErrorCode.InsufficientLiquidity,
-      msg: getAggregatorServerErrorMessage(
-        AggregatorServerErrorCode.InsufficientLiquidity
-      ),
+      code,
+      msg,
     },
   }
 }
@@ -231,6 +270,8 @@ async function getRouter(
 
     // set newest sdk version
     url += `&v=${SDK_VERSION}`
+
+    // console.log("url", url)
 
     const response = await fetch(url)
     return response
@@ -296,6 +337,139 @@ async function postRouterWithLiquidityChanges(
   }
 }
 
+async function getMergeSwapRouter(
+  endpoint: string,
+  apiKey: string,
+  params: MergeSwapParams
+) {
+  try {
+    const { target, byAmountIn, depth, providers, froms } = params
+    const targetCoin = completionCoin(target)
+
+    let url = `${endpoint}/multi_find_routes?target=${targetCoin}&by_amount_in=${byAmountIn}`
+
+    if (depth) {
+      url += `&depth=${depth}`
+    }
+
+    if (providers && providers.length > 0) {
+      url += `&providers=${providers.join(",")}`
+    }
+
+    if (apiKey.length > 0) {
+      url += `&apiKey=${apiKey}`
+    }
+
+    url += `&v=${SDK_VERSION}`
+
+    // Convert amounts to numbers for API compatibility
+    const fromsData = froms.map(from => ({
+      coin_type: completionCoin(from.coinType),
+      amount: Number(from.amount.toString()),
+    }))
+    url += `&froms=${encodeURIComponent(JSON.stringify(fromsData))}`
+
+    const response = await fetch(url)
+    console.log("response", response)
+    return response
+  } catch (error) {
+    console.error(error)
+    return null
+  }
+}
+
+export async function getMergeSwapResult(
+  endpoint: string,
+  apiKey: string,
+  params: MergeSwapParams,
+  overlayFee: number,
+  overlayFeeReceiver: string
+): Promise<MergeSwapRouterData | null> {
+  const response = await getMergeSwapRouter(endpoint, apiKey, params)
+
+  if (!response) {
+    return null
+  }
+
+  if (!response.ok) {
+    let errorCode = AggregatorServerErrorCode.BadRequest
+    if (response.status === 429) {
+      errorCode = AggregatorServerErrorCode.RateLimitExceeded
+    }
+
+    return {
+      quoteID: "",
+      totalAmountOut: ZERO,
+      allRoutes: [],
+      error: {
+        code: errorCode,
+        msg: getAggregatorServerErrorMessage(errorCode),
+      },
+    }
+  }
+
+  if (!response.ok) {
+    const code = processErrorStatusCode(response.status)
+    const responseText = await response.text()
+    const data = JSONbig.parse(responseText)
+    const msg = getAggregatorServerErrorMessage(code, data.msg)
+
+    return {
+      quoteID: "",
+      totalAmountOut: ZERO,
+      allRoutes: [],
+      error: {
+        code,
+        msg,
+      },
+    }
+  }
+
+  const responseText = await response.text()
+  const data = JSONbig.parse(responseText)
+
+  if (data.data != null) {
+    console.log("data.data not null", data.data)
+    const res = parseMergeSwapResponse(data.data)
+
+    // Apply overlay fee if configured
+    if (overlayFee > 0 && overlayFeeReceiver !== "0x0" && params.byAmountIn) {
+      // For merge swap, apply overlay fee to total amount out
+      const overlayFeeAmount = res.totalAmountOut
+        .mul(new BN(overlayFee))
+        .div(new BN(1000000))
+      res.totalAmountOut = res.totalAmountOut.sub(overlayFeeAmount)
+
+      // Also apply to each route proportionally
+      for (const route of res.allRoutes) {
+        const routeFee = route.amountOut
+          .mul(new BN(overlayFee))
+          .div(new BN(1000000))
+        route.amountOut = route.amountOut.sub(routeFee)
+      }
+    }
+
+    if (!res.packages) {
+      res.packages = new Map<string, string>()
+    }
+
+    return res
+  }
+
+  const code = processErrorStatusCode(data.code)
+  const msg = getAggregatorServerErrorMessage(code, data.msg)
+
+  return {
+    quoteID: "",
+    totalAmountOut: ZERO,
+    allRoutes: [],
+    error: {
+      code,
+      msg,
+    },
+  }
+}
+
 export async function getDeepbookV3Config(
   endpoint: string
 ): Promise<DeepbookV3ConfigResponse | null> {
@@ -350,5 +524,32 @@ export function processFlattenRoutes(
     totalDeepFee: routerData.totalDeepFee,
     error: routerData.error,
     overlayFee: routerData.overlayFee,
+  }
+}
+
+function processErrorStatusCode(status: number): AggregatorServerErrorCode {
+  switch (status) {
+    case 400:
+      return AggregatorServerErrorCode.BadRequest
+    case 403:
+      return AggregatorServerErrorCode.Forbidden
+    case 429:
+      return AggregatorServerErrorCode.RateLimitExceeded
+    case 4000:
+      return AggregatorServerErrorCode.BadRequest
+    case 4030:
+      return AggregatorServerErrorCode.Forbidden
+    case 4040:
+      return AggregatorServerErrorCode.HoneyPotScam
+    case 5000:
+      return AggregatorServerErrorCode.InsufficientLiquidity
+    case 5001:
+      return AggregatorServerErrorCode.NotFoundRoute
+    case 5030:
+      return AggregatorServerErrorCode.ServiceUnavailable
+    case 5040:
+      return AggregatorServerErrorCode.UnsupportedApiVersion
+    default:
+      return AggregatorServerErrorCode.UnknownError
   }
 }

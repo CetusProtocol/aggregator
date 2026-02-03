@@ -23,6 +23,9 @@ export type { Dex } from "./utils/dex"
 // Export shared types explicitly to avoid conflicts
 export * from "./types/shared"
 
+// Export merge swap specific types
+export type { MergeSwapRouterData, MergeRoute } from "./types/shared"
+
 // Export other type modules
 export * from "./types/CoinAssist"
 export * from "./types/sui"

@@ -118,7 +118,6 @@ out
 # Nuxt.js build / generate output
 
 .nuxt
-dist
 
 # Gatsby files
 
@@ -174,12 +173,20 @@ dist
 # Finder (MacOS) folder config
 .DS_Store
 
+example/dist
+example/node_modules
+example/bun.lockb
+tests
+jest.config.mjs
+tsup.config.ts
+version.mjs
+bun.lockb
+example
+src
+.env.example
 .claude
-benchmark-results
-
-script/
-
-.claude-flow
-.claude
-.swarm
+.github
 .vscode
+CLAUDE.md
+script/
+docs/

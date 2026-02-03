@@ -1,4 +1,4 @@
-import { describe, test, beforeAll, expect } from "@jest/globals"
+import { describe, test, beforeAll, expect } from "vitest"
 import { AggregatorClient } from "~/index"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import { setupTestClient, testDexRouter, testData } from "./setup"

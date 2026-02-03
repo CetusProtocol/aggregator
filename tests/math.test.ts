@@ -1,5 +1,9 @@
 import BN from "bn.js"
-import { CalculateAmountLimitBN, sqrtPriceX64ToPrice } from "~/math"
+import {
+  CalculateAmountLimit,
+  CalculateAmountLimitBN,
+  sqrtPriceX64ToPrice,
+} from "~/math"
 
 describe("test math functions", () => {
   test("test sqrt price x64 to price", () => {

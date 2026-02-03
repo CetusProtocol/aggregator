@@ -1,4 +1,4 @@
-import { describe, test, beforeAll } from "@jest/globals"
+import { describe, test, beforeAll } from "vitest"
 import { AggregatorClient } from "~/index"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import {
@@ -24,9 +24,9 @@ describe("CETUS Router", () => {
     await testDexRouter(
       client,
       "CETUS",
-      testData.M_SUI,
-      testData.M_USDC,
-      "10000000000",
+      testData.M_WAL,
+      "0xe14726c336e81b32328e92afc37345d159f5b550b09fa92bd43640cfdd0a0cfd::usdb::USDB",
+      new BN(7071514),
       true
     )
   }, 30000)
@@ -75,12 +75,11 @@ describe("CETUS Router", () => {
 
     const res = await client.swapInPools({
       from: testData.M_SUI,
-      target: testData.M_USDC,
+      target: testData.T_USDC,
       amount: new BN(amount),
       byAmountIn: true,
       pools: [
-        "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab",
-        "0x7f9719a9fdd200b6f65bcef7fb3e2992ecd7aca5331a1b4a7a6a38dd4d1aa282",
+        "0xce144501b2e09fd9438e22397b604116a3874e137c8ae0c31144b45b2bf84f10",
       ],
     })
 

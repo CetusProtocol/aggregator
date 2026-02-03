@@ -1,6 +1,6 @@
 // Testnet
 export const T_USDC =
-  "0x26b3bc67befc214058ca78ea9a2690298d731a2d4309485ec3d40198063c4abc::usdc::USDC"
+  "0x14a71d857b34677a7d57e0feb303df1adb515a37780645ab763d42ce8d1a5e48::usdc::USDC"
 export const T_USDT =
   "0x26b3bc67befc214058ca78ea9a2690298d731a2d4309485ec3d40198063c4abc::usdt::USDT"
 export const T_DEEP =

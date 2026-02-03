@@ -1,6 +1,6 @@
 import dotenv from "dotenv"
 import { AggregatorClient } from "~/index"
-import * as testData from "../../test_data.test"
+import * as testData from "../../test_data"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import { fromB64 } from "@mysten/sui/utils"
 import { SuiClient } from "@mysten/sui/client"
@@ -26,7 +26,7 @@ export async function setupTestClient(
 }> {
   const fullNodeURL = process.env.SUI_RPC!
   const aggregatorURL =
-    process.env.CETUS_AGGREGATOR_V3 || "https://api-sui.cetus.zone/router_v2"
+    process.env.CETUS_AGGREGATOR_V3 || "https://api-sui.cetus.zone/router_v3"
   const secret = process.env.SUI_WALLET_SECRET!
 
   let keypair: Ed25519Keypair
@@ -37,15 +37,14 @@ export async function setupTestClient(
   }
 
   // Fallback wallet for backwards compatibility
-  const fallbackWallet =
-    "0xf7b8d77dd06a6bb51c37ad3ce69e0a44c6f1064f52ac54606ef47763c8a71be6"
+  const fallbackWallet = "0x0"
 
   // Use optimal wallet for SUI (the most common 'from' coin in v3 tests)
-  const wallet = await WalletUtils.getOptimalWalletForTesting(
-    fromCoin,
-    fallbackWallet
-  )
-  // const wallet = keypair.getPublicKey().toSuiAddress()
+  // const wallet = await WalletUtils.getOptimalWalletForTesting(
+  //   fromCoin,
+  //   fallbackWallet
+  // )
+  const wallet = fallbackWallet
 
   const endpoint = aggregatorURL
 
@@ -57,7 +56,7 @@ export async function setupTestClient(
     endpoint,
     signer: wallet,
     client: suiClient,
-    env: Env.Mainnet,
+    env: Env.Testnet,
     pythUrls: [
       "https://cetus-pythnet-a648.mainnet.pythnet.rpcpool.com/219cf7a8-6d75-432d-a648-d487a6dd5dc3/hermes",
     ],
@@ -71,7 +70,7 @@ export async function testDexRouter(
   provider: string | string[],
   from: string,
   target: string,
-  amount: string = "1000000000",
+  amount: string | number | bigint | BN = "1000000000",
   printFullTransaction: boolean = false
 ) {
   try {
@@ -80,7 +79,7 @@ export async function testDexRouter(
     const res = await client.findRouters({
       from,
       target,
-      amount: new BN(amount),
+      amount: amount instanceof BN ? amount : new BN(amount.toString()),
       byAmountIn: true,
       depth: 3,
       providers,

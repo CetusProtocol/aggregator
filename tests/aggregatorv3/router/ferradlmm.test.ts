@@ -1,9 +1,9 @@
-import { describe, test, beforeAll, expect } from "vitest"
+import { describe, test, beforeAll } from "vitest"
 import { AggregatorClient } from "~/index"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import { setupTestClient, testDexRouter, testData } from "./setup"
 
-describe("AFTERMATH Router", () => {
+describe("FERRADLMM Router", () => {
   let client: AggregatorClient
   let keypair: Ed25519Keypair
 
@@ -13,7 +13,14 @@ describe("AFTERMATH Router", () => {
     keypair = setup.keypair
   })
 
-  test("AFTERMATH router - find and swap", async () => {
-    await testDexRouter(client, "AFTERMATH", testData.M_SUI, testData.M_USDC)
+  test("FERRADLMM router - find and swap", async () => {
+    await testDexRouter(
+      client,
+      ["FERRADLMM"],
+      testData.M_USDC,
+      testData.M_SUI,
+      "1000000",
+      true
+    )
   }, 30000)
 })

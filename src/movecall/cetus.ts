@@ -32,20 +32,16 @@ export class CetusRouter implements DexRouter {
   private readonly partner: string
 
   constructor(env: Env, partner?: string) {
-    if (env !== Env.Mainnet) {
-      throw new Error("CetusRouter only supported on mainnet")
-    }
-
     this.globalConfig =
       env === Env.Mainnet
         ? "0xdaa46292632c3c4d8f31f23ea0f9b36a28ff3677e9684980e4438403a67a3d8f"
-        : "0x9774e359588ead122af1c7e7f64e14ade261cfeecdb5d0eb4a5b3b4c8ab8bd3e"
+        : "0xc6273f844b4bc258952c4e477697aa12c918c8e08106fac6b934811298c9820a"
 
     this.partner =
       partner ??
       (env === Env.Mainnet
         ? "0x639b5e433da31739e800cd085f356e64cae222966d0f1b11bd9dc76b322ff58b"
-        : "0x1f5fa5c820f40d43fc47815ad06d95e40a1942ff72a732a92e8ef4aa8cde70a5")
+        : "0xfdc30896f88f74544fd507722d3bf52e46b06412ba8241ba0e854cbc65f8d85f")
   }
 
   // By amount in

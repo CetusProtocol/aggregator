@@ -89,6 +89,54 @@ export function newSwapContext(
   return swap_context
 }
 
+export interface SwapContextV2 extends SwapContext {
+  maxAmountIn: string | BN | bigint | number
+}
+
+/**
+ * Creates a new swap context with max amount in validation (v2).
+ * This function calls new_swap_context_v2 which validates that the input coin value
+ * does not exceed maxAmountIn. If validation fails, the transaction will abort.
+ */
+export function newSwapContextV2(
+  params: SwapContextV2,
+  txb: Transaction
+): TransactionObjectArgument {
+  const {
+    quoteID,
+    fromCoinType,
+    targetCoinType,
+    maxAmountIn,
+    expectAmountOut,
+    amountOutLimit,
+    inputCoin,
+    feeRate,
+    feeRecipient,
+    aggregatorPublishedAt,
+    packages,
+  } = params
+
+  // Get published address from packages first, then fallback to aggregatorPublishedAt, then default
+  const publishedAt = getAggregatorPublishedAt(packages, aggregatorPublishedAt)
+
+  const args = [
+    txb.pure.string(quoteID),
+    txb.pure.u64(maxAmountIn.toString()),
+    txb.pure.u64(expectAmountOut.toString()),
+    txb.pure.u64(amountOutLimit.toString()),
+    inputCoin,
+    txb.pure.u32(Number(feeRate.toString())),
+    txb.pure.address(feeRecipient),
+  ]
+
+  const swap_context = txb.moveCall({
+    target: `${publishedAt}::router::new_swap_context_v2`,
+    typeArguments: [fromCoinType, targetCoinType],
+    arguments: args,
+  }) as TransactionObjectArgument
+  return swap_context
+}
+
 export interface ConfirmSwapContext {
   swapContext: TransactionObjectArgument
   targetCoinType: string

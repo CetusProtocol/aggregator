@@ -1,11 +1,15 @@
 import BN from "bn.js"
 import Decimal from "decimal.js"
+import {
+  Transaction,
+  TransactionObjectArgument,
+} from "@mysten/sui/transactions"
 
 // Core parameter interfaces
 export interface FindRouterParams {
   from: string
   target: string
-  amount: BN
+  amount: BN | string | number | bigint
   byAmountIn: boolean
   depth?: number
   splitAlgorithm?: string
@@ -13,6 +17,74 @@ export interface FindRouterParams {
   splitCount?: number
   providers?: string[]
   liquidityChanges?: PreSwapLpChangeParams[]
+}
+
+export interface MergeSwapFromCoin {
+  coinType: string
+  amount: BN | string | number | bigint
+}
+
+export interface MergeSwapParams {
+  target: string
+  byAmountIn: boolean
+  depth?: number
+  providers?: string[]
+  froms: MergeSwapFromCoin[]
+}
+
+export interface MergeSwapInputCoin {
+  coinType: string
+  coin: TransactionObjectArgument
+}
+
+export interface BuildMergeSwapParams {
+  router: MergeSwapRouterData
+  inputCoins: MergeSwapInputCoin[]
+  slippage: number
+  txb: Transaction
+  partner?: string
+}
+
+export interface BuildFastMergeSwapParams {
+  router: MergeSwapRouterData
+  slippage: number
+  txb: Transaction
+  partner?: string
+  payDeepFeeAmount?: number
+}
+
+export interface MergeSwapFromCoin {
+  coinType: string
+  amount: BN | string | number | bigint
+}
+
+export interface MergeSwapParams {
+  target: string
+  byAmountIn: boolean
+  depth?: number
+  providers?: string[]
+  froms: MergeSwapFromCoin[]
+}
+
+export interface MergeSwapInputCoin {
+  coinType: string
+  coin: TransactionObjectArgument
+}
+
+export interface BuildMergeSwapParams {
+  router: MergeSwapRouterData
+  inputCoins: MergeSwapInputCoin[]
+  slippage: number
+  txb: Transaction
+  partner?: string
+}
+
+export interface BuildFastMergeSwapParams {
+  router: MergeSwapRouterData
+  slippage: number
+  txb: Transaction
+  partner?: string
+  payDeepFeeAmount?: number
 }
 
 export interface PreSwapLpChangeParams {
@@ -32,10 +104,12 @@ export type ExtendedDetails = {
   // cetus
   afterSqrtPrice?: string
   // deepbookv3
-  deepbookv3DeepFee?: number
+  deepbookv3_deep_fee?: number
+  deepbookv3_need_add_deep_price_point?: boolean
+  deepbookv3_reference_pool_id?: string
+  deepbookv3_reference_pool_base_type?: string
+  deepbookv3_reference_pool_quote_type?: string
   // scallop
-  scallopScoinTreasury?: string
-  // Snake_case versions for API response
   scallop_scoin_treasury?: string
   // haedal
   haedal_pmm_base_price_seed?: string
@@ -131,6 +205,22 @@ export type RouterDataV3 = {
   totalDeepFee?: number
   error?: RouterError
   overlayFee?: number
+}
+
+export type MergeRoute = {
+  amountIn: BN
+  amountOut: BN
+  deviationRatio: string
+  paths: Path[]
+}
+
+export type MergeSwapRouterData = {
+  quoteID?: string
+  totalAmountOut: BN
+  allRoutes: MergeRoute[]
+  packages?: Map<string, string>
+  gas?: number
+  error?: RouterError
 }
 
 // V3-specific types for flattened route processing
