@@ -101,7 +101,7 @@ export class AfsuiRouter implements DexRouter {
       txb.object(this.safe),
       txb.object("0x5"), // SuiSystemState
       txb.object(this.referVault),
-      txb.object(this.validator),
+      txb.pure.address(this.validator),
       txb.pure.bool(swapData.direction),
       txb.pure.u64(swapData.amountIn),
     ]

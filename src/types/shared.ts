@@ -144,10 +144,15 @@ export type ExtendedDetails = {
   obric_coin_a_price_id?: string
   obric_coin_b_price_id?: string
   // Snake_case versions for V3 API response
+  /** @deprecated SevenK DEX is no longer active. */
   sevenk_coin_a_price_seed?: string
+  /** @deprecated SevenK DEX is no longer active. */
   sevenk_coin_b_price_seed?: string
+  /** @deprecated SevenK DEX is no longer active. */
   sevenk_oracle_config_a?: string
+  /** @deprecated SevenK DEX is no longer active. */
   sevenk_oracle_config_b?: string
+  /** @deprecated SevenK DEX is no longer active. */
   sevenk_lp_cap_type?: string
 }
 

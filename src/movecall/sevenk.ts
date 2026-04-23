@@ -21,6 +21,7 @@ import { Env, FlattenedPath } from ".."
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import * as Constants from "../const"
 
+/** @deprecated SevenK DEX is no longer active. This router will be removed in a future version. */
 export class SevenkRouter implements DexRouter {
   private readonly oraclePublishedAt: string
   private readonly pythPriceIDs: Map<string, string>

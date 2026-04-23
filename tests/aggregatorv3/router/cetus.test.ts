@@ -6,13 +6,14 @@ import {
   testDexRouter,
   testData,
   printTransaction,
+  unwrapSimulation,
 } from "./setup"
 import BN from "bn.js"
 import { Transaction } from "@mysten/sui/transactions"
 
 describe("CETUS Router", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient()
@@ -54,19 +55,20 @@ describe("CETUS Router", () => {
     await client.fastRouterSwap({
       router: res!,
       txb,
-      slippage: 0.01, // 5% slippage tolerance
+      slippage: 0.01,
       refreshAllCoins: true,
     })
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
-      console.log(`✅ Transaction simulation successful`)
+    if (result.success) {
+      console.log(`Transaction simulation successful`)
     } else {
-      console.log(`❌ Transaction simulation failed`)
-      console.log("Error:", result.effects.status.error)
+      console.log(`Transaction simulation failed`)
+      console.log("Error:", result.error)
     }
   }, 600000)
 
@@ -75,7 +77,7 @@ describe("CETUS Router", () => {
 
     const res = await client.swapInPools({
       from: testData.M_SUI,
-      target: testData.T_USDC,
+      target: testData.M_USDC,
       amount: new BN(amount),
       byAmountIn: true,
       pools: [
@@ -88,19 +90,20 @@ describe("CETUS Router", () => {
     await client.fastRouterSwap({
       router: res!.routeData!,
       txb,
-      slippage: 0.05, // 5% slippage tolerance
+      slippage: 0.05,
       refreshAllCoins: true,
     })
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
-      console.log(`✅ Transaction simulation successful`)
+    if (result.success) {
+      console.log(`Transaction simulation successful`)
     } else {
-      console.log(`❌ Transaction simulation failed`)
-      console.log("Error:", result.effects.status.error)
+      console.log(`Transaction simulation failed`)
+      console.log("Error:", result.error)
     }
   }, 50000)
 })

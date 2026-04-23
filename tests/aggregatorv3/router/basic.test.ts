@@ -3,11 +3,11 @@ import { AggregatorClient } from "~/index"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import { Transaction } from "@mysten/sui/transactions"
 import { Env } from "~/index"
-import { setupTestClient, testData, BN } from "./setup"
+import { setupTestClient, unwrapSimulation, testData, BN } from "./setup"
 
 describe("AggregatorV3 Basic Functionality", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient(
@@ -49,9 +49,6 @@ describe("AggregatorV3 Basic Functionality", () => {
       target: testData.M_USDC,
       amount: new BN(amount),
       byAmountIn: true,
-      // depth: 3, // Allow multi-hop to test route flattening
-      // splitCount: 2, // Allow splitting to test complex routes
-      // providers: ["CETUS", "KRIYAV3", "TURBOS"], // Use multiple providers
     })
 
     if (res && res.paths) {
@@ -69,7 +66,8 @@ describe("AggregatorV3 Basic Functionality", () => {
         refreshAllCoins: true,
       })
 
-      const result = await client.devInspectTransactionBlock(txb)
+      const rawResult = await client.devInspectTransactionBlock(txb)
+      const result = unwrapSimulation(rawResult)
 
       console.log("result", JSON.stringify(result, null, 2))
       console.log("result.events", JSON.stringify(result.events, null, 2))
@@ -105,9 +103,10 @@ describe("AggregatorV3 Basic Functionality", () => {
         refreshAllCoins: true,
       })
 
-      const result = await clientWithFee.devInspectTransactionBlock(txb)
-      expect(result.effects.status.status).toBe("success")
-      console.log("✅ V3 overlay fee test passed")
+      const rawResult = await clientWithFee.devInspectTransactionBlock(txb)
+      const result = unwrapSimulation(rawResult)
+      expect(result.success).toBe(true)
+      console.log("V3 overlay fee test passed")
     }
   }, 30000)
 
@@ -122,7 +121,7 @@ describe("AggregatorV3 Basic Functionality", () => {
       })
     } catch (error) {
       expect(error).toBeDefined()
-      console.log("✅ V3 error handling test passed")
+      console.log("V3 error handling test passed")
     }
   }, 10000)
 })

@@ -1,4 +1,10 @@
-import type { SuiMoveObject } from '@mysten/sui/client'
+// SuiMoveObject type definition for compatibility with new SDK
+// In the new SDK, object types are handled differently
+export interface SuiMoveObject {
+  type: string
+  fields: Record<string, unknown>
+}
+
 import type { CoinAsset, SuiAddress } from './sui'
 import { extractStructTagFromType, normalizeCoinType } from '../utils/contracts' 
 

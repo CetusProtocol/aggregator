@@ -5,7 +5,7 @@ import { setupTestClient, testDexRouter, testData } from "./setup"
 
 describe("STEAMM_OMM_V2 Router", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient(testData.M_USDC)
@@ -19,7 +19,7 @@ describe("STEAMM_OMM_V2 Router", () => {
       "STEAMM_OMM_V2",
       testData.M_USDC,
       testData.M_SUI,
-      "1000000"
+      "100000000"
     )
   }, 30000)
 })

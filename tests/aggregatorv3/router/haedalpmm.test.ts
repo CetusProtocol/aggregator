@@ -5,7 +5,7 @@ import { setupTestClient, testDexRouter, testData } from "./setup"
 
 describe("HAEDALPMM Router", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient()
@@ -17,9 +17,9 @@ describe("HAEDALPMM Router", () => {
     await testDexRouter(
       client,
       "HAEDALPMM",
-      testData.M_SUI,
       testData.M_USDC,
-      "1000000000",
+      testData.M_SUI,
+      "1000000",
       true
     )
   }, 30000)

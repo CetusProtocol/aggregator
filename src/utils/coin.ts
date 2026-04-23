@@ -2,9 +2,9 @@ import {
   Transaction,
   TransactionObjectArgument,
 } from "@mysten/sui/transactions"
-import { AggregatorError, TransactionErrorCode } from "../errors"
-import { CoinUtils } from "../types/CoinAssist"
-import { CoinAsset } from "../types/sui"
+import { AggregatorError, TransactionErrorCode } from "~/errors"
+import { CoinUtils } from "~/types/CoinAssist"
+import { CoinAsset } from "~/types/sui"
 
 export function completionCoin(s: string): string {
   const index = s.indexOf("::")

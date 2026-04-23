@@ -1,4 +1,4 @@
-import { SuiClient } from "@mysten/sui/client"
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc"
 import { DEEPBOOK_CLOB_V2_MODULE, DEEPBOOK_CUSTODIAN_V2_MODULE, DEEPBOOK_PACKAGE_ID, DEEPBOOK_PUBLISHED_AT } from "../const"
 import { Transaction, TransactionObjectArgument } from "@mysten/sui/transactions"
 
@@ -7,7 +7,7 @@ export type GetOrCreateAccountCapResult = {
   isCreate: boolean
 }
 
-export async function getOrCreateAccountCap(txb: Transaction, client: SuiClient, owner: string): Promise<GetOrCreateAccountCapResult> {
+export async function getOrCreateAccountCap(txb: Transaction, client: SuiJsonRpcClient, owner: string): Promise<GetOrCreateAccountCapResult> {
   let accountCapStr = await getAccountCap(client, owner)
   if (accountCapStr !== null) {
     return {
@@ -28,35 +28,27 @@ export async function getOrCreateAccountCap(txb: Transaction, client: SuiClient,
   }
 }
 
-async function getAccountCap(client: SuiClient, owner: string): Promise<string | null> {
-  let limit = 50;
-  let cursor = null;
+async function getAccountCap(client: SuiJsonRpcClient, owner: string): Promise<string | null> {
+  const limit = 50
+  let cursor: string | undefined = undefined
 
   while (true) {
-    const ownedObjects: any = client.getOwnedObjects({
+    const ownedObjects = await client.getOwnedObjects({
       owner,
       cursor,
       limit,
-      filter: {
-        MoveModule: {
-          package: DEEPBOOK_PACKAGE_ID,
-          module: DEEPBOOK_CUSTODIAN_V2_MODULE,
-        }
-      }
+      filter: { StructType: `${DEEPBOOK_PACKAGE_ID}::${DEEPBOOK_CUSTODIAN_V2_MODULE}::AccountCap` },
     })
 
-    if (ownedObjects != null && ownedObjects.data != null) {
-      if (ownedObjects.data.length !== 0) {
-        return ownedObjects.data[0].data.objectId
-      }
+    if (ownedObjects.data.length !== 0) {
+      return ownedObjects.data[0].data?.objectId ?? null
+    }
 
-      if (ownedObjects.data.length < 50) {
-        break
-      }
-    } else {
+    if (!ownedObjects.hasNextPage) {
       break
     }
+    cursor = ownedObjects.nextCursor ?? undefined
   }
-  
+
   return null
 }

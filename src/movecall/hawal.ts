@@ -86,7 +86,7 @@ export class HawalRouter implements DexRouter {
       swapContext,
       txb.object(this.staking),
       txb.object(swapData.poolId),
-      txb.object(this.validator),
+      txb.pure.address(this.validator),
       txb.pure.bool(swapData.direction),
       txb.pure.u64(swapData.amountIn),
     ]
