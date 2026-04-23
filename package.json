@@ -1,6 +1,7 @@
 {
   "name": "@cetusprotocol/aggregator-sdk",
-  "version": "1.4.4",
+  "version": "1.5.1",
+  "type": "module",
   "sideEffects": false,
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,8 +22,8 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@mysten/sui": "^1.0.5",
-    "@pythnetwork/pyth-sui-js": "^2.1.0",
+    "@mysten/sui": "^2.6.0",
+    "@pythnetwork/hermes-client": "^3.1.0",
     "bip39": "^3.1.0",
     "dotenv": "^16.4.5",
     "json-bigint": "^1.0.0",

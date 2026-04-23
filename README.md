@@ -25,7 +25,7 @@ High-Speed Transactions: Thanks to advanced algorithms and efficient architectur
 
 Easy Integration: The aggregator is designed to be simple and easy to integrate. Whether you are an individual developer or a large project team, you can quickly connect and deploy.
 
-Multi-Platform Support: Currently, we have integrated multiple mainstream DEXs on the Sui chain, including cetus, deepbook, kriya, flowx, aftermath, afsui, haedal, volo, turbos etc, allowing users to enjoy a diversified trading experience on a single platform.
+Multi-Platform Support: Currently, we have integrated multiple mainstream DEXs on the Sui chain, including cetus, kriya, kriyav3, flowx, flowxv3, turbos, aftermath, haedal, volo, afsui, bluemove, deepbookv3, scallop, suilend, bluefin, haedalpmm, haedalhmmv2, alphafi, springsui, steamm, steamm_omm, steamm_omm_v2, metastable, obric, hawal, momentum, magma, fullsail, cetusdlmm, ferradlmm, ferraclmm, bolt, allowing users to enjoy a diversified trading experience on a single platform.
 
 By using our aggregator, you can trade more efficiently and securely on the Sui blockchain, fully leveraging the various opportunities brought by decentralized finance (DeFi).
 
@@ -140,7 +140,7 @@ CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator
 
 | Contract              | Tag of Repo | Latest published at address                                        |
 | --------------------- | ----------- | ------------------------------------------------------------------ |
-| CetusAggregatorSimple | mainnet     | 0xb153256f86a6c818b74c03815c36f8a8118865a109840f6fd8bff953add6ab6c |
+| CetusAggregatorSimple | mainnet     | 0x54394cb5bceb8073c60df0964b904a607c9974ef771d9e8b3f9c45b8ce075499 |
 
 ## Example
 
