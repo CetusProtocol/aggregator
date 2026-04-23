@@ -71,6 +71,7 @@ import { FullsailRouter } from "./movecall/fullsail"
 import { CetusDlmmRouter } from "./movecall/cetus_dlmm"
 import { FerraDlmmRouter } from "./movecall/ferra_dlmm"
 import { FerraClmmRouter } from "./movecall/ferra_clmm"
+import { BoltRouter } from "./movecall/bolt"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -106,6 +107,7 @@ export const FULLSAIL = "FULLSAIL"
 export const CETUSDLMM = "CETUSDLMM"
 export const FERRADLMM = "FERRADLMM"
 export const FERRACLMM = "FERRACLMM"
+export const BOLT = "BOLT"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v3"
 
 export const ALL_DEXES = [
@@ -141,6 +143,7 @@ export const ALL_DEXES = [
   CETUSDLMM,
   FERRADLMM,
   FERRACLMM,
+  BOLT,
 ]
 
 export type BuildRouterSwapParamsV3 = {
@@ -512,6 +515,8 @@ export class AggregatorClient {
         return new FerraDlmmRouter(this.env)
       case FERRACLMM:
         return new FerraClmmRouter(this.env)
+      case BOLT:
+        return new BoltRouter(this.env)
       default:
         throw new Error(
           `${Constants.CLIENT_CONFIG.ERRORS.UNSUPPORTED_DEX} ${provider}`

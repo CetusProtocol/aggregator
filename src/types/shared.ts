@@ -154,6 +154,10 @@ export type ExtendedDetails = {
   sevenk_oracle_config_b?: string
   /** @deprecated SevenK DEX is no longer active. */
   sevenk_lp_cap_type?: string
+  // bolt
+  bolt_pool_id?: string
+  bolt_oracle_id?: string
+  bolt_quote_coin_type?: string
 }
 
 // Path type with V3 capabilities (using direction instead of a2b, string amounts)
