@@ -73,6 +73,8 @@ export async function setupTestClient(
     pythUrls: [
       "https://hermes.pyth.network",
     ],
+    cetusDlmmPartner:
+      "0x4793afa292f26789039f79da9b61f245c596c266053246ea2a4f0e1ac4cf6e52",
   })
 
   return { client, keypair }

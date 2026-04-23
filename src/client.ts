@@ -153,6 +153,7 @@ export type BuildRouterSwapParamsV3 = {
   txb: Transaction
   // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
   partner?: string
+  cetusDlmmPartner?: string
   // This parameter is used to pass the Deep token object. When using the DeepBook V3 provider,
   // users must pay fees with Deep tokens in non-whitelisted pools.
   deepbookv3DeepFee?: TransactionObjectArgument
@@ -165,6 +166,7 @@ export type BuildFastRouterSwapParamsV3 = {
   txb: Transaction
   // @deprecated Partner parameter in constructor is deprecated. The partner parameter in swap methods will take precedence if both are set.
   partner?: string
+  cetusDlmmPartner?: string
   refreshAllCoins?: boolean
   payDeepFeeAmount?: number
 }
@@ -923,7 +925,8 @@ export class AggregatorClient {
   async routerSwap(
     params: BuildRouterSwapParamsV3
   ): Promise<TransactionObjectArgument> {
-    const { router, inputCoin, slippage, txb, partner } = params
+    const { router, inputCoin, slippage, txb, partner, cetusDlmmPartner } =
+      params
 
     if (slippage > 1 || slippage < 0) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
@@ -975,7 +978,8 @@ export class AggregatorClient {
         amountOut.toString(),
         amountLimit.toString(),
         priceInfoObjectIds,
-        partner ?? this.partner
+        partner ?? this.partner,
+        cetusDlmmPartner ?? this.cetusDlmmPartner
       )
     } else {
       return this.expectOutputSwapV3(
@@ -1001,7 +1005,15 @@ export class AggregatorClient {
   async routerSwapWithMaxAmountIn(
     params: BuildRouterSwapParamsV3 & { maxAmountIn: BN }
   ): Promise<TransactionObjectArgument> {
-    const { router, inputCoin, slippage, txb, partner, maxAmountIn } = params
+    const {
+      router,
+      inputCoin,
+      slippage,
+      txb,
+      partner,
+      cetusDlmmPartner,
+      maxAmountIn,
+    } = params
 
     if (slippage > 1 || slippage < 0) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
@@ -1054,7 +1066,8 @@ export class AggregatorClient {
         amountOut.toString(),
         amountLimit.toString(),
         priceInfoObjectIds,
-        partner ?? this.partner
+        partner ?? this.partner,
+        cetusDlmmPartner ?? this.cetusDlmmPartner
       )
     } else {
       // For fixed output swaps, we still use the v2 context with max amount validation
@@ -1073,7 +1086,14 @@ export class AggregatorClient {
   // auto build input coin
   // auto merge, transfer or destory target coin.
   async fastRouterSwap(params: BuildFastRouterSwapParamsV3) {
-    const { router, slippage, txb, partner, payDeepFeeAmount } = params
+    const {
+      router,
+      slippage,
+      txb,
+      partner,
+      cetusDlmmPartner,
+      payDeepFeeAmount,
+    } = params
 
     const fromCoinType = router.paths[0].from
     const targetCoinType = router.paths[router.paths.length - 1].target
@@ -1132,6 +1152,7 @@ export class AggregatorClient {
       slippage,
       txb,
       partner: partner ?? this.partner,
+      cetusDlmmPartner: cetusDlmmPartner ?? this.cetusDlmmPartner,
       deepbookv3DeepFee: deepCoin,
     }
 
@@ -1290,7 +1311,8 @@ export class AggregatorClient {
   async fixableRouterSwapV3(
     params: BuildRouterSwapParamsV3
   ): Promise<TransactionObjectArgument> {
-    const { router, inputCoin, slippage, txb, partner } = params
+    const { router, inputCoin, slippage, txb, partner, cetusDlmmPartner } =
+      params
 
     checkOverlayFeeConfig(this.overlayFeeRate, this.overlayFeeReceiver)
     let overlayFee = 0
@@ -1338,7 +1360,8 @@ export class AggregatorClient {
         expectedAmountOut.toString(),
         amountLimit.toString(),
         priceInfoObjectIds,
-        partner ?? this.partner
+        partner ?? this.partner,
+        cetusDlmmPartner ?? this.cetusDlmmPartner
       )
     } else {
       return this.expectOutputSwapV3(
