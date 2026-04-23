@@ -12,8 +12,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-import { DevInspectResults } from "@mysten/sui/client"
 import BN from "bn.js"
+
+/**
+ * Matches the shape of DevInspectResults from JSON-RPC.
+ * Using a local type so gas.ts can be used without importing the full SDK.
+ */
+export type SimulateTransactionResult = {
+  effects: {
+    status: { status: 'success' | 'failure'; error?: string }
+    gasUsed: {
+      computationCost: string
+      storageCost: string
+      storageRebate: string
+      nonRefundableStorageFee: string
+    }
+  }
+  error?: string | null
+}
 
 export interface GasMetrics {
   computationCost: string
@@ -55,13 +71,14 @@ export interface ComparisonResult {
 }
 
 /**
- * Extract gas metrics from DevInspectResults
+ * Extract gas metrics from a simulateTransaction result.
  */
-export function extractGasMetrics(result: DevInspectResults): GasMetrics {
+export function extractGasMetrics(result: SimulateTransactionResult): GasMetrics {
   const effects = result.effects
-  const success = effects.status.status === "success"
+  const isSuccess = !result.error && effects.status.status === 'success'
 
-  if (!success) {
+  if (!isSuccess) {
+    const errorMsg = result.error ?? effects.status.error ?? "Unknown error"
     return {
       computationCost: "0",
       storageCost: "0",
@@ -71,18 +88,18 @@ export function extractGasMetrics(result: DevInspectResults): GasMetrics {
       gasUsed: "0",
       gasPrice: "0",
       success: false,
-      error: effects.status.error || "Unknown error",
+      error: errorMsg,
     }
   }
 
   const gasUsed = effects.gasUsed
   return {
-    computationCost: gasUsed.computationCost || "0",
-    storageCost: gasUsed.storageCost || "0",
-    storageRebate: gasUsed.storageRebate || "0",
-    nonRefundableStorageFee: gasUsed.nonRefundableStorageFee || "0",
+    computationCost: gasUsed.computationCost,
+    storageCost: gasUsed.storageCost,
+    storageRebate: gasUsed.storageRebate,
+    nonRefundableStorageFee: gasUsed.nonRefundableStorageFee,
     totalGasCost: calculateTotalGasCost(gasUsed),
-    gasUsed: gasUsed.computationCost || "0",
+    gasUsed: gasUsed.computationCost,
     gasPrice: "1000", // Standard Sui gas price in MIST
     success: true,
   }
@@ -91,11 +108,16 @@ export function extractGasMetrics(result: DevInspectResults): GasMetrics {
 /**
  * Calculate total gas cost from gas used components
  */
-function calculateTotalGasCost(gasUsed: any): string {
-  const computation = new BN(gasUsed.computationCost || "0")
-  const storage = new BN(gasUsed.storageCost || "0")
-  const rebate = new BN(gasUsed.storageRebate || "0")
-  const nonRefundable = new BN(gasUsed.nonRefundableStorageFee || "0")
+function calculateTotalGasCost(gasUsed: {
+  computationCost: string
+  storageCost: string
+  storageRebate: string
+  nonRefundableStorageFee: string
+}): string {
+  const computation = new BN(gasUsed.computationCost)
+  const storage = new BN(gasUsed.storageCost)
+  const rebate = new BN(gasUsed.storageRebate)
+  const nonRefundable = new BN(gasUsed.nonRefundableStorageFee)
 
   return computation.add(storage).sub(rebate).add(nonRefundable).toString()
 }
@@ -186,14 +208,14 @@ export function formatGasMetrics(
   isEstimated?: boolean
 ): string {
   if (!metrics.success) {
-    return `❌ Failed: ${metrics.error}`
+    return `Failed: ${metrics.error}`
   }
 
   const totalGas = Number(metrics.totalGasCost)
   const gasInSui = totalGas / 1000000000 // Convert MIST to SUI
   const estimatedFlag = isEstimated ? " (estimated)" : ""
 
-  return `✅ Gas: ${totalGas.toString()} MIST (${gasInSui.toString()} SUI)${estimatedFlag}`
+  return `Gas: ${totalGas.toString()} MIST (${gasInSui.toString()} SUI)${estimatedFlag}`
 }
 
 /**
@@ -230,7 +252,7 @@ export function exportToCSV(comparison: ComparisonResult): string {
     const pathReduction = analysis.originalPathCount && analysis.mergedPathCount
       ? ((analysis.originalPathCount - analysis.mergedPathCount) / analysis.originalPathCount * 100).toFixed(1)
       : "0"
-    
+
     rows.push(
       [
         "V2",
@@ -255,7 +277,7 @@ export function exportToCSV(comparison: ComparisonResult): string {
     const pathReduction = analysis.originalPathCount && analysis.mergedPathCount
       ? ((analysis.originalPathCount - analysis.mergedPathCount) / analysis.originalPathCount * 100).toFixed(1)
       : "0"
-    
+
     rows.push(
       [
         "V3",

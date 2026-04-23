@@ -19,7 +19,7 @@ import {
   MergeRoute,
 } from "./types/shared"
 
-const SDK_VERSION = 1010404
+const SDK_VERSION = 1010405
 
 function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
   // Parse packages map from API response
@@ -544,6 +544,7 @@ function processErrorStatusCode(status: number): AggregatorServerErrorCode {
     case 5000:
       return AggregatorServerErrorCode.InsufficientLiquidity
     case 5001:
+    case 5010:
       return AggregatorServerErrorCode.NotFoundRoute
     case 5030:
       return AggregatorServerErrorCode.ServiceUnavailable

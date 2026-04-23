@@ -3,9 +3,10 @@ import { AggregatorClient } from "~/index"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import { setupTestClient, testDexRouter, testData } from "./setup"
 
-describe("SEVENK Router", () => {
+// SevenK DEX is no longer active — tests kept for reference but skipped.
+describe.skip("SEVENK Router (deprecated)", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient()

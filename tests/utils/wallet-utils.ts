@@ -183,6 +183,81 @@ export class WalletUtils {
   }
 
   /**
+   * Invalidate cached holder for a coin type (e.g. when the cached holder has insufficient balance)
+   */
+  static invalidateCache(coinType: string) {
+    this.coinHolderCache.delete(coinType)
+    this.saveCoinHolderCache()
+  }
+
+  /**
+   * Get a holder with at least `minBalance` for a coin type, optionally excluding an address.
+   * Returns the first qualifying holder, or null if none found.
+   */
+  static async getHolderWithMinBalance(
+    coinType: string,
+    minBalance: string,
+    excludeAddress?: string
+  ): Promise<string | null> {
+    this.init()
+
+    try {
+      console.log(
+        `🔍 Fetching holder with min balance ${minBalance} for ${this.getShortAddress(coinType)}...`
+      )
+
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      }
+
+      const apiKey = process.env.BLOCKVISION_API_KEY
+      if (apiKey) {
+        headers["x-api-key"] = apiKey
+      }
+
+      const url = `https://api.blockvision.org/v2/sui/coin/holders?coinType=${encodeURIComponent(
+        coinType
+      )}&pageSize=20`
+
+      const response = await fetch(url, { headers })
+
+      if (!response.ok) {
+        console.log(`   ⚠️  BlockVision API failed (${response.status})`)
+        return null
+      }
+
+      const data: BlockVisionResponse = await response.json()
+
+      if (data.result && data.result.data && data.result.data.length > 0) {
+        const minBal = BigInt(minBalance)
+        const match = data.result.data.find((holder) => {
+          if (excludeAddress && holder.account === excludeAddress) return false
+          try {
+            return BigInt(holder.balance) >= minBal
+          } catch {
+            return parseFloat(holder.balance) >= parseFloat(minBalance)
+          }
+        })
+
+        if (match) {
+          console.log(
+            `   ✅ Found holder with sufficient balance: ${this.getShortAddress(match.account)} (${match.balance})`
+          )
+          this.coinHolderCache.set(coinType, match.account)
+          this.saveCoinHolderCache()
+          return match.account
+        }
+
+        console.log(`   ⚠️  No holder found with balance >= ${minBalance}`)
+      }
+    } catch (error) {
+      console.log(`   ⚠️  Error fetching holders with min balance: ${error}`)
+    }
+
+    return null
+  }
+
+  /**
    * Create a wallet-aware test function that uses optimal wallet
    */
   static async withOptimalWallet<T>(

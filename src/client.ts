@@ -62,11 +62,8 @@ import {
 } from "./movecall/router"
 import { completionCoin, compareCoins } from "./utils/coin"
 import { coinWithBalance } from "@mysten/sui/transactions"
-import { getFullnodeUrl, SuiClient } from "@mysten/sui/client"
-import {
-  SuiPriceServiceConnection,
-  SuiPythClient,
-} from "@pythnetwork/pyth-sui-js"
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc"
+import { PythAdapter } from "./pyth/adapter"
 import { processEndpoint } from "./utils"
 import { Signer } from "@mysten/sui/cryptography"
 import { HaedalHMMV2Router } from "./movecall/haedal_hmm_v2"
@@ -102,6 +99,7 @@ export const STEAMM_OMM = "STEAMM_OMM"
 export const MOMENTUM = "MOMENTUM"
 export const STEAMM_OMM_V2 = "STEAMM_OMM_V2"
 export const MAGMA = "MAGMA"
+/** @deprecated SevenK DEX is no longer active. Will be removed in a future version. */
 export const SEVENK = "SEVENK"
 export const HAEDALHMMV2 = "HAEDALHMMV2"
 export const FULLSAIL = "FULLSAIL"
@@ -284,7 +282,7 @@ function findPythPriceIDs(paths: Path[]): string[] {
 export type AggregatorClientParams = {
   endpoint?: string
   signer?: string
-  client?: SuiClient
+  client?: SuiJsonRpcClient
   env?: Env
   pythUrls?: string[]
   apiKey?: string
@@ -302,12 +300,11 @@ interface PythConfig {
 export class AggregatorClient {
   public endpoint: string
   public signer: string
-  public client: SuiClient
+  public client: SuiJsonRpcClient
   public env: Env
   public apiKey: string
 
-  protected pythConnections: SuiPriceServiceConnection[]
-  protected pythClient: SuiPythClient
+  protected pythAdapter: PythAdapter
   protected overlayFeeRate: number
   protected overlayFeeReceiver: string
   protected partner?: string
@@ -333,17 +330,23 @@ export class AggregatorClient {
     this.endpoint = params.endpoint
       ? processEndpoint(params.endpoint)
       : DEFAULT_ENDPOINT
+
+    const network = params.env === Env.Testnet ? 'testnet' : 'mainnet'
+    const rpcUrl = params.env === Env.Testnet
+      ? 'https://fullnode.testnet.sui.io:443'
+      : 'https://fullnode.mainnet.sui.io:443'
+
     this.client =
-      params.client || new SuiClient({ url: getFullnodeUrl("mainnet") })
+      params.client ?? new SuiJsonRpcClient({ network, url: rpcUrl })
     this.signer = params.signer || ""
     this.env = params.env || Env.Mainnet
 
     const config = AggregatorClient.CONFIG[this.env]
-    this.pythConnections = this.newPythClients(params.pythUrls ?? [])
-    this.pythClient = new SuiPythClient(
+    this.pythAdapter = new PythAdapter(
       this.client,
       config.pythStateId,
-      config.wormholeStateId
+      config.wormholeStateId,
+      params.pythUrls ?? [],
     )
     this.apiKey = params.apiKey || ""
     this.partner = params.partner
@@ -374,17 +377,6 @@ export class AggregatorClient {
     this.overlayFeeReceiver =
       params.overlayFeeReceiver ??
       Constants.CLIENT_CONFIG.DEFAULT_OVERLAY_FEE_RECEIVER
-  }
-
-  newPythClients(pythUrls: string[]) {
-    if (!pythUrls.includes("https://hermes.pyth.network")) {
-      pythUrls.push("https://hermes.pyth.network")
-    }
-
-    const connections = pythUrls.map(
-      url => new SuiPriceServiceConnection(url, { timeout: 3000 })
-    )
-    return connections
   }
 
   deepbookv3DeepFeeType(): string {
@@ -1387,20 +1379,19 @@ export class AggregatorClient {
       })
     }
 
-    if (!this.signer) {
-      this.signer = "0x0"
-    }
+    tx.setSenderIfNotSet(this.signer || "0x0")
 
     const simulateRes = await this.client.devInspectTransactionBlock({
+      sender: this.signer || "0x0",
       transactionBlock: tx,
-      sender: this.signer,
     })
 
-    if (simulateRes.error != null) {
+    if (simulateRes.error) {
       throw new Error("Simulation error: " + simulateRes.error)
     }
 
-    const valueData: any = simulateRes.events?.filter((item: any) => {
+    const events = simulateRes.events ?? []
+    const valueData = events.filter((item) => {
       return item.type.includes("CalculatedSwapResultEvent")
     })
 
@@ -1411,18 +1402,19 @@ export class AggregatorClient {
     let tempMaxAmount = byAmountIn ? new BN(0) : new BN(Constants.U64_MAX)
     let tempIndex = 0
     for (let i = 0; i < valueData.length; i += 1) {
-      if (valueData[i].parsedJson.data.is_exceed) {
+      const eventJson = valueData[i].parsedJson as Record<string, any> | null
+      if (eventJson?.data?.is_exceed) {
         continue
       }
 
       if (params.byAmountIn) {
-        const amount = new BN(valueData[i].parsedJson.data.amount_out)
+        const amount = new BN(eventJson?.data?.amount_out ?? 0)
         if (amount.gt(tempMaxAmount)) {
           tempIndex = i
           tempMaxAmount = amount
         }
       } else {
-        const amount = new BN(valueData[i].parsedJson.data.amount_out)
+        const amount = new BN(eventJson?.data?.amount_out ?? 0)
         if (amount.lt(tempMaxAmount)) {
           tempIndex = i
           tempMaxAmount = amount
@@ -1430,24 +1422,21 @@ export class AggregatorClient {
       }
     }
 
-    const event = valueData[tempIndex].parsedJson.data
+    const eventJson = valueData[tempIndex].parsedJson as Record<string, any> | null
+    const eventData = eventJson?.data
 
     const [decimalA, decimalB] = await Promise.all([
-      this.client
-        .getCoinMetadata({ coinType: coinA })
-        .then(metadata => metadata?.decimals),
-      this.client
-        .getCoinMetadata({ coinType: coinB })
-        .then(metadata => metadata?.decimals),
+      this.client.getCoinMetadata({ coinType: coinA }).then(res => res?.decimals ?? null),
+      this.client.getCoinMetadata({ coinType: coinB }).then(res => res?.decimals ?? null),
     ])
 
     if (decimalA == null || decimalB == null) {
       throw new Error("Cannot get coin decimals")
     }
 
-    const feeRate = Number(event.fee_rate) / 1000000
-    const pureAmountIn = new BN(event.amount_in ?? 0)
-    const feeAmount = new BN(event.fee_amount ?? 0)
+    const feeRate = Number(eventData?.fee_rate ?? 0) / 1000000
+    const pureAmountIn = new BN(eventData?.amount_in ?? 0)
+    const feeAmount = new BN(eventData?.fee_amount ?? 0)
     const amountIn = pureAmountIn.add(feeAmount)
 
     const cetusRouterV3PublishedAt =
@@ -1462,7 +1451,7 @@ export class AggregatorClient {
     // Return RouterData in v3 format
     const routeData: RouterDataV3 = {
       amountIn: amountIn,
-      amountOut: new BN(event.amount_out ?? 0),
+      amountOut: new BN(eventData?.amount_out ?? 0),
       deviationRatio: 0,
       paths: [
         {
@@ -1473,10 +1462,10 @@ export class AggregatorClient {
           target: targetCoin,
           feeRate,
           amountIn: amountIn.toString(),
-          amountOut: event.amount_out,
+          amountOut: eventData?.amount_out ?? "0",
           publishedAt: cetusRouterV3PublishedAt,
           extendedDetails: {
-            afterSqrtPrice: event.after_sqrt_price,
+            afterSqrtPrice: eventData?.after_sqrt_price,
           },
         },
       ],
@@ -1492,7 +1481,7 @@ export class AggregatorClient {
     }
 
     const result: SwapInPoolsResultV3 = {
-      isExceed: event.is_exceed,
+      isExceed: eventData?.is_exceed ?? false,
       routeData,
     }
 
@@ -1503,40 +1492,22 @@ export class AggregatorClient {
     priceIDs: string[],
     txb: Transaction
   ): Promise<Map<string, string>> {
-    let priceUpdateData: Buffer[] | null = null
-    let lastError: Error | null = null
+    const priceUpdateData = await this.pythAdapter.getPriceFeedsUpdateData(priceIDs)
 
-    for (const connection of this.pythConnections) {
-      try {
-        priceUpdateData = await connection.getPriceFeedsUpdateData(priceIDs)
-        break
-      } catch (e) {
-        lastError = e as Error
-        console.log("Error: ", e)
-        continue
-      }
-    }
-
-    if (priceUpdateData == null) {
-      throw new Error(
-        `All Pyth price nodes are unavailable. Cannot fetch price data. Please switch to or add new available Pyth nodes. Detailed error: ${lastError?.message}`
-      )
-    }
-
-    let priceInfoObjectIds = []
+    let priceInfoObjectIds: string[]
     try {
-      priceInfoObjectIds = await this.pythClient.updatePriceFeeds(
+      priceInfoObjectIds = await this.pythAdapter.updatePriceFeeds(
         txb,
         priceUpdateData,
         priceIDs
       )
     } catch (e) {
       throw new Error(
-        `All Pyth price nodes are unavailable. Cannot fetch price data. Please switch to or add new available Pyth nodes in the pythUrls parameter when initializing AggregatorClient, for example: new AggregatorClient({ pythUrls: ["https://your-pyth-node-url"] }). Detailed error: ${e}`
+        `Failed to update Pyth price feeds. Ensure pythUrls are configured correctly. Detailed error: ${e}`
       )
     }
 
-    let priceInfoObjectIdsMap = new Map<string, string>()
+    const priceInfoObjectIdsMap = new Map<string, string>()
     for (let i = 0; i < priceIDs.length; i++) {
       priceInfoObjectIdsMap.set(priceIDs[i], priceInfoObjectIds[i])
     }
@@ -1544,11 +1515,11 @@ export class AggregatorClient {
   }
 
   async devInspectTransactionBlock(txb: Transaction) {
+    txb.setSenderIfNotSet(this.signer || "0x0")
     const res = await this.client.devInspectTransactionBlock({
+      sender: this.signer || "0x0",
       transactionBlock: txb,
-      sender: this.signer,
     })
-
     return res
   }
 
@@ -1556,6 +1527,7 @@ export class AggregatorClient {
     const res = await this.client.signAndExecuteTransaction({
       transaction: txb,
       signer,
+      options: { showEffects: true, showEvents: true, showBalanceChanges: true },
     })
     return res
   }

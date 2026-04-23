@@ -1,4 +1,4 @@
-import { describe, test, beforeAll } from "vitest"
+import { describe, test, beforeAll, expect } from "vitest"
 import { AggregatorClient } from "~/index"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
 import {
@@ -6,13 +6,14 @@ import {
   testDexRouter,
   testData,
   printTransaction,
+  unwrapSimulation,
 } from "./setup"
 import BN from "bn.js"
 import { Transaction, coinWithBalance } from "@mysten/sui/transactions"
 
 describe("CETUS Router", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient()
@@ -56,13 +57,14 @@ describe("CETUS Router", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log(`✅ Transaction simulation successful`)
     } else {
       console.log(`❌ Transaction simulation failed`)
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
   }, 600000)
 
@@ -91,20 +93,21 @@ describe("CETUS Router", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log(`✅ Transaction simulation successful`)
     } else {
       console.log(`❌ Transaction simulation failed`)
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
   }, 50000)
 })
 
 describe("Router Swap with Max Amount In Validation", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient()
@@ -162,18 +165,19 @@ describe("Router Swap with Max Amount In Validation", () => {
     printTransaction(txb)
 
     // Simulate transaction
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log(
         "✅ Transaction simulation successful - coin value equals maxAmountIn"
       )
     } else {
       console.log("❌ Transaction simulation failed")
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
 
-    expect(result.effects.status.status).toBe("success")
+    expect(result.success).toBe(true)
   }, 60000)
 
   /**
@@ -220,18 +224,19 @@ describe("Router Swap with Max Amount In Validation", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log(
         "✅ Transaction simulation successful - coin value less than maxAmountIn"
       )
     } else {
       console.log("❌ Transaction simulation failed")
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
 
-    expect(result.effects.status.status).toBe("success")
+    expect(result.success).toBe(true)
   }, 60000)
 
   /**
@@ -278,19 +283,20 @@ describe("Router Swap with Max Amount In Validation", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "failure") {
+    if (!result.success) {
       console.log(
         "✅ Transaction correctly failed - coin value exceeds maxAmountIn"
       )
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     } else {
       console.log("⚠️ Transaction unexpectedly succeeded")
     }
 
     // Expect transaction to fail
-    expect(result.effects.status.status).toBe("failure")
+    expect(result.success).toBe(false)
   }, 60000)
 
   /**
@@ -336,18 +342,19 @@ describe("Router Swap with Max Amount In Validation", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log(
         "✅ Transaction simulation successful - minimal amount with strict limit"
       )
     } else {
       console.log("❌ Transaction simulation failed")
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
 
-    expect(result.effects.status.status).toBe("success")
+    expect(result.success).toBe(true)
   }, 60000)
 
   /**
@@ -394,18 +401,19 @@ describe("Router Swap with Max Amount In Validation", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log(
         "✅ Transaction simulation successful - large amount with generous limit"
       )
     } else {
       console.log("❌ Transaction simulation failed")
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
 
-    expect(result.effects.status.status).toBe("success")
+    expect(result.success).toBe(true)
   }, 60000)
 
   /**
@@ -453,18 +461,19 @@ describe("Router Swap with Max Amount In Validation", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log(
         "✅ Transaction simulation successful - fixed output with maxAmountIn"
       )
     } else {
       console.log("❌ Transaction simulation failed")
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
 
-    expect(result.effects.status.status).toBe("success")
+    expect(result.success).toBe(true)
   }, 60000)
 
   /**
@@ -510,16 +519,17 @@ describe("Router Swap with Max Amount In Validation", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "failure") {
+    if (!result.success) {
       console.log("✅ Transaction correctly failed - maxAmountIn too small")
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     } else {
       console.log("⚠️ Transaction unexpectedly succeeded")
     }
 
-    expect(result.effects.status.status).toBe("failure")
+    expect(result.success).toBe(false)
   }, 60000)
 
   /**
@@ -569,16 +579,17 @@ describe("Router Swap with Max Amount In Validation", () => {
 
     printTransaction(txb)
 
-    const result = await testClient.devInspectTransactionBlock(txb)
+    const rawResult = await testClient.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log("✅ Transaction simulation successful - different coin pair")
     } else {
       console.log("❌ Transaction simulation failed")
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
 
-    expect(result.effects.status.status).toBe("success")
+    expect(result.success).toBe(true)
   }, 60000)
 
   /**
@@ -625,16 +636,17 @@ describe("Router Swap with Max Amount In Validation", () => {
 
     printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "failure") {
+    if (!result.success) {
       console.log("✅ Transaction correctly failed - off-by-one validation")
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     } else {
       console.log("⚠️ Transaction unexpectedly succeeded")
     }
 
-    expect(result.effects.status.status).toBe("failure")
+    expect(result.success).toBe(false)
   }, 60000)
 
   /**
@@ -674,7 +686,8 @@ describe("Router Swap with Max Amount In Validation", () => {
       txb: txb1,
     })
 
-    const result1 = await client.devInspectTransactionBlock(txb1)
+    const rawResult1 = await client.devInspectTransactionBlock(txb1)
+    const result1 = unwrapSimulation(rawResult1)
 
     // Test with routerSwapWithMaxAmountIn
     const txb2 = new Transaction()
@@ -692,14 +705,15 @@ describe("Router Swap with Max Amount In Validation", () => {
       maxAmountIn,
     })
 
-    const result2 = await client.devInspectTransactionBlock(txb2)
+    const rawResult2 = await client.devInspectTransactionBlock(txb2)
+    const result2 = unwrapSimulation(rawResult2)
 
-    console.log(`Regular routerSwap: ${result1.effects.status.status}`)
-    console.log(`routerSwapWithMaxAmountIn: ${result2.effects.status.status}`)
+    console.log(`Regular routerSwap: ${result1.success}`)
+    console.log(`routerSwapWithMaxAmountIn: ${result2.success}`)
 
     // Both should succeed with the same amount
-    expect(result1.effects.status.status).toBe("success")
-    expect(result2.effects.status.status).toBe("success")
+    expect(result1.success).toBe(true)
+    expect(result2.success).toBe(true)
 
     console.log("✅ Both methods succeed with valid input")
   }, 60000)

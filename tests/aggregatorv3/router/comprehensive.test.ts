@@ -6,7 +6,7 @@ import { setupTestClient, testData, BN, printTransaction } from "./setup"
 
 describe("AggregatorV3 Comprehensive Tests", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient()

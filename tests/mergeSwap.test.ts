@@ -3,16 +3,16 @@ import { AggregatorClient, MergeSwapParams, Env } from "../src"
 import BN from "bn.js"
 import { printTransaction } from "../src/utils"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
-import { setupTestClient } from "./aggregatorv3/router/setup"
+import { setupTestClient, unwrapSimulation } from "./aggregatorv3/router/setup"
 
 describe("Merge Swap Test", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let _keypair: Ed25519Keypair | null
 
   beforeEach(async () => {
     const setup = await setupTestClient()
     client = setup.client
-    keypair = setup.keypair
+    _keypair = setup.keypair
   })
 
   it("should find merge swap routes", async () => {
@@ -170,13 +170,14 @@ describe("Merge Swap Test", () => {
 
     // printTransaction(txb)
 
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
+    if (result.success) {
       console.log(`✅ Transaction simulation successful`)
     } else {
       console.log(`❌ Transaction simulation failed`)
-      console.log("Error:", result.effects.status.error)
+      console.log("Error:", result.error)
     }
   }, 30000)
 })

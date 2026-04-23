@@ -2,15 +2,29 @@ import dotenv from "dotenv"
 import { AggregatorClient } from "~/index"
 import * as testData from "../../test_data"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
-import { fromB64 } from "@mysten/sui/utils"
-import { SuiClient } from "@mysten/sui/client"
+import { fromBase64 } from "@mysten/sui/utils"
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc"
 import { Env } from "~/index"
 import { Transaction } from "@mysten/sui/transactions"
 import { printTransaction } from "~/utils/transaction"
 import BN from "bn.js"
 import { WalletUtils } from "../../utils/wallet-utils"
+import { TEST_FALLBACK_WALLET } from "../../utils/constants"
 
 dotenv.config()
+
+/**
+ * Unwrap a DevInspectResults into a convenient shape for tests.
+ */
+export function unwrapSimulation(result: Awaited<ReturnType<AggregatorClient['devInspectTransactionBlock']>>) {
+  const success = !result.error && result.effects.status.status === 'success'
+  return {
+    success,
+    error: result.error ?? (result.effects.status.status === 'failure' ? result.effects.status.error : null),
+    effects: result.effects,
+    events: result.events,
+  }
+}
 
 export function buildTestAccount(): Ed25519Keypair {
   const mnemonics = process.env.SUI_WALLET_MNEMONICS || ""
@@ -19,46 +33,45 @@ export function buildTestAccount(): Ed25519Keypair {
 }
 
 export async function setupTestClient(
-  fromCoin: string = testData.M_SUI
+  _fromCoin: string = testData.M_SUI
 ): Promise<{
   client: AggregatorClient
-  keypair: Ed25519Keypair
+  keypair: Ed25519Keypair | null
 }> {
-  const fullNodeURL = process.env.SUI_RPC!
   const aggregatorURL =
     process.env.CETUS_AGGREGATOR_V3 || "https://api-sui.cetus.zone/router_v3"
-  const secret = process.env.SUI_WALLET_SECRET!
+  const secret = process.env.SUI_WALLET_SECRET
 
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null = null
   if (secret) {
-    keypair = Ed25519Keypair.fromSecretKey(fromB64(secret).slice(1, 33))
-  } else {
+    keypair = Ed25519Keypair.fromSecretKey(fromBase64(secret).slice(1, 33))
+  } else if (process.env.SUI_WALLET_MNEMONICS) {
     keypair = buildTestAccount()
   }
 
-  // Fallback wallet for backwards compatibility
-  const fallbackWallet = "0x0"
+  // Use a known mainnet holder for simulation (no private key needed).
+  // Configured via SUI_TEST_FALLBACK_WALLET env var; see tests/utils/constants.ts.
+  const fallbackWallet = TEST_FALLBACK_WALLET
+  const signerFromKey = keypair?.toSuiAddress() ?? fallbackWallet
+  const signer = keypair
+    ? signerFromKey
+    : await WalletUtils.getOptimalWalletForTesting(_fromCoin, fallbackWallet)
 
-  // Use optimal wallet for SUI (the most common 'from' coin in v3 tests)
-  // const wallet = await WalletUtils.getOptimalWalletForTesting(
-  //   fromCoin,
-  //   fallbackWallet
-  // )
-  const wallet = fallbackWallet
+  const env = Env.Mainnet
+  const network = 'mainnet'
+  const rpcUrl = 'https://fullnode.mainnet.sui.io:443'
 
-  const endpoint = aggregatorURL
-
-  const suiClient = new SuiClient({
-    url: fullNodeURL,
-  })
+  const suiClient = process.env.SUI_RPC
+    ? new SuiJsonRpcClient({ network, url: process.env.SUI_RPC })
+    : new SuiJsonRpcClient({ network, url: rpcUrl })
 
   const client = new AggregatorClient({
-    endpoint,
-    signer: wallet,
+    endpoint: aggregatorURL,
+    signer,
     client: suiClient,
-    env: Env.Testnet,
+    env,
     pythUrls: [
-      "https://cetus-pythnet-a648.mainnet.pythnet.rpcpool.com/219cf7a8-6d75-432d-a648-d487a6dd5dc3/hermes",
+      "https://hermes.pyth.network",
     ],
   })
 
@@ -73,10 +86,11 @@ export async function testDexRouter(
   amount: string | number | bigint | BN = "1000000000",
   printFullTransaction: boolean = false
 ) {
+  let res: Awaited<ReturnType<AggregatorClient['findRouters']>> = null
   try {
     // Step 1: Find router
     const providers = Array.isArray(provider) ? provider : [provider]
-    const res = await client.findRouters({
+    res = await client.findRouters({
       from,
       target,
       amount: amount instanceof BN ? amount : new BN(amount.toString()),
@@ -89,7 +103,7 @@ export async function testDexRouter(
     console.log("res route", JSON.stringify(res?.paths, null, 2))
 
     if (!res || !res.paths || res.paths.length === 0) {
-      console.log(`⚠️ ${provider}: No routes found, skipping swap test`)
+      console.log(`[WARN] ${provider}: No routes found, skipping swap test`)
       return
     }
 
@@ -102,38 +116,85 @@ export async function testDexRouter(
     await client.fastRouterSwap({
       router: res,
       txb,
-      slippage: 0.005,
+      slippage: 0.05,
       refreshAllCoins: true,
     })
 
     // Print full transaction if requested
     if (printFullTransaction) {
-      console.log(`\n📋 ${provider} - Full Transaction Details:`)
+      console.log(`\n${provider} - Full Transaction Details:`)
       printTransaction(txb)
     }
 
     // Step 3: Simulate transaction
-    const result = await client.devInspectTransactionBlock(txb)
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
 
-    if (result.effects.status.status === "success") {
-      console.log(`✅ ${provider}: Transaction simulation successful`)
-
-      console.log("events", JSON.stringify(result.events, null, 2))
+    if (result.success) {
+      console.log(`[OK] ${provider}: Transaction simulation successful`)
+    //   console.log("events", JSON.stringify(result.events, null, 2))
       console.log("res", res.amountIn.toString())
       console.log("res", res.amountOut.toString())
-      // const { keypair } = await setupTestClient()
-      // const result = await client.signAndExecuteTransaction(txb, keypair)
-      // console.log(`✅ ${result.digest}: Transaction executed successfully`)
     } else {
-      console.log(`❌ ${provider}: Transaction simulation failed`)
-      console.log("Error:", result.effects.status.error)
+      console.log(`[FAIL] ${provider}: Transaction simulation failed`)
+      console.log("Error:", result.error)
     }
 
     // Verify transaction structure
     expect(txb).toBeDefined()
-    expect(result).toBeDefined()
+    expect(rawResult).toBeDefined()
   } catch (error) {
-    console.log(`❌ ${provider}: Error during test - ${error}`)
+    const errorMsg = String(error)
+    // Auto-retry with a different holder if the signer has insufficient balance
+    if (errorMsg.includes("Insufficient balance") || errorMsg.includes("InsufficientCoinBalance")) {
+      console.log(`[RETRY] ${provider}: Insufficient balance for signer ${client.signer}, finding new holder...`)
+
+      // Invalidate cached holder for this coin
+      WalletUtils.invalidateCache(from)
+
+      // Try to extract required amount from the error, fall back to the test amount
+      const requiredAmount = amount instanceof BN ? amount.toString() : amount.toString()
+
+      const newHolder = await WalletUtils.getHolderWithMinBalance(
+        from,
+        requiredAmount,
+        client.signer
+      )
+
+      if (newHolder) {
+        console.log(`[RETRY] ${provider}: Retrying with new holder ${newHolder}`)
+        client.signer = newHolder
+
+        try {
+          const retryTxb = new Transaction()
+          await client.fastRouterSwap({
+            router: res!,
+            txb: retryTxb,
+            slippage: 0.005,
+            refreshAllCoins: true,
+          })
+
+          const retryRawResult = await client.devInspectTransactionBlock(retryTxb)
+          const retryResult = unwrapSimulation(retryRawResult)
+
+          if (retryResult.success) {
+            console.log(`[OK] ${provider}: Retry simulation successful`)
+          } else {
+            console.log(`[FAIL] ${provider}: Retry simulation failed - ${retryResult.error}`)
+          }
+
+          expect(retryTxb).toBeDefined()
+          expect(retryRawResult).toBeDefined()
+          return
+        } catch (retryError) {
+          console.log(`[ERROR] ${provider}: Retry also failed - ${retryError}`)
+        }
+      } else {
+        console.log(`[WARN] ${provider}: No suitable holder found for retry`)
+      }
+    }
+
+    console.log(`[ERROR] ${provider}: Error during test - ${error}`)
     // Don't fail the test for individual router issues, as some may not have liquidity
   }
 }

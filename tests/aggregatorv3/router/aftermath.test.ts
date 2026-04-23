@@ -5,7 +5,7 @@ import { setupTestClient, testDexRouter, testData } from "./setup"
 
 describe("AFTERMATH Router", () => {
   let client: AggregatorClient
-  let keypair: Ed25519Keypair
+  let keypair: Ed25519Keypair | null
 
   beforeAll(async () => {
     const setup = await setupTestClient()
@@ -14,6 +14,6 @@ describe("AFTERMATH Router", () => {
   })
 
   test("AFTERMATH router - find and swap", async () => {
-    await testDexRouter(client, "AFTERMATH", testData.M_SUI, testData.M_USDC)
+    await testDexRouter(client, "AFTERMATH", testData.M_SUI, testData.M_AFSUI, "10000000000", true)
   }, 30000)
 })
