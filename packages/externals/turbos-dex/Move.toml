@@ -1,7 +1,7 @@
 [package]
 name = "TurbosDex"
 version = "0.0.9"
-published-at = "0x7a6d1c22f05092c07490003e747fff8db4c78ceffc5cfb84a66d71a3a1417d51"
+published-at = "0xa5a0c25c79e428eba04fb98b3fb2a34db45ab26d4c8faf0d7e39d66a63891e64"
 edition = "2024.beta"
 
 [dependencies]

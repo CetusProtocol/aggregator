@@ -2,7 +2,7 @@
 name = "CetusAggregatorSimple"
 version = "0.1.1"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0xb153256f86a6c818b74c03815c36f8a8118865a109840f6fd8bff953add6ab6c"
+published-at = "0xb99c3a21eaad0a179600b00f3b35e4e7844563e302cb70ac946ad254b1d9893e"
 
 [dependencies]
 IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", rev = "mainnet-v1.3.0", override = true }
