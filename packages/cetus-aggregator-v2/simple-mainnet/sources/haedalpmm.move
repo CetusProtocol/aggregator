@@ -1,4 +1,3 @@
-#[allow(unused_use, unused_field, unused_variable)]
 module cetus_aggregator_simple::haedalpmm;
 
 use cetus_aggregator_simple::utils;
@@ -28,7 +27,32 @@ public fun swap_a2b<CoinA, CoinB>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinB> {
-    abort 0
+    let amount_in = coin::value(&coin_a);
+    let mut coin_a = coin_a;
+    let receive_coin_b = sell_base_coin<CoinA, CoinB>(
+        pool,
+        clock,
+        base_price_pair_obj,
+        quote_price_pair_obj,
+        &mut coin_a,
+        amount_in,
+        0,
+        ctx,
+    );
+    let amount_out = coin::value(&receive_coin_b);
+
+    utils::transfer_or_destroy_coin(coin_a, ctx);
+
+    emit(HaedalPmmSwapEvent {
+        pool: object::id(pool),
+        amount_in,
+        amount_out,
+        a2b: true,
+        by_amount_in: true,
+        coin_a: type_name::get<CoinA>(),
+        coin_b: type_name::get<CoinB>(),
+    });
+    receive_coin_b
 }
 
 public fun swap_b2a<CoinA, CoinB>(
@@ -39,5 +63,30 @@ public fun swap_b2a<CoinA, CoinB>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<CoinA> {
-    abort 0
+    let amount_in = coin::value(&coin_b);
+    let mut coin_b = coin_b;
+    let receive_coin_a = sell_quote_coin<CoinA, CoinB>(
+        pool,
+        clock,
+        base_price_pair_obj,
+        quote_price_pair_obj,
+        &mut coin_b,
+        amount_in,
+        0,
+        ctx,
+    );
+    let amount_out = coin::value(&receive_coin_a);
+
+    utils::transfer_or_destroy_coin(coin_b, ctx);
+
+    emit(HaedalPmmSwapEvent {
+        pool: object::id(pool),
+        amount_in,
+        amount_out,
+        a2b: false,
+        by_amount_in: true,
+        coin_a: type_name::get<CoinA>(),
+        coin_b: type_name::get<CoinB>(),
+    });
+    receive_coin_a
 }

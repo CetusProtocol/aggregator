@@ -1,5 +1,2 @@
-.DS_Store
-.idea
-.vscode
-target/
 build/
+Move.lock

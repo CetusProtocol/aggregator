@@ -1,5 +1,2 @@
-.idea
-.vscode
-target/
-build/
+/build
 Move.lock

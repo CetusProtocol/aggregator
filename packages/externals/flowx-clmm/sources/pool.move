@@ -1,17 +1,11 @@
 module flowx_clmm::pool {
-    use flowx_clmm::i32::I32;
-    use flowx_clmm::oracle::Observation;
-    use flowx_clmm::tick::TickInfo;
-    use flowx_clmm::versioned::Versioned;
+    use flowx_clmm::{i32::I32, oracle::Observation, tick::TickInfo, versioned::Versioned};
     use std::type_name::TypeName;
-    use sui::balance::Balance;
-    use sui::clock::Clock;
-    use sui::object::{ID, UID};
-    use sui::table::Table;
-    use sui::tx_context::TxContext;
+    use sui::{balance::Balance, object::{ID, UID}, table::Table, clock::Clock, tx_context::TxContext};
+
 
     #[allow(unused_field)]
-    public struct Pool<phantom CoinTypeA, phantom CoinTypeB> has key {
+    struct Pool<phantom CoinTypeA, phantom CoinTypeB> has key {
         id: UID,
         coin_type_x: TypeName,
         coin_type_y: TypeName,
@@ -37,9 +31,9 @@ module flowx_clmm::pool {
         locked: bool,
         reward_infos: vector<PoolRewardInfo>,
     }
-
+    
     #[allow(unused_field)]
-    public struct PoolRewardInfo has copy, drop, store {
+    struct PoolRewardInfo has copy, drop, store {
         reward_coin_type: TypeName,
         last_update_time: u64,
         ended_at_seconds: u64,
@@ -50,32 +44,32 @@ module flowx_clmm::pool {
     }
 
     #[allow(unused_field)]
-    public struct SwapReceipt {
+    struct SwapReceipt {
         pool_id: ID,
         amount_x_debt: u64,
         amount_y_debt: u64,
     }
-
+        
     public fun swap<T0, T1>(
-        _pool: &mut Pool<T0, T1>,
-        _a2b: bool,
-        _by_amount_in: bool,
-        _amount: u64,
-        _sqrt_price_limit: u128,
-        _versioned: &Versioned,
-        _clock: &Clock,
-        _ctx: &TxContext,
-    ): (Balance<T0>, Balance<T1>, SwapReceipt) {
+        _pool: &mut Pool<T0, T1>, 
+        _a2b: bool, 
+        _by_amount_in: bool, 
+        _amount: u64, 
+        _sqrt_price_limit: u128, 
+        _versioned: &Versioned, 
+        _clock: &Clock, 
+        _ctx: &TxContext
+    ) : (Balance<T0>, Balance<T1>, SwapReceipt) {
         abort 0
     }
 
     public fun pay<T0, T1>(
-        _pool: &mut Pool<T0, T1>,
-        _receipt: SwapReceipt,
-        _balance_a: Balance<T0>,
-        _balance_b: Balance<T1>,
-        _versioned: &Versioned,
-        _ctx: &TxContext,
+        _pool: &mut Pool<T0, T1>, 
+        _receipt: SwapReceipt, 
+        _balance_a: Balance<T0>, 
+        _balance_b: Balance<T1>, 
+        _versioned: &Versioned, 
+        _ctx: &TxContext
     ) {
         abort 0
     }

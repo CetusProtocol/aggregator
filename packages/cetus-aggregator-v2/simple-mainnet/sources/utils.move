@@ -1,31 +1,36 @@
-module cetus_aggregator_simple::utils;
+module cetus_aggregator_simple::utils {
+    use integer_mate::full_math_u64;
+    use sui::coin::{Self, Coin};
 
-use sui::coin::{Self, Coin};
+    const ECoinBelowThreshold: u64 = 1;
 
-const ECoinBelowThreshold: u64 = 1;
-
-#[allow(lint(self_transfer))]
-public fun transfer_or_destroy_coin<CoinType>(coin: Coin<CoinType>, ctx: &TxContext) {
-    if (coin::value(&coin) > 0) {
-        transfer::public_transfer(coin, tx_context::sender(ctx))
-    } else {
-        coin::destroy_zero(coin)
+    #[allow(lint(self_transfer))]
+    public fun transfer_or_destroy_coin<CoinType>(coin: Coin<CoinType>, ctx: &TxContext) {
+        if (coin::value(&coin) > 0) {
+            transfer::public_transfer(coin, tx_context::sender(ctx))
+        } else {
+            coin::destroy_zero(coin)
+        }
     }
-}
 
-public fun check_coin_threshold<CoinType>(coin: &Coin<CoinType>, threshold: u64) {
-    assert!(coin::value(coin) >= threshold, ECoinBelowThreshold);
-}
+    public fun check_coin_threshold<CoinType>(coin: &Coin<CoinType>, threshold: u64) {
+        assert!(coin::value(coin) >= threshold, ECoinBelowThreshold);
+    }
 
-public fun check_coins_threshold<CoinType>(coins: &vector<Coin<CoinType>>, threshold: u64) {
-    let mut i = 0;
-    let mut sum = 0;
-    let length = vector::length(coins);
-    while (i < length) {
-        let coin = vector::borrow(coins, i);
-        sum = sum + coin::value(coin);
-        i = i + 1;
-    };
+    public fun mul_div_floor(a: u64, b: u64, c: u64): u64 {
+        full_math_u64::mul_div_floor(a, b, c)
+    }
 
-    assert!(sum >= threshold, ECoinBelowThreshold);
+    public fun check_coins_threshold<CoinType>(coins: &vector<Coin<CoinType>>, threshold: u64) {
+        let mut i = 0;
+        let mut sum = 0;
+        let length = vector::length(coins);
+        while (i < length) {
+            let coin = vector::borrow(coins, i);
+            sum = sum + coin::value(coin);
+            i = i + 1;
+        };
+
+        assert!(sum >= threshold, ECoinBelowThreshold);
+    }
 }

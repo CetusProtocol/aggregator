@@ -1,4 +1,3 @@
-#[allow(unused_use, unused_field, unused_variable)]
 module cetus_aggregator_simple::obric;
 
 use obric::v2::{TradingPair, swap_x_to_y, swap_y_to_x};
@@ -28,7 +27,27 @@ public fun swap_a2b<COIN_A, COIN_B>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<COIN_B> {
-    abort 0
+    let amount_in = coin::value(&coin_a);
+    let coin_b = swap_x_to_y<COIN_A, COIN_B>(
+        pool,
+        clock,
+        pyth_state,
+        a_price_info_object,
+        b_price_info_object,
+        coin_a,
+        ctx,
+    );
+    let amount_out = coin::value(&coin_b);
+    emit(ObricSwapEvent {
+        pool_id: object::id(pool),
+        a2b: true,
+        by_amount_in: true,
+        amount_in,
+        amount_out,
+        coin_a: type_name::get<COIN_A>(),
+        coin_b: type_name::get<COIN_B>(),
+    });
+    coin_b
 }
 
 public fun swap_b2a<COIN_A, COIN_B>(
@@ -40,5 +59,25 @@ public fun swap_b2a<COIN_A, COIN_B>(
     clock: &Clock,
     ctx: &mut TxContext,
 ): Coin<COIN_A> {
-    abort 0
+    let amount_in = coin::value(&coin_b);
+    let coin_a = swap_y_to_x<COIN_A, COIN_B>(
+        pool,
+        clock,
+        pyth_state,
+        a_price_info_object,
+        b_price_info_object,
+        coin_b,
+        ctx,
+    );
+    let amount_out = coin::value(&coin_a);
+    emit(ObricSwapEvent {
+        pool_id: object::id(pool),
+        a2b: false,
+        by_amount_in: true,
+        amount_in,
+        amount_out,
+        coin_a: type_name::get<COIN_A>(),
+        coin_b: type_name::get<COIN_B>(),
+    });
+    coin_a
 }

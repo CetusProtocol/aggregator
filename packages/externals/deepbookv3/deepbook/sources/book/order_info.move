@@ -3,33 +3,20 @@
 
 /// Order module defines the order struct and its methods.
 /// All order matching happens in this module.
-#[allow(unused_variable, unused_const, unused_use)]
+#[allow(unused_field)]
 module deepbookv3::order_info;
 
-use deepbookv3::balances::{Self, Balances};
-use deepbookv3::constants;
+use deepbookv3::balances::Balances;
 use deepbookv3::deep_price::OrderDeepPrice;
 use deepbookv3::fill::Fill;
-use deepbookv3::order::{Self, Order};
-use sui::event;
-
-// === Errors ===
-const EOrderInvalidPrice: u64 = 0;
-const EOrderBelowMinimumSize: u64 = 1;
-const EOrderInvalidLotSize: u64 = 2;
-const EInvalidExpireTimestamp: u64 = 3;
-const EInvalidOrderType: u64 = 4;
-const EPOSTOrderCrossesOrderbook: u64 = 5;
-const EFOKOrderCannotBeFullyFilled: u64 = 6;
-const EMarketOrderCannotBePostOnly: u64 = 7;
-const ESelfMatchingCancelTaker: u64 = 8;
+use deepbookv3::order::Order;
 
 // === Structs ===
 /// OrderInfo struct represents all order information.
 /// This objects gets created at the beginning of the order lifecycle and
 /// gets updated until it is completed or placed in the book.
 /// It is returned at the end of the order lifecycle.
-public struct OrderInfo has copy, drop, store {
+public struct OrderInfo has store, drop, copy {
     // ID of the pool
     pool_id: ID,
     // ID of the order within the pool
@@ -81,7 +68,7 @@ public struct OrderInfo has copy, drop, store {
 }
 
 /// Emitted when a maker order is filled.
-public struct OrderFilled has copy, drop, store {
+public struct OrderFilled has copy, store, drop {
     pool_id: ID,
     maker_order_id: u128,
     taker_order_id: u128,
@@ -101,7 +88,7 @@ public struct OrderFilled has copy, drop, store {
 }
 
 /// Emitted when a maker order is injected into the order book.
-public struct OrderPlaced has copy, drop, store {
+public struct OrderPlaced has copy, store, drop {
     balance_manager_id: ID,
     pool_id: ID,
     order_id: u128,
@@ -115,7 +102,7 @@ public struct OrderPlaced has copy, drop, store {
 }
 
 /// Emitted when a maker order is expired.
-public struct OrderExpired has copy, drop, store {
+public struct OrderExpired has copy, store, drop {
     balance_manager_id: ID,
     pool_id: ID,
     order_id: u128,
@@ -130,222 +117,194 @@ public struct OrderExpired has copy, drop, store {
 
 // === Public-View Functions ===
 public fun pool_id(self: &OrderInfo): ID {
-    abort 0
+    self.pool_id
 }
 
 public fun order_id(self: &OrderInfo): u128 {
-    abort 0
+    self.order_id
 }
 
 public fun balance_manager_id(self: &OrderInfo): ID {
-    abort 0
+    self.balance_manager_id
 }
 
 public fun client_order_id(self: &OrderInfo): u64 {
-    abort 0
+    self.client_order_id
 }
 
 public fun trader(self: &OrderInfo): address {
-    abort 0
+    self.trader
 }
 
 public fun order_type(self: &OrderInfo): u8 {
-    abort 0
+    self.order_type
 }
 
 public fun self_matching_option(self: &OrderInfo): u8 {
-    abort 0
+    self.self_matching_option
 }
 
 public fun price(self: &OrderInfo): u64 {
-    abort 0
+    self.price
 }
 
 public fun is_bid(self: &OrderInfo): bool {
-    abort 0
+    self.is_bid
 }
 
 public fun original_quantity(self: &OrderInfo): u64 {
-    abort 0
+    self.original_quantity
 }
 
 public fun order_deep_price(self: &OrderInfo): OrderDeepPrice {
-    abort 0
+    self.order_deep_price
 }
 
 public fun expire_timestamp(self: &OrderInfo): u64 {
-    abort 0
+    self.expire_timestamp
 }
 
 public fun executed_quantity(self: &OrderInfo): u64 {
-    abort 0
+    self.executed_quantity
 }
 
 public fun cumulative_quote_quantity(self: &OrderInfo): u64 {
-    abort 0
+    self.cumulative_quote_quantity
 }
 
 public fun fills(self: &OrderInfo): vector<Fill> {
-    abort 0
+    self.fills
 }
 
 public fun fee_is_deep(self: &OrderInfo): bool {
-    abort 0
+    self.fee_is_deep
 }
 
 public fun paid_fees(self: &OrderInfo): u64 {
-    abort 0
+    self.paid_fees
 }
 
 public fun maker_fees(self: &OrderInfo): u64 {
-    abort 0
+    self.maker_fees
 }
 
 public fun epoch(self: &OrderInfo): u64 {
-    abort 0
+    self.epoch
 }
 
 public fun status(self: &OrderInfo): u8 {
-    abort 0
+    self.status
 }
 
 public fun fill_limit_reached(self: &OrderInfo): bool {
-    abort 0
+    self.fill_limit_reached
 }
 
 public fun order_inserted(self: &OrderInfo): bool {
-    abort 0
+    self.order_inserted
 }
 
 // === Public-Package Functions ===
+// ... existing code ...
+
 public(package) fun new(
-    pool_id: ID,
-    balance_manager_id: ID,
-    client_order_id: u64,
-    trader: address,
-    order_type: u8,
-    self_matching_option: u8,
-    price: u64,
-    quantity: u64,
-    is_bid: bool,
-    fee_is_deep: bool,
-    epoch: u64,
-    expire_timestamp: u64,
-    order_deep_price: OrderDeepPrice,
-    market_order: bool,
-    timestamp: u64,
+    _pool_id: ID,
+    _balance_manager_id: ID,
+    _client_order_id: u64,
+    _trader: address,
+    _order_type: u8,
+    _self_matching_option: u8,
+    _price: u64,
+    _quantity: u64,
+    _is_bid: bool,
+    _fee_is_deep: bool,
+    _epoch: u64,
+    _expire_timestamp: u64,
+    _order_deep_price: OrderDeepPrice,
+    _market_order: bool,
+    _timestamp: u64,
 ): OrderInfo {
     abort 0
 }
 
-public(package) fun market_order(self: &OrderInfo): bool {
+public(package) fun market_order(_self: &OrderInfo): bool {
     abort 0
 }
 
-public(package) fun set_order_id(self: &mut OrderInfo, order_id: u128) {
+public(package) fun set_order_id(_self: &mut OrderInfo, _order_id: u128) {
     abort 0
 }
 
-public(package) fun set_paid_fees(self: &mut OrderInfo, paid_fees: u64) {
+public(package) fun set_paid_fees(_self: &mut OrderInfo, _paid_fees: u64) {
     abort 0
 }
 
-public(package) fun add_fill(self: &mut OrderInfo, fill: Fill) {
+public(package) fun add_fill(_self: &mut OrderInfo, _fill: Fill) {
     abort 0
 }
 
-public(package) fun fills_ref(self: &mut OrderInfo): &mut vector<Fill> {
+public(package) fun fills_ref(_self: &mut OrderInfo): &mut vector<Fill> {
     abort 0
 }
 
-public(package) fun paid_fees_balances(self: &OrderInfo): Balances {
-    abort 0
-}
-
-/// Given a partially filled `OrderInfo`, the taker fee and maker fee, for the user
-/// placing the order, calculate all of the balances that need to be settled and
-/// the balances that are owed. The executed quantity is multiplied by the taker_fee
-/// and the remaining quantity is multiplied by the maker_fee to get the DEEP fee.
 public(package) fun calculate_partial_fill_balances(
-    self: &mut OrderInfo,
-    taker_fee: u64,
-    maker_fee: u64,
+    _self: &mut OrderInfo,
+    _taker_fee: u64,
+    _maker_fee: u64,
 ): (Balances, Balances) {
     abort 0
 }
 
-/// `OrderInfo` is converted to an `Order` before being injected into the order book.
-/// This is done to save space in the order book. Order contains the minimum
-/// information required to match orders.
-public(package) fun to_order(self: &OrderInfo): Order {
+public(package) fun to_order(_self: &OrderInfo): Order {
     abort 0
 }
 
-/// Validates that the initial order created meets the pool requirements.
 public(package) fun validate_inputs(
-    order_info: &OrderInfo,
-    tick_size: u64,
-    min_size: u64,
-    lot_size: u64,
-    timestamp: u64,
+    _order_info: &OrderInfo,
+    _tick_size: u64,
+    _min_size: u64,
+    _lot_size: u64,
+    _timestamp: u64,
 ) {
     abort 0
 }
 
-/// Assert order types after partial fill against the order book.
-public(package) fun assert_execution(self: &mut OrderInfo): bool {
+public(package) fun assert_execution(_self: &mut OrderInfo): bool {
     abort 0
 }
 
-/// Returns the remaining quantity for the order.
-public(package) fun remaining_quantity(self: &OrderInfo): u64 {
+public(package) fun remaining_quantity(_self: &OrderInfo): u64 {
     abort 0
 }
 
-/// Returns true if two opposite orders are overlapping in price.
-public(package) fun can_match(self: &OrderInfo, order: &Order): bool {
+public(package) fun can_match(_self: &OrderInfo, _order: &Order): bool {
     abort 0
 }
 
-/// Matches an `OrderInfo` with an `Order` from the book. Appends a `Fill` to fills.
-/// If the book order is expired, the `Fill` will have the expired flag set to true.
-/// Funds for the match or an expired order are returned to the maker as settled.
-public(package) fun match_maker(self: &mut OrderInfo, maker: &mut Order, timestamp: u64): bool {
+public(package) fun match_maker(
+    _self: &mut OrderInfo,
+    _maker: &mut Order,
+    _timestamp: u64,
+): bool {
     abort 0
 }
 
-/// Emit all fills for this order in a vector of `OrderFilled` events.
-/// To avoid DOS attacks, 100 fills are emitted at a time. Up to 10,000
-/// fills can be emitted in a single call.
-public(package) fun emit_orders_filled(self: &OrderInfo, timestamp: u64) {
+public(package) fun emit_orders_filled(_self: &OrderInfo, _timestamp: u64) {
     abort 0
 }
 
-public(package) fun emit_order_placed(self: &OrderInfo) {
+public(package) fun emit_order_placed(_self: &OrderInfo) {
     abort 0
 }
 
-public(package) fun emit_order_info(self: &OrderInfo) {
+public(package) fun emit_order_info(_self: &OrderInfo) {
     abort 0
 }
 
-public(package) fun set_fill_limit_reached(self: &mut OrderInfo) {
+public(package) fun set_fill_limit_reached(_self: &mut OrderInfo) {
     abort 0
 }
 
-public(package) fun set_order_inserted(self: &mut OrderInfo) {
-    abort 0
-}
-
-// === Private Functions ===
-fun order_filled_from_fill(self: &OrderInfo, fill: &Fill, timestamp: u64): OrderFilled {
-    abort 0
-}
-
-fun order_expired_from_fill(self: &OrderInfo, fill: &Fill, timestamp: u64): OrderExpired {
-    abort 0
-}
-
-fun emit_order_canceled_maker_from_fill(self: &OrderInfo, fill: &Fill, timestamp: u64) {
+public(package) fun set_order_inserted(_self: &mut OrderInfo) {
     abort 0
 }

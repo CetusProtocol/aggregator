@@ -7,10 +7,11 @@ published-at = "0xb99c3a21eaad0a179600b00f3b35e4e7844563e302cb70ac946ad254b1d989
 [dependencies]
 IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", rev = "mainnet-v1.3.0", override = true }
 CetusClmm = { git = "https://github.com/CetusProtocol/cetus-clmm-interface.git", subdir = "sui/cetus_clmm", rev = "mainnet-v1.52.2", override = true }
+# BluefinSpot = { git = "https://github.com/fireflyprotocol/bluefin-spot-contract-interface.git", subdir = "", rev = "main", override = true }
+BluefinSpot = { local = "../../externals/bluefin", override = true }
+Pyth = { git = "https://github.com/pyth-network/pyth-crosschain.git", subdir = "target_chains/sui/contracts", rev = "sui-contract-mainnet", override = true }
 FlowxClmm = { local = "../../externals/flowx-clmm", override = true }
 TurbosDex = { local = "../../externals/turbos-dex", override = true }
-BluefinSpot = { git = "https://github.com/fireflyprotocol/bluefin-spot-contract-interface.git", subdir = "", rev = "main", override = true }
-Pyth = { git = "https://github.com/pyth-network/pyth-crosschain.git", subdir = "target_chains/sui/contracts", rev = "sui-contract-mainnet", override = true }
 haedal_pmm = { local = "../../externals/haedal-pmm", override = true }
 mmt_v3 = { local = "../../externals/mmt_v3", override = true }
 obric = { local = "../../externals/obric", override = true }

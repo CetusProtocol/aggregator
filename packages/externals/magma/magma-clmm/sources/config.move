@@ -27,8 +27,4 @@ module magma::config {
         package_version: u64,
         alive_gauges: sui::vec_set::VecSet<ID>,
     }
-
-    public fun checked_package_version(arg0: &GlobalConfig) {
-        abort 0
-    }
 }

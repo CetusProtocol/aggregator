@@ -1,5 +1,6 @@
 module cetus_aggregator_simple::deepbookv3 {
     use deepbookv3::pool::Pool;
+    use deepbookv3_vaults_v2::deepbook_v3::{swap_a2b_ as swap_a2b_v2_, swap_b2a_ as swap_b2a_v2_};
     use deepbookv3_vaults_v2::global_config::GlobalConfig as GlobalConfigV2;
     use std::type_name::{Self, TypeName};
     use sui::clock::Clock;
@@ -25,7 +26,30 @@ module cetus_aggregator_simple::deepbookv3 {
         clock: &Clock,
         ctx: &mut TxContext,
     ): Coin<CoinB> {
-        abort 0
+        let amount = coin::value(&coin_a);
+        let (returned_coin_a, coin_b, returned_deep) = swap_a2b_v2_<CoinA, CoinB>(
+            config,
+            pool,
+            coin_a,
+            coin_deep,
+            clock,
+            ctx,
+        );
+        let amount_in = amount - coin::value(&returned_coin_a);
+        let amount_out = coin::value(&coin_b);
+
+        emit(DeepbookV3SwapEvent {
+            pool: object::id(pool),
+            a2b: true,
+            by_amount_in: true,
+            amount_in,
+            amount_out,
+            coin_a: type_name::get<CoinA>(),
+            coin_b: type_name::get<CoinB>(),
+        });
+        transfer_or_destroy_coin<CoinA>(returned_coin_a, ctx);
+        transfer_or_destroy_coin<DEEP>(returned_deep, ctx);
+        coin_b
     }
 
     public fun swap_b2a<CoinA, CoinB>(
@@ -36,7 +60,30 @@ module cetus_aggregator_simple::deepbookv3 {
         clock: &Clock,
         ctx: &mut TxContext,
     ): Coin<CoinA> {
-        abort 0
+        let amount = coin::value(&coin_b);
+        let (coin_a, returned_coin_b, returned_deep) = swap_b2a_v2_<CoinA, CoinB>(
+            config,
+            pool,
+            coin_b,
+            coin_deep,
+            clock,
+            ctx,
+        );
+        let amount_in = amount - coin::value(&returned_coin_b);
+        let amount_out = coin::value(&coin_a);
+
+        emit(DeepbookV3SwapEvent {
+            pool: object::id(pool),
+            a2b: false,
+            by_amount_in: false,
+            amount_in,
+            amount_out,
+            coin_a: type_name::get<CoinA>(),
+            coin_b: type_name::get<CoinB>(),
+        });
+        transfer_or_destroy_coin<CoinB>(returned_coin_b, ctx);
+        transfer_or_destroy_coin<DEEP>(returned_deep, ctx);
+        coin_a
     }
 
     #[allow(lint(self_transfer))]

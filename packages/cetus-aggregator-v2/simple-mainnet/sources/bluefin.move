@@ -1,38 +1,101 @@
-#[allow(unused_use, unused_field, unused_variable)]
-module cetus_aggregator_simple::bluefin;
+module cetus_aggregator_simple::bluefin {
+    use bluefin_spot::config::GlobalConfig;
+    use bluefin_spot::pool::{swap, Pool};
+    use cetus_aggregator_simple::utils;
+    use cetusclmm::tick_math;
+    use std::type_name::{Self, TypeName};
+    use sui::balance;
+    use sui::clock::Clock;
+    use sui::coin::{Self, Coin};
+    use sui::event::emit;
 
-use bluefin_spot::config::GlobalConfig;
-use bluefin_spot::pool::Pool;
-use std::type_name::TypeName;
-use sui::clock::Clock;
-use sui::coin::Coin;
+    public struct BluefinSwapEvent has copy, drop, store {
+        pool: ID,
+        amount_in: u64,
+        amount_out: u64,
+        a2b: bool,
+        by_amount_in: bool,
+        coin_a: TypeName,
+        coin_b: TypeName,
+    }
 
-public struct BluefinSwapEvent has copy, drop, store {
-    pool: ID,
-    amount_in: u64,
-    amount_out: u64,
-    a2b: bool,
-    by_amount_in: bool,
-    coin_a: TypeName,
-    coin_b: TypeName,
-}
+    public fun swap_a2b<CoinA, CoinB>(
+        global_config: &mut GlobalConfig,
+        pool: &mut Pool<CoinA, CoinB>,
+        coin_a: Coin<CoinA>,
+        clock: &Clock,
+        ctx: &mut TxContext,
+    ): Coin<CoinB> {
+        let amount_in = coin::value(&coin_a);
 
-public fun swap_a2b<CoinA, CoinB>(
-    global_config: &mut GlobalConfig,
-    pool: &mut Pool<CoinA, CoinB>,
-    coin_a: Coin<CoinA>,
-    clock: &Clock,
-    ctx: &mut TxContext,
-): Coin<CoinB> {
-    abort 0
-}
+        let balance_a = coin::into_balance(coin_a);
+        let balance_b = balance::zero<CoinB>();
 
-public fun swap_b2a<CoinA, CoinB>(
-    global_config: &mut GlobalConfig,
-    pool: &mut Pool<CoinA, CoinB>,
-    coin_b: Coin<CoinB>,
-    clock: &Clock,
-    ctx: &mut TxContext,
-): Coin<CoinA> {
-    abort 0
+        let (receive_balance_a, receive_balance_b) = swap<CoinA, CoinB>(
+            clock,
+            global_config,
+            pool,
+            balance_a,
+            balance_b,
+            true,
+            true,
+            amount_in,
+            0,
+            tick_math::min_sqrt_price() + 1,
+        );
+        let amount_out = balance::value(&receive_balance_b);
+
+        emit(BluefinSwapEvent {
+            pool: object::id(pool),
+            amount_in,
+            amount_out,
+            a2b: true,
+            by_amount_in: true,
+            coin_a: type_name::get<CoinA>(),
+            coin_b: type_name::get<CoinB>(),
+        });
+
+        balance::destroy_zero(receive_balance_a);
+        coin::from_balance(receive_balance_b, ctx)
+    }
+
+    public fun swap_b2a<CoinA, CoinB>(
+        global_config: &mut GlobalConfig,
+        pool: &mut Pool<CoinA, CoinB>,
+        coin_b: Coin<CoinB>,
+        clock: &Clock,
+        ctx: &mut TxContext,
+    ): Coin<CoinA> {
+        let amount_in = coin::value(&coin_b);
+
+        let balance_b = coin::into_balance(coin_b);
+        let balance_a = balance::zero<CoinA>();
+
+        let (receive_balance_a, receive_balance_b) = swap<CoinA, CoinB>(
+            clock,
+            global_config,
+            pool,
+            balance_a,
+            balance_b,
+            false,
+            true,
+            amount_in,
+            0,
+            tick_math::max_sqrt_price() - 1,
+        );
+        let amount_out = balance::value(&receive_balance_a);
+
+        emit(BluefinSwapEvent {
+            pool: object::id(pool),
+            amount_in,
+            amount_out,
+            a2b: false,
+            by_amount_in: true,
+            coin_a: type_name::get<CoinA>(),
+            coin_b: type_name::get<CoinB>(),
+        });
+
+        balance::destroy_zero(receive_balance_b);
+        coin::from_balance(receive_balance_a, ctx)
+    }
 }

@@ -1,7 +1,15 @@
 #[allow(unused_const)]
 module deepbookv3_vaults_v2::global_config;
 
-use deepbookv3::balance_manager::{Self, BalanceManager, TradeProof, TradeCap};
+use deepbookv3::balance_manager::{
+    Self,
+    BalanceManager,
+    TradeProof,
+    TradeCap,
+    DepositCap,
+    WithdrawCap,
+    DeepBookPoolReferral
+};
 use deepbookv3::order_info::OrderInfo;
 use deepbookv3::pool::Pool;
 use std::string::{Self, String};
@@ -56,6 +64,12 @@ public struct InitGlobalConfigEvent has copy, drop {
     global_config_id: ID,
 }
 
+public struct BalanceCaps has key, store {
+    id: UID,
+    deposit_cap: DepositCap,
+    withdraw_cap: WithdrawCap,
+}
+
 /// Emit when update package version.
 public struct SetPackageVersion has copy, drop {
     new_version: u64,
@@ -65,6 +79,18 @@ public struct SetPackageVersion has copy, drop {
 public struct SetAdvanceAmount has copy, drop {
     new_amount: u64,
     old_amount: u64,
+}
+
+/// Event emitted when referral is set or unset.
+public struct SetReferralEvent has copy, drop {
+    pool_id: ID,
+    is_set: bool,
+}
+
+public struct MintBalanceCaps has copy, drop {
+    deposit_cap_id: ID,
+    withdraw_cap_id: ID,
+    balance_manager_id: ID,
 }
 
 // === Functions ===
@@ -446,13 +472,78 @@ fun u64_to_str(num: u64): String {
     if (num == 0) {
         return string::utf8(b"0")
     };
-    let mut remainder = 0;
     let mut digits = vector::empty<u8>();
     while (num > 0) {
-        remainder = (num % 10 as u8);
+        let remainder = (num % 10) as u8;
         num = num / 10;
         vector::push_back(&mut digits, remainder + 48);
     };
     vector::reverse(&mut digits);
     string::utf8(digits)
+}
+
+// === Referral Management Functions ===
+
+/// Set referral for a specific pool on user's BalanceManager.
+/// Once set, all swaps through the BalanceManager will use the referral.
+public fun set_referral(
+    _: &AdminCap,
+    global_config: &mut GlobalConfig,
+    referral_cap: &DeepBookPoolReferral,
+    pool_id: ID,
+) {
+    let balance_manager = &mut global_config.balance_manager;
+    let trade_cap = &global_config.trade_cap;
+    balance_manager.set_balance_manager_referral(referral_cap, trade_cap);
+    emit(SetReferralEvent { pool_id, is_set: true });
+}
+
+/// Unset referral for a specific pool on user's BalanceManager.
+public fun unset_referral<BaseAsset, QuoteAsset>(
+    _: &AdminCap,
+    global_config: &mut GlobalConfig,
+    pool: &Pool<BaseAsset, QuoteAsset>,
+) {
+    let balance_manager = &mut global_config.balance_manager;
+    let trade_cap = &global_config.trade_cap;
+    balance_manager.unset_balance_manager_referral(pool.id(), trade_cap);
+    emit(SetReferralEvent { pool_id: pool.id(), is_set: false });
+}
+
+public(package) fun get_mut_config_balance_manager(self: &mut GlobalConfig): &mut BalanceManager {
+    &mut self.balance_manager
+}
+
+public(package) fun get_config_trade_cap(self: &GlobalConfig): &TradeCap {
+    &self.trade_cap
+}
+
+public(package) fun get_mut_balance_manager_and_trade_cap(
+    self: &mut GlobalConfig,
+): (&mut BalanceManager, &TradeCap) {
+    (&mut self.balance_manager, &self.trade_cap)
+}
+
+public fun mint_balance_caps(_: &AdminCap, self: &mut GlobalConfig, ctx: &mut TxContext) {
+    let (bm, _) = self.get_mut_balance_manager_and_trade_cap();
+    let deposit_cap = bm.mint_deposit_cap(ctx);
+    let withdraw_cap = bm.mint_withdraw_cap(ctx);
+    let balance_caps = BalanceCaps {
+        id: object::new(ctx),
+        deposit_cap,
+        withdraw_cap,
+    };
+    emit(MintBalanceCaps {
+        deposit_cap_id: object::id(&balance_caps.deposit_cap),
+        withdraw_cap_id: object::id(&balance_caps.withdraw_cap),
+        balance_manager_id: object::id(&self.balance_manager),
+    });
+
+    transfer::share_object(balance_caps);
+}
+
+public(package) fun get_deposit_and_withdraw_caps(
+    balance_caps: &BalanceCaps,
+): (&DepositCap, &WithdrawCap) {
+    (&balance_caps.deposit_cap, &balance_caps.withdraw_cap)
 }

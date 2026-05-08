@@ -46,7 +46,10 @@ public fun swap_x_to_y<X, Y>(
     x_coin: coin::Coin<X>,
     ctx: &mut TxContext,
 ): coin::Coin<Y> {
-    abort 0
+    assert!(false);
+
+    coin::destroy_zero(x_coin);
+    coin::zero(ctx)
 }
 
 public fun swap_y_to_x<X, Y>(
@@ -58,5 +61,8 @@ public fun swap_y_to_x<X, Y>(
     y_coin: coin::Coin<Y>,
     ctx: &mut TxContext,
 ): coin::Coin<X> {
-    abort 0
+    assert!(false);
+
+    coin::destroy_zero(y_coin);
+    coin::zero(ctx)
 }
