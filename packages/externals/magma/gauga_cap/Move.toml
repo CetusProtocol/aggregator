@@ -2,7 +2,7 @@
 name = "GaugeCap"
 version = "1.0.0"
 edition = "2024.beta"
-published-at = "0x2de81c0f5cc2aa176da9f093834efbf846d581afa46516bf4952b6efd3a44992"
+published-at = "0x6e8bb2f02e53ab1b456b467bb3e6bed7421663d6d098e884b187dab36319278d"
 # published-at = "0x0"
 
 [dependencies]

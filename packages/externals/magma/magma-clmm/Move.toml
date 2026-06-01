@@ -2,7 +2,7 @@
 name = "magma"
 version = "1.0.0"
 edition = "2024.beta"
-published-at = "0x183af2adf115f331105825ae63e1d7d3c848d67beb4d60bc36208a90a5e92f4b"
+published-at = "0x0acd1d187950450ae3e625375f8067a7802e99a05b6e655e1fec124a0e3c891e"
 # published-at = "0x0"
 
 [dependencies]
