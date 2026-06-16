@@ -1,5 +1,5 @@
 import { HermesClient } from "@pythnetwork/hermes-client"
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc"
+import { SuiGrpcClient } from "@mysten/sui/grpc"
 import { bcs } from "@mysten/sui/bcs"
 import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import { Transaction } from "@mysten/sui/transactions"
@@ -14,7 +14,7 @@ interface PriceTableInfo {
 }
 
 export class PythAdapter {
-  private client: SuiJsonRpcClient
+  private client: SuiGrpcClient
   private hermesClients: HermesClient[]
   private pythStateId: ObjectId
   private wormholeStateId: ObjectId
@@ -25,7 +25,7 @@ export class PythAdapter {
   private baseUpdateFee: number | undefined
 
   constructor(
-    client: SuiJsonRpcClient,
+    client: SuiGrpcClient,
     pythStateId: ObjectId,
     wormholeStateId: ObjectId,
     hermesUrls: string[],
@@ -68,12 +68,11 @@ export class PythAdapter {
       return this.baseUpdateFee
     }
 
-    const res = await this.client.getObject({
-      id: this.pythStateId,
-      options: { showContent: true },
+    const { object } = await this.client.getObject({
+      objectId: this.pythStateId,
+      include: { json: true },
     })
-    const content = res.data?.content
-    const json = (content && 'fields' in content ? content.fields : null) as Record<string, any> | null
+    const json = object.json as Record<string, any> | null
     if (!json) {
       throw new Error("Unable to fetch pyth state object")
     }
@@ -82,21 +81,16 @@ export class PythAdapter {
   }
 
   async getPackageId(objectId: ObjectId): Promise<string> {
-    const res = await this.client.getObject({
-      id: objectId,
-      options: { showContent: true },
+    const { object } = await this.client.getObject({
+      objectId,
+      include: { json: true },
     })
-    const content = res.data?.content
-    const json = (content && 'fields' in content ? content.fields : null) as Record<string, any> | null
+    const json = object.json as Record<string, any> | null
     if (!json) {
       throw new Error(`Cannot fetch package id for object ${objectId}`)
     }
     if ("upgrade_cap" in json) {
-      const upgradeCap = json.upgrade_cap as Record<string, any> | null
-      const packageId = upgradeCap?.fields?.package
-      if (typeof packageId === "string") {
-        return packageId
-      }
+      return json.upgrade_cap.package
     }
     throw new Error("upgrade_cap not found")
   }
@@ -124,22 +118,25 @@ export class PythAdapter {
     const { id: tableId, fieldType } = await this.getPriceTableInfo()
     const feedIdBytes = Buffer.from(normalizedFeedId, "hex")
 
-    // Direct lookup using getDynamicFieldObject with JSON value for PriceIdentifier key
+    // Direct lookup using getDynamicField with BCS-encoded PriceIdentifier key
     try {
-      const result = await this.client.getDynamicFieldObject({
+      const PriceIdentifier = bcs.struct('PriceIdentifier', {
+        bytes: bcs.vector(bcs.u8()),
+      })
+      const bcsBytes = PriceIdentifier.serialize({ bytes: Array.from(feedIdBytes) }).toBytes()
+
+      const result = await this.client.getDynamicField({
         parentId: tableId,
         name: {
-          type: `${fieldType}::price_identifier::PriceIdentifier`,
-          value: { bytes: Array.from(feedIdBytes) },
+          type: fieldType,
+          bcs: bcsBytes,
         },
       })
 
-      const content = result.data?.content
-      const json = (content && "fields" in content ? content.fields : null) as Record<string, any> | null
-      const objectId = typeof json?.value === "string" ? json.value : undefined
-      if (!objectId) {
-        return undefined
-      }
+      // Decode the object::ID value from BCS
+      const valueBcs = result.dynamicField.value.bcs
+      const valueBytes = valueBcs instanceof Uint8Array ? valueBcs : new Uint8Array(Object.values(valueBcs))
+      const objectId = "0x" + Array.from(valueBytes).map(b => b.toString(16).padStart(2, '0')).join('')
 
       this.priceFeedObjectIdCache.set(normalizedFeedId, objectId)
       return objectId
@@ -153,33 +150,54 @@ export class PythAdapter {
       return this.priceTableInfo
     }
 
-    const result = await this.client.getDynamicFieldObject({
-      parentId: this.pythStateId,
-      name: {
-        type: "vector<u8>",
-        value: "price_info",
-      },
-    })
+    // Look up the price_info dynamic field from the pyth state object
+    let cursor: string | null = null
+    let hasNextPage = true
 
-    if (!result.data?.type) {
-      throw new Error(
-        "Price Table not found, contract may not be initialized"
-      )
+    while (hasNextPage) {
+      const dynamicFields: Awaited<ReturnType<SuiGrpcClient['listDynamicFields']>> =
+        await this.client.listDynamicFields({
+          parentId: this.pythStateId,
+          cursor,
+        })
+
+      for (const field of dynamicFields.dynamicFields) {
+        if (field.name.type === "vector<u8>") {
+          // For dynamic object fields, resolve the child object directly
+          const objectId = (field.$kind === "DynamicObject" && field.childId)
+            ? field.childId
+            : field.fieldId
+          const fieldObj = await this.client.getObject({
+            objectId,
+            include: { json: true },
+          })
+          const type = fieldObj.object.type
+          if (type.includes("table::Table")) {
+            // Extract the key type (PriceIdentifier) from Table<KeyType, ValueType>
+            const innerTypes = type.replace(/.*table::Table</, "").replace(/>$/, "")
+            const fieldType = innerTypes.split(",")[0].trim()
+            this.priceTableInfo = { id: fieldObj.object.objectId, fieldType }
+            return this.priceTableInfo
+          }
+        }
+      }
+
+      hasNextPage = dynamicFields.hasNextPage
+      cursor = dynamicFields.cursor
     }
 
-    let type = result.data.type.replace("0x2::table::Table<", "")
-    type = type.replace("::price_identifier::PriceIdentifier, 0x2::object::ID>", "")
-    this.priceTableInfo = { id: result.data.objectId, fieldType: type }
-    return this.priceTableInfo
+    throw new Error(
+      "Price Table not found, contract may not be initialized"
+    )
   }
 
   extractVaaBytesFromAccumulatorMessage(
     accumulatorMessage: Buffer
   ): Buffer {
-    const trailingPayloadSize = accumulatorMessage.readUint8(6)
+    const trailingPayloadSize = accumulatorMessage.readUInt8(6)
     const vaaSizeOffset =
       7 + trailingPayloadSize + 1 // header(7) + trailing payload + proof_type(1)
-    const vaaSize = accumulatorMessage.readUint16BE(vaaSizeOffset)
+    const vaaSize = accumulatorMessage.readUInt16BE(vaaSizeOffset)
     const vaaOffset = vaaSizeOffset + 2
     return accumulatorMessage.subarray(vaaOffset, vaaOffset + vaaSize)
   }

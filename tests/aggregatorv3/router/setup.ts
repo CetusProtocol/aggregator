@@ -2,27 +2,31 @@ import dotenv from "dotenv"
 import { AggregatorClient } from "~/index"
 import * as testData from "../../test_data"
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519"
-import { fromBase64 } from "@mysten/sui/utils"
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc"
+import { fromBase64, toBase64 } from "@mysten/sui/utils"
+import { SuiGrpcClient } from "@mysten/sui/grpc"
 import { Env } from "~/index"
 import { Transaction } from "@mysten/sui/transactions"
 import { printTransaction } from "~/utils/transaction"
 import BN from "bn.js"
 import { WalletUtils } from "../../utils/wallet-utils"
-import { TEST_FALLBACK_WALLET } from "../../utils/constants"
 
 dotenv.config()
 
 /**
- * Unwrap a DevInspectResults into a convenient shape for tests.
+ * Unwrap a SimulateTransactionResult into a convenient shape for tests.
+ * In Sui SDK v2, simulation returns a discriminated union:
+ *   { $kind: 'Transaction', Transaction: {...} }
+ *   | { $kind: 'FailedTransaction', FailedTransaction: {...} }
  */
 export function unwrapSimulation(result: Awaited<ReturnType<AggregatorClient['devInspectTransactionBlock']>>) {
-  const success = !result.error && result.effects.status.status === 'success'
+  const tx = result.Transaction ?? result.FailedTransaction
+  if (!tx) throw new Error("Empty simulation result")
   return {
-    success,
-    error: result.error ?? (result.effects.status.status === 'failure' ? result.effects.status.error : null),
-    effects: result.effects,
-    events: result.events,
+    success: tx.status.success,
+    error: tx.status.success ? null : tx.status.error,
+    effects: tx.effects,
+    events: tx.events,
+    digest: tx.digest,
   }
 }
 
@@ -49,21 +53,23 @@ export async function setupTestClient(
     keypair = buildTestAccount()
   }
 
-  // Use a known mainnet holder for simulation (no private key needed).
-  // Configured via SUI_TEST_FALLBACK_WALLET env var; see tests/utils/constants.ts.
-  const fallbackWallet = TEST_FALLBACK_WALLET
+  // Use a known mainnet holder for simulation (no private key needed)
+  const fallbackWallet =
+    "0xf7b8d77dd06a6bb51c37ad3ce69e0a44c6f1064f52ac54606ef47763c8a71be6"
   const signerFromKey = keypair?.toSuiAddress() ?? fallbackWallet
-  const signer = keypair
-    ? signerFromKey
-    : await WalletUtils.getOptimalWalletForTesting(_fromCoin, fallbackWallet)
+//   const signer = keypair
+//     ? signerFromKey
+//     : await WalletUtils.getOptimalWalletForTesting(_fromCoin, fallbackWallet)
+  const signer = fallbackWallet
+
 
   const env = Env.Mainnet
   const network = 'mainnet'
-  const rpcUrl = 'https://fullnode.mainnet.sui.io:443'
+  const grpcUrl = 'https://fullnode.mainnet.sui.io:443'
 
   const suiClient = process.env.SUI_RPC
-    ? new SuiJsonRpcClient({ network, url: process.env.SUI_RPC })
-    : new SuiJsonRpcClient({ network, url: rpcUrl })
+    ? new SuiGrpcClient({ network, baseUrl: process.env.SUI_RPC })
+    : new SuiGrpcClient({ network, baseUrl: grpcUrl })
 
   const client = new AggregatorClient({
     endpoint: aggregatorURL,
@@ -73,8 +79,7 @@ export async function setupTestClient(
     pythUrls: [
       "https://hermes.pyth.network",
     ],
-    cetusDlmmPartner:
-      "0x4793afa292f26789039f79da9b61f245c596c266053246ea2a4f0e1ac4cf6e52",
+    cetusDlmmPartner: "0x4793afa292f26789039f79da9b61f245c596c266053246ea2a4f0e1ac4cf6e52",
   })
 
   return { client, keypair }
@@ -128,13 +133,20 @@ export async function testDexRouter(
       printTransaction(txb)
     }
 
-    // Step 3: Simulate transaction
+    // Step 3: Print unsigned tx bytes (for external signing)
+    txb.setSenderIfNotSet(client.signer)
+    const { SuiJsonRpcClient, getJsonRpcFullnodeUrl } = await import("@mysten/sui/jsonRpc")
+    const httpClient = new SuiJsonRpcClient({ network: "mainnet", url: getJsonRpcFullnodeUrl("mainnet") })
+    const txBytes = await txb.build({ client: httpClient })
+    console.log(`\n[TX BYTES] ${provider} - unsigned transaction (base64):`)
+    console.log(toBase64(txBytes))
+
+    // Step 4: Simulate transaction
     const rawResult = await client.devInspectTransactionBlock(txb)
     const result = unwrapSimulation(rawResult)
 
     if (result.success) {
       console.log(`[OK] ${provider}: Transaction simulation successful`)
-    //   console.log("events", JSON.stringify(result.events, null, 2))
       console.log("res", res.amountIn.toString())
       console.log("res", res.amountOut.toString())
     } else {

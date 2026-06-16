@@ -3,7 +3,6 @@ import BN from "bn.js"
 import { Transaction } from "@mysten/sui/transactions"
 import { AggregatorClient, Env } from "~/index"
 import { setupTestClient, unwrapSimulation, testData } from "../aggregatorv3/router/setup"
-import { TEST_OVERLAY_FEE_RECEIVER } from "../utils/constants"
 
 describe("AggregatorClient", () => {
   let client: AggregatorClient
@@ -28,7 +27,7 @@ describe("AggregatorClient", () => {
         client: client.client,
         env: Env.Mainnet,
         overlayFeeRate: 0.1,
-        overlayFeeReceiver: TEST_OVERLAY_FEE_RECEIVER,
+        overlayFeeReceiver: "0x2a3f0d37e42b91dfa0ca3b4887de5cca9dce1a01551e4837947e7f40340973a5",
       })
       expect(feeClient).toBeDefined()
     })
@@ -114,11 +113,14 @@ describe("AggregatorClient", () => {
 
       const result = await client.devInspectTransactionBlock(txb)
 
-      // DevInspectResults has effects and events
-      expect(result.effects).toBeDefined()
-      expect(result.effects.status).toBeDefined()
-      expect(['success', 'failure']).toContain(result.effects.status.status)
-      expect(result.events).toBeDefined()
+      // Should be a discriminated union with $kind
+      expect(result.$kind).toBeDefined()
+      expect(["Transaction", "FailedTransaction"]).toContain(result.$kind)
+
+      // Should have Transaction or FailedTransaction key
+      const tx = result.Transaction ?? result.FailedTransaction
+      expect(tx).toBeDefined()
+      expect(tx!.status).toBeDefined()
     }, 60000)
   })
 

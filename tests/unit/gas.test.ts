@@ -20,23 +20,30 @@ function makeSuccessResult(gasUsed: {
   nonRefundableStorageFee: string
 }): SimulateTransactionResult {
   return {
-    effects: {
-      status: { status: 'success' },
-      gasUsed,
+    $kind: "Transaction",
+    Transaction: {
+      status: { success: true, error: null },
+      effects: {
+        status: { success: true, error: null },
+        gasUsed,
+      },
     },
   }
 }
 
 function makeFailureResult(errorMsg: string): SimulateTransactionResult {
   return {
-    error: errorMsg,
-    effects: {
-      status: { status: 'failure', error: errorMsg },
-      gasUsed: {
-        computationCost: "1000",
-        storageCost: "500",
-        storageRebate: "200",
-        nonRefundableStorageFee: "100",
+    $kind: "FailedTransaction",
+    FailedTransaction: {
+      status: { success: false, error: { message: errorMsg } },
+      effects: {
+        status: { success: false, error: { message: errorMsg } },
+        gasUsed: {
+          computationCost: "1000",
+          storageCost: "500",
+          storageRebate: "200",
+          nonRefundableStorageFee: "100",
+        },
       },
     },
   }
@@ -97,22 +104,26 @@ describe("Gas Utilities", () => {
       expect(metrics.totalGasCost).toBe("0")
     })
 
-    test("handles result with failure status but no error string", () => {
+    test("handles result with no effects", () => {
       const result: SimulateTransactionResult = {
-        effects: {
-          status: { status: 'failure' },
-          gasUsed: {
-            computationCost: "0",
-            storageCost: "0",
-            storageRebate: "0",
-            nonRefundableStorageFee: "0",
-          },
+        $kind: "Transaction",
+        Transaction: {
+          status: { success: true, error: null },
         },
       }
 
       const metrics = extractGasMetrics(result)
       expect(metrics.success).toBe(false)
       expect(metrics.error).toBe("Unknown error")
+    })
+
+    test("handles result with no Transaction or FailedTransaction", () => {
+      const result: SimulateTransactionResult = {
+        $kind: "Transaction",
+      }
+
+      const metrics = extractGasMetrics(result)
+      expect(metrics.success).toBe(false)
     })
   })
 

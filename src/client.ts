@@ -62,7 +62,7 @@ import {
 } from "./movecall/router"
 import { completionCoin, compareCoins } from "./utils/coin"
 import { coinWithBalance } from "@mysten/sui/transactions"
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc"
+import { SuiGrpcClient } from "@mysten/sui/grpc"
 import { PythAdapter } from "./pyth/adapter"
 import { processEndpoint } from "./utils"
 import { Signer } from "@mysten/sui/cryptography"
@@ -72,6 +72,8 @@ import { CetusDlmmRouter } from "./movecall/cetus_dlmm"
 import { FerraDlmmRouter } from "./movecall/ferra_dlmm"
 import { FerraClmmRouter } from "./movecall/ferra_clmm"
 import { BoltRouter } from "./movecall/bolt"
+import { MagmaPropAmmRouter } from "./movecall/magmapropamm"
+import { HaedalPropAmmRouter } from "./movecall/haedalpropamm"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -108,6 +110,8 @@ export const CETUSDLMM = "CETUSDLMM"
 export const FERRADLMM = "FERRADLMM"
 export const FERRACLMM = "FERRACLMM"
 export const BOLT = "BOLT"
+export const MAGMAPROPAMM = "MAGMAPROPAMM"
+export const HAEDALPROPAMM = "HAEDALPROPAMM"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v3"
 
 export const ALL_DEXES = [
@@ -144,6 +148,8 @@ export const ALL_DEXES = [
   FERRADLMM,
   FERRACLMM,
   BOLT,
+  MAGMAPROPAMM,
+  HAEDALPROPAMM,
 ]
 
 export type BuildRouterSwapParamsV3 = {
@@ -169,6 +175,29 @@ export type BuildFastRouterSwapParamsV3 = {
   cetusDlmmPartner?: string
   refreshAllCoins?: boolean
   payDeepFeeAmount?: number
+  // When true, builds the swap for a sponsored transaction: never uses the gas coin
+  // (which belongs to the sponsor). SUI input is taken from the sender's own coins and
+  // SUI output is delivered to the sender instead of being merged into the gas coin.
+  sponsored?: boolean
+}
+
+// Parameters for assembling a Sui sponsored transaction from a pre-built transaction
+// kind. The sender (user) authors the commands while the sponsor pays the gas; both
+// parties sign the same transaction bytes. See:
+// https://docs.sui.io/concepts/transactions/sponsored-transactions
+export type BuildSponsoredTransactionParams = {
+  // TransactionKind bytes, e.g. from `buildTransactionKind()`.
+  txKindBytes: Uint8Array | string
+  // The user authoring the transaction commands.
+  sender: string
+  // The gas owner (sponsor / gas station) paying for gas.
+  sponsor: string
+  // Gas coins owned by the sponsor used to pay for gas.
+  sponsorCoins: { objectId: string; version: string | number; digest: string }[]
+  // Optional explicit gas budget; resolved at build time when omitted.
+  gasBudget?: number | bigint | string
+  // Optional explicit gas price; defaults to the network reference price when omitted.
+  gasPrice?: number | bigint | string
 }
 
 export interface SwapInPoolsParams {
@@ -287,7 +316,7 @@ function findPythPriceIDs(paths: Path[]): string[] {
 export type AggregatorClientParams = {
   endpoint?: string
   signer?: string
-  client?: SuiJsonRpcClient
+  client?: SuiGrpcClient
   env?: Env
   pythUrls?: string[]
   apiKey?: string
@@ -305,7 +334,7 @@ interface PythConfig {
 export class AggregatorClient {
   public endpoint: string
   public signer: string
-  public client: SuiJsonRpcClient
+  public client: SuiGrpcClient
   public env: Env
   public apiKey: string
 
@@ -337,12 +366,12 @@ export class AggregatorClient {
       : DEFAULT_ENDPOINT
 
     const network = params.env === Env.Testnet ? 'testnet' : 'mainnet'
-    const rpcUrl = params.env === Env.Testnet
+    const grpcUrl = params.env === Env.Testnet
       ? 'https://fullnode.testnet.sui.io:443'
       : 'https://fullnode.mainnet.sui.io:443'
 
     this.client =
-      params.client ?? new SuiJsonRpcClient({ network, url: rpcUrl })
+      params.client ?? new SuiGrpcClient({ network, baseUrl: grpcUrl })
     this.signer = params.signer || ""
     this.env = params.env || Env.Mainnet
 
@@ -398,13 +427,13 @@ export class AggregatorClient {
 
   async getOneCoinUsedToMerge(coinType: string): Promise<string | null> {
     try {
-      const gotCoin = await this.client.getCoins({
+      const gotCoin = await this.client.listCoins({
         owner: this.signer,
         coinType,
         limit: 1,
       })
-      if (gotCoin.data.length === 1) {
-        return gotCoin.data[0].coinObjectId
+      if (gotCoin.objects.length === 1) {
+        return gotCoin.objects[0].objectId
       }
       return null
     } catch (error) {
@@ -519,6 +548,10 @@ export class AggregatorClient {
         return new FerraClmmRouter(this.env)
       case BOLT:
         return new BoltRouter(this.env)
+      case MAGMAPROPAMM:
+        return new MagmaPropAmmRouter(this.env)
+      case HAEDALPROPAMM:
+        return new HaedalPropAmmRouter(this.env)
       default:
         throw new Error(
           `${Constants.CLIENT_CONFIG.ERRORS.UNSUPPORTED_DEX} ${provider}`
@@ -925,8 +958,7 @@ export class AggregatorClient {
   async routerSwap(
     params: BuildRouterSwapParamsV3
   ): Promise<TransactionObjectArgument> {
-    const { router, inputCoin, slippage, txb, partner, cetusDlmmPartner } =
-      params
+    const { router, inputCoin, slippage, txb, partner, cetusDlmmPartner } = params
 
     if (slippage > 1 || slippage < 0) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
@@ -1005,15 +1037,7 @@ export class AggregatorClient {
   async routerSwapWithMaxAmountIn(
     params: BuildRouterSwapParamsV3 & { maxAmountIn: BN }
   ): Promise<TransactionObjectArgument> {
-    const {
-      router,
-      inputCoin,
-      slippage,
-      txb,
-      partner,
-      cetusDlmmPartner,
-      maxAmountIn,
-    } = params
+    const { router, inputCoin, slippage, txb, partner, maxAmountIn } = params
 
     if (slippage > 1 || slippage < 0) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
@@ -1066,8 +1090,7 @@ export class AggregatorClient {
         amountOut.toString(),
         amountLimit.toString(),
         priceInfoObjectIds,
-        partner ?? this.partner,
-        cetusDlmmPartner ?? this.cetusDlmmPartner
+        partner ?? this.partner
       )
     } else {
       // For fixed output swaps, we still use the v2 context with max amount validation
@@ -1093,6 +1116,7 @@ export class AggregatorClient {
       partner,
       cetusDlmmPartner,
       payDeepFeeAmount,
+      sponsored = false,
     } = params
 
     const fromCoinType = router.paths[0].from
@@ -1134,7 +1158,7 @@ export class AggregatorClient {
 
     let inputCoin = coinWithBalance({
       balance: BigInt(amount.toString()),
-      useGasCoin: true,
+      useGasCoin: !sponsored,
       type: fromCoinType,
     })
 
@@ -1158,22 +1182,55 @@ export class AggregatorClient {
 
     const targetCoin = await this.routerSwap(routerSwapParams)
 
+    await this.deliverTargetCoin(
+      txb,
+      targetCoin,
+      targetCoinType,
+      router.packages,
+      sponsored
+    )
+  }
+
+  // Delivers a swap's output coin. In sponsored mode the SDK must not query or touch
+  // coins through `this.signer`, because the transaction sender may be different from
+  // the SDK instance signer. Let the router transfer helper deliver the output to the
+  // transaction sender instead.
+  private async deliverTargetCoin(
+    txb: Transaction,
+    targetCoin: TransactionObjectArgument,
+    targetCoinType: string,
+    packages: Map<string, string> | undefined,
+    sponsored: boolean
+  ) {
+    if (sponsored) {
+      transferOrDestroyCoin(
+        {
+          coin: targetCoin,
+          coinType: targetCoinType,
+          packages,
+        },
+        txb
+      )
+      return
+    }
+
     if (CoinUtils.isSuiCoin(targetCoinType)) {
       txb.mergeCoins(txb.gas, [targetCoin])
+      return
+    }
+
+    const targetCoinObjID = await this.getOneCoinUsedToMerge(targetCoinType)
+    if (targetCoinObjID != null) {
+      txb.mergeCoins(txb.object(targetCoinObjID), [targetCoin])
     } else {
-      const targetCoinObjID = await this.getOneCoinUsedToMerge(targetCoinType)
-      if (targetCoinObjID != null) {
-        txb.mergeCoins(txb.object(targetCoinObjID), [targetCoin])
-      } else {
-        transferOrDestroyCoin(
-          {
-            coin: targetCoin,
-            coinType: targetCoinType,
-            packages: router.packages,
-          },
-          txb
-        )
-      }
+      transferOrDestroyCoin(
+        {
+          coin: targetCoin,
+          coinType: targetCoinType,
+          packages,
+        },
+        txb
+      )
     }
   }
 
@@ -1243,7 +1300,7 @@ export class AggregatorClient {
   }
 
   async fastMergeSwap(params: BuildFastMergeSwapParams) {
-    const { router, slippage, txb, partner } = params
+    const { router, slippage, txb, partner, sponsored = false } = params
 
     // Validate router
     if (!router || !router.allRoutes || router.allRoutes.length === 0) {
@@ -1271,7 +1328,7 @@ export class AggregatorClient {
 
       const coin = coinWithBalance({
         balance: BigInt(route.amountIn.toString()),
-        useGasCoin: CoinUtils.isSuiCoin(firstCoinType),
+        useGasCoin: !sponsored && CoinUtils.isSuiCoin(firstCoinType),
         type: firstCoinType,
       })
       inputCoins.push({ coinType: firstCoinType, coin })
@@ -1288,31 +1345,20 @@ export class AggregatorClient {
 
     const targetCoin = await this.mergeSwap(mergeSwapParams)
 
-    // Auto merge, transfer or destroy target coin
-    if (CoinUtils.isSuiCoin(targetCoinType)) {
-      txb.mergeCoins(txb.gas, [targetCoin])
-    } else {
-      const targetCoinObjID = await this.getOneCoinUsedToMerge(targetCoinType)
-      if (targetCoinObjID != null) {
-        txb.mergeCoins(txb.object(targetCoinObjID), [targetCoin])
-      } else {
-        transferOrDestroyCoin(
-          {
-            coin: targetCoin,
-            coinType: targetCoinType,
-            packages: router.packages,
-          },
-          txb
-        )
-      }
-    }
+    // Auto merge, transfer or destroy target coin (sponsorship-aware)
+    await this.deliverTargetCoin(
+      txb,
+      targetCoin,
+      targetCoinType,
+      router.packages,
+      sponsored
+    )
   }
 
   async fixableRouterSwapV3(
     params: BuildRouterSwapParamsV3
   ): Promise<TransactionObjectArgument> {
-    const { router, inputCoin, slippage, txb, partner, cetusDlmmPartner } =
-      params
+    const { router, inputCoin, slippage, txb, partner } = params
 
     checkOverlayFeeConfig(this.overlayFeeRate, this.overlayFeeReceiver)
     let overlayFee = 0
@@ -1360,8 +1406,7 @@ export class AggregatorClient {
         expectedAmountOut.toString(),
         amountLimit.toString(),
         priceInfoObjectIds,
-        partner ?? this.partner,
-        cetusDlmmPartner ?? this.cetusDlmmPartner
+        partner ?? this.partner
       )
     } else {
       return this.expectOutputSwapV3(
@@ -1409,18 +1454,22 @@ export class AggregatorClient {
 
     tx.setSenderIfNotSet(this.signer || "0x0")
 
-    const simulateRes = await this.client.devInspectTransactionBlock({
-      sender: this.signer || "0x0",
-      transactionBlock: tx,
+    const simulateRes = await this.client.simulateTransaction({
+      transaction: tx,
+      include: { events: true, effects: true },
     })
 
-    if (simulateRes.error) {
-      throw new Error("Simulation error: " + simulateRes.error)
+    const txResult = simulateRes.Transaction ?? simulateRes.FailedTransaction
+    if (!txResult || simulateRes.$kind === 'FailedTransaction') {
+      const errorMsg = txResult?.status.success === false
+        ? txResult.status.error.message
+        : "Unknown error"
+      throw new Error("Simulation error: " + errorMsg)
     }
 
-    const events = simulateRes.events ?? []
+    const events = txResult.events ?? []
     const valueData = events.filter((item) => {
-      return item.type.includes("CalculatedSwapResultEvent")
+      return item.eventType.includes("CalculatedSwapResultEvent")
     })
 
     if (valueData.length === 0 || valueData.length !== pools.length) {
@@ -1430,7 +1479,7 @@ export class AggregatorClient {
     let tempMaxAmount = byAmountIn ? new BN(0) : new BN(Constants.U64_MAX)
     let tempIndex = 0
     for (let i = 0; i < valueData.length; i += 1) {
-      const eventJson = valueData[i].parsedJson as Record<string, any> | null
+      const eventJson = valueData[i].json as Record<string, any> | null
       if (eventJson?.data?.is_exceed) {
         continue
       }
@@ -1442,20 +1491,29 @@ export class AggregatorClient {
           tempMaxAmount = amount
         }
       } else {
-        const amount = new BN(eventJson?.data?.amount_out ?? 0)
-        if (amount.lt(tempMaxAmount)) {
+        // Fixed output: a pool is only valid if it returns exactly the
+        // requested amount_out; among valid pools, minimize the total
+        // required input (amount_in + fee_amount).
+        const amountOut = new BN(eventJson?.data?.amount_out ?? 0)
+        if (!amountOut.eq(amount)) {
+          continue
+        }
+        const pureAmountIn = new BN(eventJson?.data?.amount_in ?? 0)
+        const feeAmount = new BN(eventJson?.data?.fee_amount ?? 0)
+        const totalAmountIn = pureAmountIn.add(feeAmount)
+        if (totalAmountIn.lt(tempMaxAmount)) {
           tempIndex = i
-          tempMaxAmount = amount
+          tempMaxAmount = totalAmountIn
         }
       }
     }
 
-    const eventJson = valueData[tempIndex].parsedJson as Record<string, any> | null
+    const eventJson = valueData[tempIndex].json as Record<string, any> | null
     const eventData = eventJson?.data
 
     const [decimalA, decimalB] = await Promise.all([
-      this.client.getCoinMetadata({ coinType: coinA }).then(res => res?.decimals ?? null),
-      this.client.getCoinMetadata({ coinType: coinB }).then(res => res?.decimals ?? null),
+      this.client.getCoinMetadata({ coinType: coinA }).then(res => res.coinMetadata?.decimals ?? null),
+      this.client.getCoinMetadata({ coinType: coinB }).then(res => res.coinMetadata?.decimals ?? null),
     ])
 
     if (decimalA == null || decimalB == null) {
@@ -1544,9 +1602,9 @@ export class AggregatorClient {
 
   async devInspectTransactionBlock(txb: Transaction) {
     txb.setSenderIfNotSet(this.signer || "0x0")
-    const res = await this.client.devInspectTransactionBlock({
-      sender: this.signer || "0x0",
-      transactionBlock: txb,
+    const res = await this.client.simulateTransaction({
+      transaction: txb,
+      include: { events: true, effects: true },
     })
     return res
   }
@@ -1555,9 +1613,90 @@ export class AggregatorClient {
     const res = await this.client.signAndExecuteTransaction({
       transaction: txb,
       signer,
-      options: { showEffects: true, showEvents: true, showBalanceChanges: true },
+      include: { effects: true, events: true, balanceChanges: true },
     })
     return res
+  }
+
+  // ---------------------------------------------------------------------------
+  // Sponsored transactions
+  //
+  // A sponsored transaction lets a sponsor (gas station) pay gas for a transaction
+  // whose commands are authored by a different sender. The sender and the sponsor both
+  // sign the same transaction bytes, and the transaction is submitted with both
+  // signatures. See: https://docs.sui.io/concepts/transactions/sponsored-transactions
+  //
+  // Build the swap with `sponsored: true` (e.g. `fastRouterSwap`/`fastMergeSwap`) so the
+  // gas coin is never used, then:
+  //   - Remote gas station: `buildTransactionKind(txb, sender)` -> station assembles gas
+  //     data with `buildSponsoredTransaction` -> station builds/signs full bytes -> user
+  //     signs the same bytes -> `executeWithSignatures`.
+  //   - Local sponsor (both keypairs available): `signAndExecuteSponsoredTransaction`.
+  // ---------------------------------------------------------------------------
+
+  // Builds the TransactionKind bytes (commands only, no gas data) to hand to a sponsor /
+  // gas station. Pass `sender` when the transaction contains CoinWithBalance intents,
+  // because those are resolved while building the kind.
+  async buildTransactionKind(
+    txb: Transaction,
+    sender?: string
+  ): Promise<Uint8Array> {
+    if (sender) {
+      txb.setSender(sender)
+    }
+    return txb.build({ client: this.client, onlyTransactionKind: true })
+  }
+
+  // Assembles a sponsored transaction from TransactionKind bytes plus the gas data
+  // provided by the sponsor. The returned transaction is ready to be built and signed by
+  // both the sender and the sponsor.
+  buildSponsoredTransaction(
+    params: BuildSponsoredTransactionParams
+  ): Transaction {
+    const { txKindBytes, sender, sponsor, sponsorCoins, gasBudget, gasPrice } =
+      params
+
+    const tx = Transaction.fromKind(txKindBytes)
+    tx.setSender(sender)
+    tx.setGasOwner(sponsor)
+    tx.setGasPayment(sponsorCoins)
+    if (gasBudget != null) {
+      tx.setGasBudget(gasBudget)
+    }
+    if (gasPrice != null) {
+      tx.setGasPrice(gasPrice)
+    }
+    return tx
+  }
+
+  // Builds the full transaction bytes (including gas data) that both parties must sign.
+  // Returns the exact bytes the signatures must be produced over.
+  async buildTransactionBytes(txb: Transaction): Promise<Uint8Array> {
+    return txb.build({ client: this.client })
+  }
+
+  // Executes a transaction from pre-built bytes plus the collected signatures. The
+  // signatures MUST be produced over exactly these `bytes` (see `buildTransactionBytes`).
+  async executeWithSignatures(bytes: Uint8Array, signatures: string[]) {
+    return this.client.executeTransaction({
+      transaction: bytes,
+      signatures,
+      include: { effects: true, events: true, balanceChanges: true },
+    })
+  }
+
+  // Convenience for the local dual-key case: signs the transaction with both the user's
+  // and the sponsor's signer and executes it. `txb` must already have its sender, gas
+  // owner and gas payment set (e.g. via `buildSponsoredTransaction`).
+  async signAndExecuteSponsoredTransaction(
+    txb: Transaction,
+    userSigner: Signer,
+    sponsorSigner: Signer
+  ) {
+    const bytes = await txb.build({ client: this.client })
+    const { signature: sponsorSig } = await sponsorSigner.signTransaction(bytes)
+    const { signature: userSig } = await userSigner.signTransaction(bytes)
+    return this.executeWithSignatures(bytes, [userSig, sponsorSig])
   }
 }
 

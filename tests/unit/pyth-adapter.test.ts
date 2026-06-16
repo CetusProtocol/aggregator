@@ -1,18 +1,15 @@
 import { describe, test, expect, vi } from "vitest"
 import { PythAdapter } from "~/pyth/adapter"
+import { bcs } from "@mysten/sui/bcs"
 
 describe("PythAdapter", () => {
   test("reads package id from nested upgrade_cap fields", async () => {
     const client = {
       getObject: vi.fn().mockResolvedValue({
-        data: {
-          content: {
-            fields: {
-              upgrade_cap: {
-                fields: {
-                  package: "0xpackage",
-                },
-              },
+        object: {
+          json: {
+            upgrade_cap: {
+              package: "0xpackage",
             },
           },
         },
@@ -25,14 +22,19 @@ describe("PythAdapter", () => {
   })
 
   test("returns the stored price feed object id instead of the dynamic field id", async () => {
+    const feedId = "0x1234"
+    const normalizedFeedId = feedId.replace("0x", "")
+    const feedIdBytes = Buffer.from(normalizedFeedId, "hex")
+
+    // Build the expected object ID bytes (32 bytes for a Sui address)
+    const objectIdHex = "abcd".padStart(64, "0")
+    const objectIdBytes = new Uint8Array(Buffer.from(objectIdHex, "hex"))
+
     const client = {
-      getDynamicFieldObject: vi.fn().mockResolvedValue({
-        data: {
-          objectId: "0xdynamic-field",
-          content: {
-            fields: {
-              value: "0xprice-feed",
-            },
+      getDynamicField: vi.fn().mockResolvedValue({
+        dynamicField: {
+          value: {
+            bcs: objectIdBytes,
           },
         },
       }),
@@ -41,15 +43,23 @@ describe("PythAdapter", () => {
     const adapter = new PythAdapter(client as any, "0xpyth", "0xwormhole", [])
     vi.spyOn(adapter, "getPriceTableInfo").mockResolvedValue({
       id: "0xtable",
-      fieldType: "0xpythpackage",
+      fieldType: "0xpythpackage::price_identifier::PriceIdentifier",
     })
 
-    await expect(adapter.getPriceFeedObjectId("0x1234")).resolves.toBe("0xprice-feed")
-    expect(client.getDynamicFieldObject).toHaveBeenCalledWith({
+    const result = await adapter.getPriceFeedObjectId(feedId)
+    expect(result).toBe("0x" + objectIdHex)
+
+    // Verify getDynamicField was called with BCS-encoded name
+    const PriceIdentifier = bcs.struct('PriceIdentifier', {
+      bytes: bcs.vector(bcs.u8()),
+    })
+    const expectedBcs = PriceIdentifier.serialize({ bytes: Array.from(feedIdBytes) }).toBytes()
+
+    expect(client.getDynamicField).toHaveBeenCalledWith({
       parentId: "0xtable",
       name: {
         type: "0xpythpackage::price_identifier::PriceIdentifier",
-        value: { bytes: [18, 52] },
+        bcs: expectedBcs,
       },
     })
   })

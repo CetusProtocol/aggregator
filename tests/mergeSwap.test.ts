@@ -9,11 +9,11 @@ describe("Merge Swap Test", () => {
   let client: AggregatorClient
   let _keypair: Ed25519Keypair | null
 
-  beforeEach(async () => {
+  beforeAll(async () => {
     const setup = await setupTestClient()
     client = setup.client
     _keypair = setup.keypair
-  })
+  }, 30000)
 
   it("should find merge swap routes", async () => {
     const params: MergeSwapParams = {

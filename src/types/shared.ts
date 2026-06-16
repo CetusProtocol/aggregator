@@ -51,40 +51,10 @@ export interface BuildFastMergeSwapParams {
   txb: Transaction
   partner?: string
   payDeepFeeAmount?: number
-}
-
-export interface MergeSwapFromCoin {
-  coinType: string
-  amount: BN | string | number | bigint
-}
-
-export interface MergeSwapParams {
-  target: string
-  byAmountIn: boolean
-  depth?: number
-  providers?: string[]
-  froms: MergeSwapFromCoin[]
-}
-
-export interface MergeSwapInputCoin {
-  coinType: string
-  coin: TransactionObjectArgument
-}
-
-export interface BuildMergeSwapParams {
-  router: MergeSwapRouterData
-  inputCoins: MergeSwapInputCoin[]
-  slippage: number
-  txb: Transaction
-  partner?: string
-}
-
-export interface BuildFastMergeSwapParams {
-  router: MergeSwapRouterData
-  slippage: number
-  txb: Transaction
-  partner?: string
-  payDeepFeeAmount?: number
+  // When true, builds the swap for a sponsored transaction: never uses the gas coin
+  // (which belongs to the sponsor). Input is taken from the sender's own coins and
+  // output is delivered to the sender instead of being merged into the gas coin.
+  sponsored?: boolean
 }
 
 export interface PreSwapLpChangeParams {
@@ -158,6 +128,15 @@ export type ExtendedDetails = {
   bolt_pool_id?: string
   bolt_oracle_id?: string
   bolt_quote_coin_type?: string
+  // magmapropamm
+  magmapropamm_pool_id?: string
+  // haedalpropamm
+  haedalpropamm_pool_id?: string
+  haedalpropamm_regime_id?: string
+  haedalpropamm_oracle_mode?: string
+  haedalpropamm_base_price_info_object?: string
+  haedalpropamm_quote_price_info_object?: string
+  aux_shared_versions?: Record<string, number>
 }
 
 // Path type with V3 capabilities (using direction instead of a2b, string amounts)

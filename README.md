@@ -27,6 +27,8 @@ Easy Integration: The aggregator is designed to be simple and easy to integrate.
 
 Multi-Platform Support: Currently, we have integrated multiple mainstream DEXs on the Sui chain, including cetus, kriya, kriyav3, flowx, flowxv3, turbos, aftermath, haedal, volo, afsui, bluemove, deepbookv3, scallop, suilend, bluefin, haedalpmm, haedalhmmv2, alphafi, springsui, steamm, steamm_omm, steamm_omm_v2, metastable, obric, hawal, momentum, magma, fullsail, cetusdlmm, ferradlmm, ferraclmm, bolt, allowing users to enjoy a diversified trading experience on a single platform.
 
+Sponsored Transactions: The SDK can build swap PTBs that do not use the user's gas coin, allowing a separate sponsor account to pay transaction gas.
+
 By using our aggregator, you can trade more efficiently and securely on the Sui blockchain, fully leveraging the various opportunities brought by decentralized finance (DeFi).
 
 # Aggregator SDK
@@ -85,7 +87,83 @@ if (routerRes != null) {
 }
 ```
 
-### 4. Build PTB and return target coin
+### 4. Sponsored transaction: sponsor pays gas
+
+Set `sponsored: true` when building the swap. In this mode the swap does not use `txb.gas` as input or output, because the gas coin belongs to the sponsor.
+
+```typescript
+import { Transaction } from "@mysten/sui/transactions"
+import { SUI_TYPE_ARG } from "@mysten/sui/utils"
+
+const sender = userSigner.toSuiAddress()
+const sponsor = sponsorSigner.toSuiAddress()
+const txb = new Transaction()
+
+await client.fastRouterSwap({
+  router: routerRes,
+  txb,
+  slippage: 0.01,
+  sponsored: true,
+})
+
+// Build command-only bytes. Pass sender so CoinWithBalance can resolve
+// the user's input coins before the sponsor adds gas data.
+const txKindBytes = await client.buildTransactionKind(txb, sender)
+
+const { objects: gasCoins } = await client.client.listCoins({
+  owner: sponsor,
+  coinType: SUI_TYPE_ARG,
+  limit: 1,
+})
+
+const sponsorCoins = gasCoins.map((coin) => ({
+  objectId: coin.objectId,
+  version: coin.version,
+  digest: coin.digest,
+}))
+
+const sponsoredTx = client.buildSponsoredTransaction({
+  txKindBytes,
+  sender,
+  sponsor,
+  sponsorCoins,
+  gasBudget: "100000000",
+})
+
+const result = await client.signAndExecuteSponsoredTransaction(
+  sponsoredTx,
+  userSigner,
+  sponsorSigner
+)
+```
+
+For a gas-station integration, the same flow is split across two parties: the user builds `txKindBytes`, the sponsor sets `gasOwner` and `gasPayment`, then both parties sign the same full transaction bytes.
+
+#### Sponsor secret for the real transaction test
+
+The real sponsored transaction test reuses the existing wallet secret as the user/sender and adds one sponsor secret:
+
+```bash
+SUI_WALLET_SECRET="user_base64_secret" \
+SUI_SPONSOR_SECRET="sponsor_base64_secret" \
+npx vitest run tests/unit/sponsored.test.ts
+```
+
+`SUI_WALLET_SECRET` owns the swap input coins and signs as the transaction sender. `SUI_SPONSOR_SECRET` owns the gas coin and signs as the gas sponsor. Use two different accounts; the sponsor account only needs enough SUI to cover `SPONSORED_GAS_BUDGET` (`100000000` MIST by default).
+
+Optional test variables:
+
+```bash
+SPONSORED_SWAP_AMOUNT=1000000
+SPONSORED_GAS_BUDGET=100000000
+SUI_RPC="https://fullnode.mainnet.sui.io:443"
+```
+
+If either secret is missing, `tests/unit/sponsored.test.ts` is skipped and no transaction is submitted.
+
+Keep both secrets in your local shell or `.env` file, and do not commit them.
+
+### 5. Build PTB and return target coin
 
 ```typescript
 const txb = new Transaction()
@@ -93,7 +171,7 @@ const byAmountIn = true
 
 if (routerRes != null) {
   const targetCoin = await client.routerSwap({
-    routers,
+    router: routerRes,
     txb,
     inputCoin,
     slippage: 0.01,
@@ -112,6 +190,7 @@ if (routerRes != null) {
 }
 ```
 
+
 # Aggregator Contract Interface
 
 ## Tags corresponding to different networks
@@ -125,11 +204,11 @@ if (routerRes != null) {
 ## Example
 
 ```
-CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/mainnet", rev = "mainnet-v1.60.0", override = true }
+CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/mainnet", rev = "mainnet-v1.63.0", override = true }
 
-CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet-v1.60.0", override = true }
+CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet-v1.63.0", override = true }
 
-CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v2", rev = "mainnet-v1.60.0", override = true }
+CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v2", rev = "mainnet-v1.63.0", override = true }
 ```
 
 # Simple Aggregator Contract Interface

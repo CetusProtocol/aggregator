@@ -6,7 +6,7 @@ export const dealWithFastRouterSwapParamsForMsafe = (data: any) => {
   const result = {
     ...data,
     amountIn: data?.amountIn?.toString(),
-    amountOut: data?.amountIn?.toString(),
+    amountOut: data?.amountOut?.toString(),
     paths: data?.paths?.map((item:any) => {
       const info = {
         ...item,
@@ -35,7 +35,7 @@ export const restituteMsafeFastRouterSwapParams = (data: any) => {
   const result = {
     ...data,
     amountIn: new BN(data?.amountIn),
-    amountOut: new BN(data?.amountIn),
+    amountOut: new BN(data?.amountOut),
     paths: data?.paths?.map((item:any) => {
       const info = {
         ...item,

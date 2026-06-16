@@ -103,6 +103,88 @@ describe("CETUS Router", () => {
       console.log("Error:", result.error)
     }
   }, 50000)
+
+  test("Downgrade by amount out - selects pool with lowest input", async () => {
+    // Fixed output: 1 USDC
+    const amount = new BN("1000000")
+    // The low-liquidity pool is listed first on purpose: every pool returns
+    // the same fixed amount_out, so the selection must pick the pool with
+    // the lowest required input instead of the first executable pool.
+    const pools = [
+      "0x5371efd48be6560d47c40ba1d817c9b2c40ff40612c89cee44561b765a7954ca",
+      "0xb8d7d9e66a60c239e7a60110efcf8de6c705580ed924d0dde141f4a0e2c90105",
+      "0x03d7739b33fe221a830ff101042fa81fd19188feca04a335f7dea4e37c0fca81",
+      "0x413ddc5745aa6398e9da66c4843947e479f4bf63bade39ffc94c9197b433b332",
+      "0x51e883ba7c0b566a26cbc8a94cd33eb0abd418a77cc1e60ad22fd9b1f29cd2ab",
+      "0x85fe95c7d0fd3f743597bc78bbbe5ab2a2ee6ee4385232db1d48d4e42f31f6e5",
+    ]
+
+    // Quote each pool individually to know its required input.
+    const singleQuotes = await Promise.all(
+      pools.map((pool) =>
+        client.swapInPools({
+          from: testData.M_SUI,
+          target: testData.M_USDC,
+          amount,
+          byAmountIn: false,
+          pools: [pool],
+        })
+      )
+    )
+
+    for (let i = 0; i < pools.length; i++) {
+      console.log(
+        `Pool ${pools[i]}: amountIn = ${singleQuotes[i].routeData!.amountIn.toString()}, isExceed = ${singleQuotes[i].isExceed}`
+      )
+    }
+
+    // Exceeded pools cannot fill the requested output; their quotes are meaningless.
+    const executable = singleQuotes.filter((quote) => !quote.isExceed)
+    expect(executable.length).toBeGreaterThan(1)
+
+    const cheapest = executable.reduce((best, quote) =>
+      quote.routeData!.amountIn.lt(best.routeData!.amountIn) ? quote : best
+    )
+
+    const res = await client.swapInPools({
+      from: testData.M_SUI,
+      target: testData.M_USDC,
+      amount,
+      byAmountIn: false,
+      pools,
+    })
+
+    console.log(
+      `Selected pool: ${res.routeData!.paths[0].id}, amountIn = ${res.routeData!.amountIn.toString()}`
+    )
+
+    // Every executable pool returns the same fixed output, so the selection
+    // must minimize the required input instead of comparing amount_out.
+    expect(res.isExceed).toBe(false)
+    expect(res.routeData!.amountOut.toString()).toBe(amount.toString())
+    expect(res.routeData!.paths[0].id).toBe(cheapest.routeData!.paths[0].id)
+
+    const txb = new Transaction()
+
+    await client.fastRouterSwap({
+      router: res.routeData!,
+      txb,
+      slippage: 0.05, // 5% slippage tolerance
+      refreshAllCoins: true,
+    })
+
+    printTransaction(txb)
+
+    const rawResult = await client.devInspectTransactionBlock(txb)
+    const result = unwrapSimulation(rawResult)
+
+    if (result.success) {
+      console.log(`✅ Transaction simulation successful`)
+    } else {
+      console.log(`❌ Transaction simulation failed`)
+      console.log("Error:", result.error)
+    }
+  }, 50000)
 })
 
 describe("Router Swap with Max Amount In Validation", () => {

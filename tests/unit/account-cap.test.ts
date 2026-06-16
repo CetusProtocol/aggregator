@@ -1,16 +1,15 @@
 import { describe, test, expect, beforeAll } from "vitest"
 import { Transaction } from "@mysten/sui/transactions"
-import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc"
+import { SuiGrpcClient } from "@mysten/sui/grpc"
 import { getOrCreateAccountCap } from "~/utils/account_cap"
-import { TEST_FALLBACK_WALLET } from "../utils/constants"
 
 describe("Account Cap (DeepBook)", () => {
-  let client: SuiJsonRpcClient
+  let client: SuiGrpcClient
 
   beforeAll(() => {
-    client = new SuiJsonRpcClient({
+    client = new SuiGrpcClient({
       network: "mainnet",
-      url: "https://fullnode.mainnet.sui.io:443",
+      baseUrl: "https://fullnode.mainnet.sui.io:443",
     })
   })
 
@@ -29,9 +28,8 @@ describe("Account Cap (DeepBook)", () => {
 
   test("finds existing account cap for known DeepBook user", async () => {
     const txb = new Transaction()
-    // Use the known mainnet holder (may or may not have a DeepBook cap).
-    // Configured via SUI_TEST_FALLBACK_WALLET env var.
-    const owner = TEST_FALLBACK_WALLET
+    // Use the known mainnet holder (may or may not have a DeepBook cap)
+    const owner = "0xf7b8d77dd06a6bb51c37ad3ce69e0a44c6f1064f52ac54606ef47763c8a71be6"
 
     const result = await getOrCreateAccountCap(txb, client, owner)
 

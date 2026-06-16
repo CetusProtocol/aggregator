@@ -15,20 +15,35 @@
 import BN from "bn.js"
 
 /**
- * Matches the shape of DevInspectResults from JSON-RPC.
+ * Matches the shape of SuiClientTypes.SimulateTransactionResult with effects included.
  * Using a local type so gas.ts can be used without importing the full SDK.
  */
 export type SimulateTransactionResult = {
-  effects: {
-    status: { status: 'success' | 'failure'; error?: string }
-    gasUsed: {
-      computationCost: string
-      storageCost: string
-      storageRebate: string
-      nonRefundableStorageFee: string
+  $kind: 'Transaction' | 'FailedTransaction'
+  Transaction?: {
+    status: { success: true; error: null } | { success: false; error: { message: string } }
+    effects?: {
+      status: { success: true; error: null } | { success: false; error: { message: string } }
+      gasUsed: {
+        computationCost: string
+        storageCost: string
+        storageRebate: string
+        nonRefundableStorageFee: string
+      }
     }
   }
-  error?: string | null
+  FailedTransaction?: {
+    status: { success: true; error: null } | { success: false; error: { message: string } }
+    effects?: {
+      status: { success: true; error: null } | { success: false; error: { message: string } }
+      gasUsed: {
+        computationCost: string
+        storageCost: string
+        storageRebate: string
+        nonRefundableStorageFee: string
+      }
+    }
+  }
 }
 
 export interface GasMetrics {
@@ -74,11 +89,13 @@ export interface ComparisonResult {
  * Extract gas metrics from a simulateTransaction result.
  */
 export function extractGasMetrics(result: SimulateTransactionResult): GasMetrics {
-  const effects = result.effects
-  const isSuccess = !result.error && effects.status.status === 'success'
+  const txResult = result.Transaction ?? result.FailedTransaction
+  const effects = txResult?.effects
 
-  if (!isSuccess) {
-    const errorMsg = result.error ?? effects.status.error ?? "Unknown error"
+  if (!effects || !effects.status.success) {
+    const errorMsg = effects?.status.success === false
+      ? effects.status.error.message
+      : "Unknown error"
     return {
       computationCost: "0",
       storageCost: "0",

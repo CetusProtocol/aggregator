@@ -17,9 +17,9 @@ describe("HAEDALPMM Router", () => {
     await testDexRouter(
       client,
       "HAEDALPMM",
-      testData.M_USDC,
       testData.M_SUI,
-      "1000000",
+      testData.M_USDC,
+      "1000000000",
       true
     )
   }, 30000)

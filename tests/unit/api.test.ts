@@ -3,7 +3,6 @@ import BN from "bn.js"
 import { getRouterResult, processFlattenRoutes, getMergeSwapResult } from "~/api"
 import type { FindRouterParams } from "~/types/shared"
 import * as testData from "../test_data"
-import { TEST_OVERLAY_FEE_RECEIVER } from "../utils/constants"
 
 const AGGREGATOR_ENDPOINT = "https://api-sui.cetus.zone/router_v3"
 
@@ -58,7 +57,7 @@ describe("API Layer", () => {
         "",
         params,
         1000, // 0.1% fee (1000/1000000)
-        TEST_OVERLAY_FEE_RECEIVER
+        "0x2a3f0d37e42b91dfa0ca3b4887de5cca9dce1a01551e4837947e7f40340973a5"
       )
 
       expect(resultNoFee).toBeDefined()
