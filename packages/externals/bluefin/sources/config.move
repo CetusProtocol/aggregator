@@ -25,3 +25,8 @@ public struct GlobalConfig has key, store {
     /// Accounts that are whitelisted to update rewards on any pool
     reward_managers: vector<address>,
 }
+
+/// Verify that the provided global config supports the current package version.
+public fun verify_version(_config: &GlobalConfig) {
+    abort 0
+}
