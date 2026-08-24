@@ -2,11 +2,12 @@
 name = "CetusAggregatorV2"
 version = "0.1.1"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
-published-at = "0x40e457bc65a398d2db7026881358fcb7cfa2f1bb052bca41f46c55a1103f2d6f"
+published-at = "0x550ee36ade22b4193242ad6fb52c09b4b7185a3f678b1c074d5714040af0bf63"
 # published-at = "0x0"
 
 [dependencies]
 Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.23.1", override = true }
+MoveStdlib = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "mainnet-v1.23.1", override = true }
 SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "mainnet-v1.23.1", override = true }
 MoveSTL = { git = "https://github.com/CetusProtocol/move-stl.git", rev = "mainnet-v1.3.0", override = true }
 IntegerMate = { git = "https://github.com/CetusProtocol/integer-mate.git", rev = "mainnet-v1.3.0", override = true }
@@ -26,8 +27,8 @@ Afsui = { local = "../../externals/aftermath/staking" }
 Hasui = { local = "../../externals/hasui" }
 Vsui = { local = "../../externals/vsui" }
 BlueMove = { local = "../../externals/bluemove" }
-deepbookv3 = { local = "../../externals/deepbookv3-old/deepbook" }
-token = { local = "../../externals/deepbookv3-old/token" }
+deepbookv3 = { local = "../../externals/deepbookv3/deepbook" }
+token = { local = "../../externals/deepbookv3/token" }
 
 
 [addresses]
