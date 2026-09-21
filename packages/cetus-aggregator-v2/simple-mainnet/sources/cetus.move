@@ -1,10 +1,10 @@
 #[allow(unused_use, unused_field, unused_variable)]
 module cetus_aggregator_simple::cetus {
     use cetus_aggregator_simple::utils::transfer_or_destroy_coin;
-    use cetusclmm::config::GlobalConfig;
-    use cetusclmm::partner::Partner;
-    use cetusclmm::pool::{Self, Pool, FlashSwapReceipt};
-    use cetusclmm::tick_math;
+    use cetus_clmm::config::GlobalConfig;
+    use cetus_clmm::partner::Partner;
+    use cetus_clmm::pool::{Self, Pool, FlashSwapReceipt};
+    use cetus_clmm::tick_math;
     use std::type_name::{Self, TypeName};
     use sui::balance;
     use sui::clock::Clock;

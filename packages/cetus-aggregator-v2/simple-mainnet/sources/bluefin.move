@@ -2,7 +2,7 @@ module cetus_aggregator_simple::bluefin {
     use bluefin_spot::config::GlobalConfig;
     use bluefin_spot::pool::{swap, Pool};
     use cetus_aggregator_simple::utils;
-    use cetusclmm::tick_math;
+    use cetus_clmm::tick_math;
     use std::type_name::{Self, TypeName};
     use sui::balance;
     use sui::clock::Clock;

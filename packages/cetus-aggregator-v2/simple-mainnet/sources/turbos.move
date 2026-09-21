@@ -1,6 +1,6 @@
 module cetus_aggregator_simple::turbos {
     use cetus_aggregator_simple::utils::transfer_or_destroy_coin;
-    use cetusclmm::tick_math;
+    use cetus_clmm::tick_math;
     use std::type_name::{Self, TypeName};
     use sui::clock::{Self, Clock};
     use sui::coin::{Self, Coin};
