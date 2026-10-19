@@ -19,7 +19,7 @@ import {
   MergeRoute,
 } from "./types/shared"
 
-const SDK_VERSION = 1010603
+const SDK_VERSION = 1010604
 
 function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
   // Parse packages map from API response
