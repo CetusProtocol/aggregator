@@ -74,6 +74,7 @@ import { FerraClmmRouter } from "./movecall/ferra_clmm"
 import { BoltRouter } from "./movecall/bolt"
 import { MagmaPropAmmRouter } from "./movecall/magmapropamm"
 import { HaedalPropAmmRouter } from "./movecall/haedalpropamm"
+import { CetusTideRouter } from "./movecall/cetus_tide"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
@@ -112,6 +113,7 @@ export const FERRACLMM = "FERRACLMM"
 export const BOLT = "BOLT"
 export const MAGMAPROPAMM = "MAGMAPROPAMM"
 export const HAEDALPROPAMM = "HAEDALPROPAMM"
+export const CETUS_TIDE = "CETUS_TIDE"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v3"
 
 export const ALL_DEXES = [
@@ -150,6 +152,7 @@ export const ALL_DEXES = [
   BOLT,
   MAGMAPROPAMM,
   HAEDALPROPAMM,
+  CETUS_TIDE,
 ]
 
 export const PYTH_ORACLE_BASED_DEXES = [
@@ -355,7 +358,6 @@ export class AggregatorClient {
   private pythAvailabilityCheckedAt?: number
   private pythAvailable?: boolean
   private pythAvailabilityPromise?: Promise<boolean>
-
   private static readonly CONFIG: Record<Env, PythConfig> = {
     [Env.Testnet]: {
       wormholeStateId:
@@ -649,6 +651,8 @@ export class AggregatorClient {
         return new MagmaPropAmmRouter(this.env)
       case HAEDALPROPAMM:
         return new HaedalPropAmmRouter(this.env)
+      case CETUS_TIDE:
+        return new CetusTideRouter()
       default:
         throw new Error(
           `${Constants.CLIENT_CONFIG.ERRORS.UNSUPPORTED_DEX} ${provider}`

@@ -60,7 +60,8 @@ export async function setupTestClient(
 //   const signer = keypair
 //     ? signerFromKey
 //     : await WalletUtils.getOptimalWalletForTesting(_fromCoin, fallbackWallet)
-  const signer = fallbackWallet
+  // Use the wallet from SUI_WALLET_SECRET in .env as the signer instead of a hardcoded fallback.
+  const signer = signerFromKey
 
 
   const env = Env.Mainnet

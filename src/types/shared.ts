@@ -138,7 +138,19 @@ export type ExtendedDetails = {
   haedalpropamm_oracle_mode?: string
   haedalpropamm_base_price_info_object?: string
   haedalpropamm_quote_price_info_object?: string
+  // cetus tide
+  cetus_tide_fill?: CetusTideFill
+  cetus_tide_mm_object_id?: string
+  cetus_tide_versioned?: string
+  cetus_tide_global_config?: string
   aux_shared_versions?: Record<string, number>
+}
+
+export type CetusTideFill = {
+  envelope: string         // 0x + BCS bytes of SignedQuote
+  signature: string        // 0x + (32B pubkey || 64B ed25519 sig)
+  quote_hash: string       // 0x + blake2b256(envelope_bytes)
+  sig_expiry_ms: string | number  // u64 wire
 }
 
 // Path type with V3 capabilities (using direction instead of a2b, string amounts)
