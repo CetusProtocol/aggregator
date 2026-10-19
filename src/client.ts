@@ -152,6 +152,13 @@ export const ALL_DEXES = [
   HAEDALPROPAMM,
 ]
 
+export const PYTH_ORACLE_BASED_DEXES = [
+  HAEDALPMM,
+  METASTABLE,
+  STEAMM_OMM_V2,
+  HAEDALHMMV2,
+]
+
 export type BuildRouterSwapParamsV3 = {
   router: RouterDataV3
   inputCoin: TransactionObjectArgument
@@ -324,6 +331,7 @@ export type AggregatorClientParams = {
   overlayFeeRate?: number
   overlayFeeReceiver?: string
   cetusDlmmPartner?: string
+  pythAvailabilityCheckInterval?: number
 }
 
 interface PythConfig {
@@ -343,6 +351,10 @@ export class AggregatorClient {
   protected overlayFeeReceiver: string
   protected partner?: string
   protected cetusDlmmPartner?: string
+  private pythAvailabilityCheckInterval?: number
+  private pythAvailabilityCheckedAt?: number
+  private pythAvailable?: boolean
+  private pythAvailabilityPromise?: Promise<boolean>
 
   private static readonly CONFIG: Record<Env, PythConfig> = {
     [Env.Testnet]: {
@@ -385,6 +397,10 @@ export class AggregatorClient {
     this.apiKey = params.apiKey || ""
     this.partner = params.partner
     this.cetusDlmmPartner = params.cetusDlmmPartner
+    this.pythAvailabilityCheckInterval =
+      validatePythAvailabilityCheckInterval(
+        params.pythAvailabilityCheckInterval
+      )
 
     // Override overlay fee rate calculation for v3
     if (params.overlayFeeRate) {
@@ -442,10 +458,19 @@ export class AggregatorClient {
   }
 
   async findRouters(params: FindRouterParams): Promise<RouterDataV3 | null> {
+    const {
+      params: routerParams,
+      providersExhausted,
+    } = await this.filterProvidersByPythAvailability(params)
+
+    if (providersExhausted) {
+      return emptyRouterResult(routerParams.byAmountIn)
+    }
+
     return getRouterResult(
       this.endpoint,
       this.apiKey,
-      params,
+      routerParams,
       this.overlayFeeRate,
       this.overlayFeeReceiver
     )
@@ -454,13 +479,85 @@ export class AggregatorClient {
   async findMergeSwapRouters(
     params: MergeSwapParams
   ): Promise<MergeSwapRouterData | null> {
+    const {
+      params: routerParams,
+      providersExhausted,
+    } = await this.filterProvidersByPythAvailability(params)
+
+    if (providersExhausted) {
+      return emptyMergeSwapResult()
+    }
+
     return getMergeSwapResult(
       this.endpoint,
       this.apiKey,
-      params,
+      routerParams,
       this.overlayFeeRate,
       this.overlayFeeReceiver
     )
+  }
+
+  private async filterProvidersByPythAvailability<
+    T extends {
+      providers?: string[]
+      pythAvailabilityCheckInterval?: number
+    },
+  >(params: T): Promise<{ params: T; providersExhausted: boolean }> {
+    const interval = validatePythAvailabilityCheckInterval(
+      params.pythAvailabilityCheckInterval ??
+        this.pythAvailabilityCheckInterval
+    )
+
+    if (interval === undefined) {
+      return { params, providersExhausted: false }
+    }
+
+    const pythAvailable = await this.getPythAvailability(interval)
+    if (pythAvailable) {
+      return { params, providersExhausted: false }
+    }
+
+    const sourceProviders =
+      params.providers && params.providers.length > 0
+        ? params.providers
+        : ALL_DEXES
+    const providers = sourceProviders.filter(
+      provider => !PYTH_ORACLE_BASED_DEXES.includes(provider)
+    )
+
+    return {
+      params: { ...params, providers },
+      providersExhausted: providers.length === 0,
+    }
+  }
+
+  private async getPythAvailability(interval: number): Promise<boolean> {
+    const now = Date.now()
+    if (
+      this.pythAvailable !== undefined &&
+      this.pythAvailabilityCheckedAt !== undefined &&
+      now - this.pythAvailabilityCheckedAt < interval
+    ) {
+      return this.pythAvailable
+    }
+
+    if (this.pythAvailabilityPromise) {
+      return this.pythAvailabilityPromise
+    }
+
+    this.pythAvailabilityPromise = this.pythAdapter
+      .isHermesAvailable()
+      .catch(() => false)
+      .then(available => {
+        this.pythAvailable = available
+        this.pythAvailabilityCheckedAt = Date.now()
+        return available
+      })
+      .finally(() => {
+        this.pythAvailabilityPromise = undefined
+      })
+
+    return this.pythAvailabilityPromise
   }
 
   async executeFlexibleInputSwap(
@@ -1706,6 +1803,40 @@ function generateUUID(): string {
     const v = c === "x" ? r : (r & 0x3) | 0x8
     return v.toString(16)
   })
+}
+
+function validatePythAvailabilityCheckInterval(
+  interval: number | undefined
+): number | undefined {
+  if (interval === undefined) {
+    return undefined
+  }
+  if (!Number.isFinite(interval) || interval < 0) {
+    throw new Error(
+      "pythAvailabilityCheckInterval must be a non-negative number"
+    )
+  }
+  return interval
+}
+
+function emptyRouterResult(byAmountIn: boolean): RouterDataV3 {
+  return {
+    quoteID: "",
+    amountIn: Constants.ZERO,
+    amountOut: Constants.ZERO,
+    paths: [],
+    byAmountIn,
+    insufficientLiquidity: true,
+    deviationRatio: 0,
+  }
+}
+
+function emptyMergeSwapResult(): MergeSwapRouterData {
+  return {
+    quoteID: "",
+    totalAmountOut: Constants.ZERO,
+    allRoutes: [],
+  }
 }
 
 function recordFirstCoinIndex(paths: Path[]): Map<string, number> {

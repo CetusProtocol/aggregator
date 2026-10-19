@@ -1,8 +1,13 @@
-import { describe, test, expect, vi } from "vitest"
+import { afterEach, describe, test, expect, vi } from "vitest"
 import { PythAdapter } from "~/pyth/adapter"
 import { bcs } from "@mysten/sui/bcs"
 
 describe("PythAdapter", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   test("reads package id from nested upgrade_cap fields", async () => {
     const client = {
       getObject: vi.fn().mockResolvedValue({
@@ -62,5 +67,30 @@ describe("PythAdapter", () => {
         bcs: expectedBcs,
       },
     })
+  })
+
+  test("checks Hermes endpoint availability", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 503 })
+      .mockResolvedValueOnce({ status: 200 })
+    vi.stubGlobal("fetch", fetchMock)
+
+    const adapter = new PythAdapter(
+      {} as any,
+      "0xpyth",
+      "0xwormhole",
+      ["https://custom.hermes", "https://custom.hermes/"]
+    )
+
+    const snapshot = await adapter.checkHermesAvailability({ timeout: 50 })
+
+    expect(adapter.getHermesUrls()).toEqual([
+      "https://custom.hermes",
+      "https://hermes.pyth.network",
+    ])
+    expect(snapshot.checked).toBe(true)
+    expect(snapshot.availableUrls).toEqual(["https://hermes.pyth.network"])
+    expect(snapshot.unavailableUrls).toEqual(["https://custom.hermes"])
   })
 })

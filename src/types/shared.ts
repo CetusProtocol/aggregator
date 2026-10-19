@@ -16,6 +16,7 @@ export interface FindRouterParams {
   splitFactor?: number
   splitCount?: number
   providers?: string[]
+  pythAvailabilityCheckInterval?: number
   liquidityChanges?: PreSwapLpChangeParams[]
 }
 
@@ -29,6 +30,7 @@ export interface MergeSwapParams {
   byAmountIn: boolean
   depth?: number
   providers?: string[]
+  pythAvailabilityCheckInterval?: number
   froms: MergeSwapFromCoin[]
 }
 

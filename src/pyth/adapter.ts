@@ -5,6 +5,10 @@ import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import { Transaction } from "@mysten/sui/transactions"
 
 const MAX_ARGUMENT_SIZE = 16 * 1024
+const DEFAULT_HERMES_URL = "https://hermes.pyth.network"
+const DEFAULT_AVAILABILITY_TIMEOUT = 3000
+const DEFAULT_IS_AVAILABLE_STATUS = (status: number) =>
+  status >= 200 && status < 400
 
 export type ObjectId = string
 
@@ -13,9 +17,21 @@ interface PriceTableInfo {
   fieldType: string
 }
 
+export interface PythAvailabilitySnapshot {
+  checked: boolean
+  availableUrls: string[]
+  unavailableUrls: string[]
+}
+
+export interface PythAvailabilityOptions {
+  timeout?: number
+  isAvailableStatus?: (status: number) => boolean
+}
+
 export class PythAdapter {
   private client: SuiGrpcClient
   private hermesClients: HermesClient[]
+  private hermesUrls: string[]
   private pythStateId: ObjectId
   private wormholeStateId: ObjectId
   private pythPackageId: string | undefined
@@ -34,13 +50,57 @@ export class PythAdapter {
     this.pythStateId = pythStateId
     this.wormholeStateId = wormholeStateId
 
-    const urls = [...hermesUrls]
-    if (!urls.includes("https://hermes.pyth.network")) {
-      urls.push("https://hermes.pyth.network")
+    const urls = Array.from(
+      new Set(hermesUrls.filter(Boolean).map(normalizeServiceUrl))
+    )
+    if (!urls.includes(DEFAULT_HERMES_URL)) {
+      urls.push(DEFAULT_HERMES_URL)
     }
+    this.hermesUrls = urls
     this.hermesClients = urls.map(
       url => new HermesClient(url, { timeout: 3000 })
     )
+  }
+
+  getHermesUrls(): string[] {
+    return [...this.hermesUrls]
+  }
+
+  async checkHermesAvailability(
+    {
+      timeout = DEFAULT_AVAILABILITY_TIMEOUT,
+      isAvailableStatus = DEFAULT_IS_AVAILABLE_STATUS,
+    }: PythAvailabilityOptions = {}
+  ): Promise<PythAvailabilitySnapshot> {
+    if (this.hermesUrls.length === 0) {
+      return {
+        checked: false,
+        availableUrls: [],
+        unavailableUrls: [],
+      }
+    }
+
+    const results = await Promise.all(
+      this.hermesUrls.map(async url => ({
+        url,
+        available: await checkServiceUrl(url, timeout, isAvailableStatus),
+      }))
+    )
+
+    return {
+      checked: true,
+      availableUrls: results
+        .filter(result => result.available)
+        .map(result => result.url),
+      unavailableUrls: results
+        .filter(result => !result.available)
+        .map(result => result.url),
+    }
+  }
+
+  async isHermesAvailable(options?: PythAvailabilityOptions): Promise<boolean> {
+    const snapshot = await this.checkHermesAvailability(options)
+    return snapshot.availableUrls.length > 0
   }
 
   async getPriceFeedsUpdateData(priceIDs: string[]): Promise<Buffer[]> {
@@ -309,4 +369,30 @@ export class PythAdapter {
 
     return priceInfoObjects
   }
+}
+
+async function checkServiceUrl(
+  url: string,
+  timeout: number,
+  isAvailableStatus: (status: number) => boolean
+) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout)
+
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      signal: controller.signal,
+    })
+    return isAvailableStatus(response.status)
+  } catch {
+    return false
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
+function normalizeServiceUrl(url: string) {
+  return url.replace(/\/+$/, "")
 }
