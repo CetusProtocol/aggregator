@@ -22,7 +22,11 @@ import { SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import * as Constants from "../const"
 
 export class HaedalPropAmmRouter implements DexRouter {
-  constructor(_env: Env) {}
+  private readonly pythPriceIDs: Map<string, string>
+
+  constructor(_env: Env, pythPriceIDs: Map<string, string>) {
+    this.pythPriceIDs = pythPriceIDs
+  }
 
   swap(
     txb: Transaction,
@@ -67,6 +71,16 @@ export class HaedalPropAmmRouter implements DexRouter {
         "HAEDALPROPAMM quote price info object not found in extended details"
       )
     }
+    if (!extendedDetails.haedalpropamm_base_price_seed) {
+      throw new Error(
+        "HAEDALPROPAMM base price seed not found in extended details"
+      )
+    }
+    if (!extendedDetails.haedalpropamm_quote_price_seed) {
+      throw new Error(
+        "HAEDALPROPAMM quote price seed not found in extended details"
+      )
+    }
   }
 
   private prepareSwapData(flattenedPath: FlattenedPath) {
@@ -88,6 +102,17 @@ export class HaedalPropAmmRouter implements DexRouter {
       ? Constants.AGGREGATOR_V3_CONFIG.MAX_AMOUNT_IN
       : path.amountIn
 
+    const basePriceSeed = extendedDetails.haedalpropamm_base_price_seed!
+    const quotePriceSeed = extendedDetails.haedalpropamm_quote_price_seed!
+    const basePriceInfoObject = this.pythPriceIDs.get(basePriceSeed)
+    const quotePriceInfoObject = this.pythPriceIDs.get(quotePriceSeed)
+
+    if (!basePriceInfoObject || !quotePriceInfoObject) {
+      throw new Error(
+        "HAEDALPROPAMM requires updated Pyth price info objects for both coins"
+      )
+    }
+
     return {
       baseType,
       quoteType,
@@ -96,9 +121,8 @@ export class HaedalPropAmmRouter implements DexRouter {
       publishedAt: path.publishedAt!,
       poolId: extendedDetails.haedalpropamm_pool_id!,
       regimeId: extendedDetails.haedalpropamm_regime_id!,
-      basePriceInfoObject: extendedDetails.haedalpropamm_base_price_info_object!,
-      quotePriceInfoObject:
-        extendedDetails.haedalpropamm_quote_price_info_object!,
+      basePriceInfoObject,
+      quotePriceInfoObject,
     }
   }
 

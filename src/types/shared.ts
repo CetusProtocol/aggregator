@@ -136,6 +136,8 @@ export type ExtendedDetails = {
   haedalpropamm_pool_id?: string
   haedalpropamm_regime_id?: string
   haedalpropamm_oracle_mode?: string
+  haedalpropamm_base_price_seed?: string
+  haedalpropamm_quote_price_seed?: string
   haedalpropamm_base_price_info_object?: string
   haedalpropamm_quote_price_info_object?: string
   // cetus tide

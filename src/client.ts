@@ -160,6 +160,7 @@ export const PYTH_ORACLE_BASED_DEXES = [
   METASTABLE,
   STEAMM_OMM_V2,
   HAEDALHMMV2,
+  HAEDALPROPAMM,
 ]
 
 export type BuildRouterSwapParamsV3 = {
@@ -317,6 +318,16 @@ function findPythPriceIDs(paths: Path[]): string[] {
         path.extendedDetails.haedalhmmv2_base_price_seed
       ) {
         priceIDs.add(path.extendedDetails.haedalhmmv2_base_price_seed)
+      }
+    }
+    if (path.provider === HAEDALPROPAMM) {
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.haedalpropamm_base_price_seed &&
+        path.extendedDetails.haedalpropamm_quote_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.haedalpropamm_base_price_seed)
+        priceIDs.add(path.extendedDetails.haedalpropamm_quote_price_seed)
       }
     }
   }
@@ -650,7 +661,7 @@ export class AggregatorClient {
       case MAGMAPROPAMM:
         return new MagmaPropAmmRouter(this.env)
       case HAEDALPROPAMM:
-        return new HaedalPropAmmRouter(this.env)
+        return new HaedalPropAmmRouter(this.env, pythPriceIDs)
       case CETUS_TIDE:
         return new CetusTideRouter()
       default:
