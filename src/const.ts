@@ -90,7 +90,6 @@ export const DEEPBOOK_PUBLISHED_AT =
 export const CETUS_PUBLISHED_AT =
   "0x70968826ad1b4ba895753f634b0aea68d0672908ca1075a2abdf0fc9e0b2fc6a"
 
-// Cetus V3 published-at constant
 export const MAINNET_CETUS_V3_PUBLISHED_AT =
   "0xd7b0cfc33a3b46c0ae0e2584c44028385da11724d4c94ec5b21a78117c5c1ab9"
 
@@ -250,7 +249,7 @@ export const CLIENT_CONFIG = {
     SIGNER_REQUIRED: "Signer is required, but not provided.",
     INVALID_OVERLAY_FEE_RATE: "Overlay fee rate must be between 0 and 0.1",
     INVALID_SLIPPAGE:
-      "Invalid slippage value. Must be between 0 and 1 (e.g., 0.01 represents 1% slippage)",
+      "Invalid slippage value. Must be at least 0 and less than 1 (e.g., 0.01 represents 1% slippage)",
     NO_ROUTER_FOUND: "No router found",
     EMPTY_PATH: "Empty path",
     UNSUPPORTED_DEX: "Unsupported dex",
@@ -274,7 +273,7 @@ export const AGGREGATOR_V3_CONFIG = {
   MAX_AMOUNT_IN: U64_MAX,
 
   DEFAULT_PUBLISHED_AT: {
-    Mainnet: "0xde5d696a79714ca5cb910b9aed99d41f67353abb00715ceaeb0663d57ee39640",
+    Mainnet: "0xffd4058af7d6f6d66c335930cced8c91e38ec943e2392232aee27e8127e684e9",
     Testnet: "0x61da681cf2af95cb214a71596b49e662290065536984ed7e06b47e701ef547e3",
   },
 } as const

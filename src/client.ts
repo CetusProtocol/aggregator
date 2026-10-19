@@ -53,9 +53,8 @@ import { AfsuiRouter } from "./movecall/afsui"
 import { HaedalRouter } from "./movecall/haedal"
 import { HawalRouter } from "./movecall/hawal"
 import {
-  newSwapContext,
-  newSwapContextV2,
-  confirmSwap,
+  newSwapContextV3,
+  confirmSwapV3,
   transferOrDestroyCoin,
   takeBalance,
   transferBalance,
@@ -166,6 +165,13 @@ export const PYTH_ORACLE_BASED_DEXES = [
   HAEDALHMMV2,
   HAEDALPROPAMM,
 ]
+
+function slippageToContractValue(slippage: number): number {
+  if (!Number.isFinite(slippage) || slippage < 0 || slippage >= 1) {
+    throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
+  }
+  return Math.floor(slippage * 1_000_000)
+}
 
 export type BuildRouterSwapParamsV3 = {
   router: RouterDataV3
@@ -745,8 +751,9 @@ export class AggregatorClient {
     txb: Transaction,
     inputCoin: TransactionObjectArgument,
     routerData: RouterDataV3,
-    expectAmountOut: string,
-    amountOutLimit: string,
+    quoteAmountIn: string,
+    quoteAmountOut: string,
+    slippage: number,
     pythPriceIDs: Map<string, string>,
     partner?: string,
     cetusDlmmPartner?: string,
@@ -758,13 +765,15 @@ export class AggregatorClient {
     // Step 1: Flatten and sort routes for V3 execution
     const processedData = processFlattenRoutes(routerData)
 
-    const swapCtx = newSwapContext(
+    const swapCtx = newSwapContextV3(
       {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
-        expectAmountOut,
-        amountOutLimit,
+        maxAmountIn: Constants.U64_MAX,
+        quoteAmountIn,
+        quoteAmountOut,
+        slippage: slippageToContractValue(slippage),
         inputCoin,
         feeRate: this.overlayFeeRate,
         feeRecipient: this.overlayFeeReceiver,
@@ -793,7 +802,7 @@ export class AggregatorClient {
       dex.swap(txb, flattenedPath, swapCtx, { pythPriceIDs })
     }
 
-    const outputCoin = confirmSwap(
+    const outputCoin = confirmSwapV3(
       {
         swapContext: swapCtx,
         targetCoinType: processedData.targetCoinType,
@@ -810,8 +819,9 @@ export class AggregatorClient {
     inputCoin: TransactionObjectArgument,
     routerData: RouterDataV3,
     maxAmountIn: BN,
-    expectAmountOut: string,
-    amountOutLimit: string,
+    quoteAmountIn: string,
+    quoteAmountOut: string,
+    slippage: number,
     pythPriceIDs: Map<string, string>,
     partner?: string,
     cetusDlmmPartner?: string,
@@ -823,14 +833,15 @@ export class AggregatorClient {
     // Step 1: Flatten and sort routes for V3 execution
     const processedData = processFlattenRoutes(routerData)
 
-    const swapCtx = newSwapContextV2(
+    const swapCtx = newSwapContextV3(
       {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
         maxAmountIn,
-        expectAmountOut,
-        amountOutLimit,
+        quoteAmountIn,
+        quoteAmountOut,
+        slippage: slippageToContractValue(slippage),
         inputCoin,
         feeRate: this.overlayFeeRate,
         feeRecipient: this.overlayFeeReceiver,
@@ -859,7 +870,7 @@ export class AggregatorClient {
       dex.swap(txb, flattenedPath, swapCtx, { pythPriceIDs })
     }
 
-    const outputCoin = confirmSwap(
+    const outputCoin = confirmSwapV3(
       {
         swapContext: swapCtx,
         targetCoinType: processedData.targetCoinType,
@@ -875,20 +886,23 @@ export class AggregatorClient {
     txb: Transaction,
     inputCoin: TransactionObjectArgument,
     routerData: RouterDataV3,
-    amountOut: string,
-    _amountLimit: string, // it will set when build inputcoin
+    quoteAmountIn: string,
+    quoteAmountOut: string,
+    slippage: number,
     partner?: string
   ): TransactionObjectArgument {
     const receipts: TransactionObjectArgument[] = []
     const dex = new CetusRouter(this.env, partner)
     const processedData = processFlattenRoutes(routerData)
-    const swapCtx = newSwapContext(
+    const swapCtx = newSwapContextV3(
       {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
-        expectAmountOut: amountOut,
-        amountOutLimit: amountOut, // amountOutLimit equals expectAmountOut when fix amout out
+        maxAmountIn: Constants.U64_MAX,
+        quoteAmountIn,
+        quoteAmountOut,
+        slippage: slippageToContractValue(slippage),
         inputCoin,
         feeRate: this.overlayFeeRate,
         feeRecipient: this.overlayFeeReceiver,
@@ -993,7 +1007,7 @@ export class AggregatorClient {
       txb
     )
 
-    const outputCoin = confirmSwap(
+    const outputCoin = confirmSwapV3(
       {
         swapContext: swapCtx,
         targetCoinType: processedData.targetCoinType,
@@ -1010,21 +1024,23 @@ export class AggregatorClient {
     inputCoin: TransactionObjectArgument,
     routerData: RouterDataV3,
     maxAmountIn: BN,
-    amountOut: string,
-    _amountLimit: string, // it will set when build inputcoin
+    quoteAmountIn: string,
+    quoteAmountOut: string,
+    slippage: number,
     partner?: string
   ): TransactionObjectArgument {
     const receipts: TransactionObjectArgument[] = []
     const dex = new CetusRouter(this.env, partner)
     const processedData = processFlattenRoutes(routerData)
-    const swapCtx = newSwapContextV2(
+    const swapCtx = newSwapContextV3(
       {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
         maxAmountIn,
-        expectAmountOut: amountOut,
-        amountOutLimit: amountOut, // amountOutLimit equals expectAmountOut when fix amout out
+        quoteAmountIn,
+        quoteAmountOut,
+        slippage: slippageToContractValue(slippage),
         inputCoin,
         feeRate: this.overlayFeeRate,
         feeRecipient: this.overlayFeeReceiver,
@@ -1129,7 +1145,7 @@ export class AggregatorClient {
       txb
     )
 
-    const outputCoin = confirmSwap(
+    const outputCoin = confirmSwapV3(
       {
         swapContext: swapCtx,
         targetCoinType: processedData.targetCoinType,
@@ -1146,9 +1162,7 @@ export class AggregatorClient {
   ): Promise<TransactionObjectArgument> {
     const { router, inputCoin, slippage, txb, partner, cetusDlmmPartner } = params
 
-    if (slippage > 1 || slippage < 0) {
-      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
-    }
+    slippageToContractValue(slippage)
 
     if (
       !params.router.packages ||
@@ -1176,12 +1190,6 @@ export class AggregatorClient {
     const expectedAmountOut = byAmountIn ? amountOut.sub(overlayFee) : amountOut
     const expectedAmountIn = byAmountIn ? amountIn : amountIn.add(overlayFee)
 
-    const amountLimit = CalculateAmountLimitBN(
-      byAmountIn ? expectedAmountOut : expectedAmountIn,
-      byAmountIn,
-      slippage
-    )
-
     const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
       await this.preparePythPriceInfoObjects(router.paths, txb)
 
@@ -1190,8 +1198,9 @@ export class AggregatorClient {
         txb,
         inputCoin,
         router,
-        amountOut.toString(),
-        amountLimit.toString(),
+        expectedAmountIn.toString(),
+        expectedAmountOut.toString(),
+        slippage,
         priceInfoObjectIds,
         partner ?? this.partner,
         cetusDlmmPartner ?? this.cetusDlmmPartner,
@@ -1202,8 +1211,9 @@ export class AggregatorClient {
         txb,
         inputCoin,
         router,
-        amountOut.toString(),
-        amountLimit.toString(),
+        expectedAmountIn.toString(),
+        expectedAmountOut.toString(),
+        slippage,
         partner ?? this.partner
       )
     }
@@ -1223,9 +1233,7 @@ export class AggregatorClient {
   ): Promise<TransactionObjectArgument> {
     const { router, inputCoin, slippage, txb, partner, maxAmountIn } = params
 
-    if (slippage > 1 || slippage < 0) {
-      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
-    }
+    slippageToContractValue(slippage)
 
     if (
       !params.router.packages ||
@@ -1253,12 +1261,6 @@ export class AggregatorClient {
     const expectedAmountOut = byAmountIn ? amountOut.sub(overlayFee) : amountOut
     const expectedAmountIn = byAmountIn ? amountIn : amountIn.add(overlayFee)
 
-    const amountLimit = CalculateAmountLimitBN(
-      byAmountIn ? expectedAmountOut : expectedAmountIn,
-      byAmountIn,
-      slippage
-    )
-
     const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
       await this.preparePythPriceInfoObjects(router.paths, txb)
 
@@ -1268,22 +1270,24 @@ export class AggregatorClient {
         inputCoin,
         router,
         maxAmountIn,
-        amountOut.toString(),
-        amountLimit.toString(),
+        expectedAmountIn.toString(),
+        expectedAmountOut.toString(),
+        slippage,
         priceInfoObjectIds,
         partner ?? this.partner,
         undefined,
         pythCoreV2PriceIDs
       )
     } else {
-      // For fixed output swaps, we still use the v2 context with max amount validation
+      // Fixed-output swaps use the same v3 quote guard and max-input bound.
       return this.expectOutputSwapV3WithMaxAmountIn(
         txb,
         inputCoin,
         router,
         maxAmountIn,
-        amountOut.toString(),
-        amountLimit.toString(),
+        expectedAmountIn.toString(),
+        expectedAmountOut.toString(),
+        slippage,
         partner ?? this.partner
       )
     }
@@ -1422,9 +1426,7 @@ export class AggregatorClient {
   ): Promise<TransactionObjectArgument> {
     const { router, inputCoins, slippage, txb, partner } = params
 
-    if (slippage > 1 || slippage < 0) {
-      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
-    }
+    slippageToContractValue(slippage)
 
     if (
       !router.packages ||
@@ -1543,6 +1545,8 @@ export class AggregatorClient {
   ): Promise<TransactionObjectArgument> {
     const { router, inputCoin, slippage, txb, partner } = params
 
+    slippageToContractValue(slippage)
+
     checkOverlayFeeConfig(this.overlayFeeRate, this.overlayFeeReceiver)
     let overlayFee = 0
     if (router.byAmountIn) {
@@ -1568,12 +1572,6 @@ export class AggregatorClient {
       ? router.amountIn
       : router.amountIn.add(new BN(overlayFee))
 
-    const amountLimit = CalculateAmountLimitBN(
-      router.byAmountIn ? expectedAmountOut : expectedAmountIn,
-      router.byAmountIn,
-      slippage
-    )
-
     const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
       await this.preparePythPriceInfoObjects(router.paths, txb)
 
@@ -1582,8 +1580,9 @@ export class AggregatorClient {
         txb,
         inputCoin,
         router,
+        expectedAmountIn.toString(),
         expectedAmountOut.toString(),
-        amountLimit.toString(),
+        slippage,
         priceInfoObjectIds,
         partner ?? this.partner,
         undefined,
@@ -1594,8 +1593,9 @@ export class AggregatorClient {
         txb,
         inputCoin,
         router,
+        expectedAmountIn.toString(),
         expectedAmountOut.toString(),
-        amountLimit.toString(),
+        slippage,
         partner ?? this.partner
       )
     }
