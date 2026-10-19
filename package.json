@@ -1,6 +1,6 @@
 {
   "name": "@cetusprotocol/aggregator-sdk",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "type": "module",
   "sideEffects": false,
   "main": "dist/index.js",
@@ -19,7 +19,7 @@
     "publish:test": "node version.mjs && npm publish --tag experimental"
   },
   "dependencies": {
-    "@mysten/sui": "^2.16.3",
+    "@mysten/sui": "2.31.2",
     "@pythnetwork/hermes-client": "^3.1.0",
     "bip39": "^3.1.0",
     "dotenv": "^16.4.5",
@@ -36,6 +36,9 @@
     "tsup": "^8.0.2",
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=22"
   },
   "overrides": {
     "chalk": "5.3.0",

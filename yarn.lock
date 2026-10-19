@@ -2,17 +2,17 @@
 # yarn lockfile v1
 
 
-"@0no-co/graphql.web@^1.0.5":
-  version "1.2.0"
-  resolved "https://registry.npmjs.org/@0no-co/graphql.web/-/graphql.web-1.2.0.tgz"
-  integrity sha512-/1iHy9TTr63gE1YcR5idjx8UREz1s0kFhydf3bBLCXyqjhkIc6igAzTOx3zPifCwFR87tsh/4Pa9cNts6d2otw==
+"@0no-co/graphql.web@^1.3.1", "@0no-co/graphql.web@^1.3.2":
+  version "1.3.4"
+  resolved "https://registry.npmjs.org/@0no-co/graphql.web/-/graphql.web-1.3.4.tgz"
+  integrity sha512-imSwulOeDQodRy/olQmVEo2PiY6ntjkZ9eiGdw6lMYylh/tay9b7MusyJBmEnkL8GiKRKr6ltr+D42mY5bd8Bg==
 
-"@0no-co/graphqlsp@^1.12.13":
-  version "1.15.2"
-  resolved "https://registry.npmjs.org/@0no-co/graphqlsp/-/graphqlsp-1.15.2.tgz"
-  integrity sha512-Ys031WnS3sTQQBtRTkQsYnw372OlW72ais4sp0oh2UMPRNyxxnq85zRfU4PIdoy9kWriysPT5BYAkgIxhbonFA==
+"@0no-co/graphqlsp@^1.17.3":
+  version "1.17.5"
+  resolved "https://registry.npmjs.org/@0no-co/graphqlsp/-/graphqlsp-1.17.5.tgz"
+  integrity sha512-wsygfTO3pdkz4idDw8BxdMdgB9AB8nuJDJTUwYy87BiZEZRXS4bEfn4oNl9VtxTo6j2lzX/gED+IvOgxsSy2Jg==
   dependencies:
-    "@gql.tada/internal" "^1.0.0"
+    "@gql.tada/internal" "^1.2.1"
     graphql "^15.5.0 || ^16.0.0 || ^17.0.0"
 
 "@esbuild/darwin-arm64@0.25.9":
@@ -25,21 +25,21 @@
   resolved "https://registry.npmjs.org/@esbuild/darwin-arm64/-/darwin-arm64-0.27.3.tgz"
   integrity sha512-Re491k7ByTVRy0t3EKWajdLIr0gz2kKKfzafkth4Q8A5n1xTHrkqZgLLjFEHVD+AXdUGgQMq+Godfq45mGpCKg==
 
-"@gql.tada/cli-utils@1.7.2":
-  version "1.7.2"
-  resolved "https://registry.npmjs.org/@gql.tada/cli-utils/-/cli-utils-1.7.2.tgz"
-  integrity sha512-Qbc7hbLvCz6IliIJpJuKJa9p05b2Jona7ov7+qofCsMRxHRZE1kpAmZMvL8JCI4c0IagpIlWNaMizXEQUe8XjQ==
+"@gql.tada/cli-utils@1.9.3":
+  version "1.9.3"
+  resolved "https://registry.npmjs.org/@gql.tada/cli-utils/-/cli-utils-1.9.3.tgz"
+  integrity sha512-P1TiXErpJwIi73sei5fzwGA/SOeCaIHFWFR4RdZPLwqxZzQN0T6MAUivzXBgKCORL67rvYnLaaPoWeqWq/61ug==
   dependencies:
-    "@0no-co/graphqlsp" "^1.12.13"
-    "@gql.tada/internal" "1.0.8"
+    "@0no-co/graphqlsp" "^1.17.3"
+    "@gql.tada/internal" "1.2.2"
     graphql "^15.5.0 || ^16.0.0 || ^17.0.0"
 
-"@gql.tada/internal@^1.0.0", "@gql.tada/internal@1.0.8":
-  version "1.0.8"
-  resolved "https://registry.npmjs.org/@gql.tada/internal/-/internal-1.0.8.tgz"
-  integrity sha512-XYdxJhtHC5WtZfdDqtKjcQ4d7R1s0d1rnlSs3OcBEUbYiPoJJfZU7tWsVXuv047Z6msvmr4ompJ7eLSK5Km57g==
+"@gql.tada/internal@^1.2.1", "@gql.tada/internal@1.2.2":
+  version "1.2.2"
+  resolved "https://registry.npmjs.org/@gql.tada/internal/-/internal-1.2.2.tgz"
+  integrity sha512-4lZcElPP6MC8Ct8KN70LR2WQsHjbAsyAmTGG09VsOPhx738UFIYaL0S1XiI2pqq2tj/sDs/y3b9jvKoWGL7iuQ==
   dependencies:
-    "@0no-co/graphql.web" "^1.0.5"
+    "@0no-co/graphql.web" "^1.3.1"
 
 "@graphql-typed-document-node/core@^3.2.0":
   version "3.2.0"
@@ -84,63 +84,63 @@
     "@jridgewell/resolve-uri" "^3.1.0"
     "@jridgewell/sourcemap-codec" "^1.4.14"
 
-"@mysten/bcs@^2.0.5":
-  version "2.0.5"
-  resolved "https://r.cnpmjs.org/@mysten/bcs/-/bcs-2.0.5.tgz"
-  integrity sha512-Dop9Xq36DPLlsmIDQZvUg4uJeBBxIGirgp2OXGaEff+mtLKFBoW2HnE3aSTSSpiMQH9XRhjwtiM16zFJhFqz0Q==
+"@mysten/bcs@^2.1.1":
+  version "2.1.1"
+  resolved "https://registry.npmjs.org/@mysten/bcs/-/bcs-2.1.1.tgz"
+  integrity sha512-IDYomoQ6+yvOIClBHmNdScttv+h/HbGGHLEdUmGQptR3YdqqLM5vJD28wf2QP/UXCEBkCoG7TOT6pFNw8ExYmA==
   dependencies:
-    "@mysten/utils" "^0.3.3"
-    "@scure/base" "^2.0.0"
+    "@mysten/utils" "^0.4.1"
+    "@scure/base" "^2.3.0"
 
-"@mysten/sui@^2.16.3":
-  version "2.16.3"
-  resolved "https://r.cnpmjs.org/@mysten/sui/-/sui-2.16.3.tgz"
-  integrity sha512-EhfPCxEmQ+/mLtd8qEW2NlynnY3XoQH9tGgSFQBmsUsW3nr10Eba/kAmqM49Adb+23c3sGlGkGg8HiothuFKuA==
+"@mysten/sui@2.31.2":
+  version "2.31.2"
+  resolved "https://registry.npmjs.org/@mysten/sui/-/sui-2.31.2.tgz"
+  integrity sha512-AarMaFrTlRUZyhHNRh/hrAIaxgrYXupbXypJq0TbGmgouJspwzg+fsk0aH4/67kkCeUC23idueQ2lc7BMyTlMg==
   dependencies:
     "@graphql-typed-document-node/core" "^3.2.0"
-    "@mysten/bcs" "^2.0.5"
-    "@mysten/utils" "^0.3.3"
-    "@noble/curves" "^2.0.1"
-    "@noble/hashes" "^2.0.1"
+    "@mysten/bcs" "^2.1.1"
+    "@mysten/utils" "^0.4.1"
+    "@noble/curves" "^2.3.0"
+    "@noble/hashes" "^2.3.0"
     "@protobuf-ts/grpcweb-transport" "^2.11.1"
     "@protobuf-ts/runtime" "^2.11.1"
     "@protobuf-ts/runtime-rpc" "^2.11.1"
-    "@scure/base" "^2.0.0"
-    "@scure/bip32" "^2.0.1"
-    "@scure/bip39" "^2.0.1"
-    gql.tada "^1.9.0"
-    graphql "^16.12.0"
-    poseidon-lite "0.2.1"
-    valibot "^1.2.0"
+    "@scure/base" "^2.3.0"
+    "@scure/bip32" "^2.3.0"
+    "@scure/bip39" "^2.3.0"
+    gql.tada "^1.11.3"
+    graphql "^17.0.2"
+    poseidon-lite "0.3.0"
+    valibot "^1.4.2"
 
-"@mysten/utils@^0.3.3":
-  version "0.3.3"
-  resolved "https://r.cnpmjs.org/@mysten/utils/-/utils-0.3.3.tgz"
-  integrity sha512-gVHn5toh24eXXLEyBknwwM2F/tbDgqPX0yj77KtHjuoYUallcQ9vSwGfGsAy39IcTB259Yprt/ZOEwdup+zrpA==
+"@mysten/utils@^0.4.1":
+  version "0.4.1"
+  resolved "https://registry.npmjs.org/@mysten/utils/-/utils-0.4.1.tgz"
+  integrity sha512-gffLJ84CbqG/CcOPuVlwXIRu37tFn0BtUx7CQtbLwJzWjUE7FU2Gq8BXWjzxImnvufcyLTaNWtCPG6wq22Zhog==
   dependencies:
-    "@scure/base" "^2.0.0"
+    "@scure/base" "^2.3.0"
 
-"@noble/curves@^2.0.1", "@noble/curves@2.0.1":
-  version "2.0.1"
-  resolved "https://registry.npmjs.org/@noble/curves/-/curves-2.0.1.tgz"
-  integrity sha512-vs1Az2OOTBiP4q0pwjW5aF0xp9n4MxVrmkFBxc6EKZc6ddYx5gaZiAsZoq0uRRXWbi3AT/sBqn05eRPtn1JCPw==
+"@noble/curves@^2.3.0", "@noble/curves@2.4.0":
+  version "2.4.0"
+  resolved "https://registry.npmjs.org/@noble/curves/-/curves-2.4.0.tgz"
+  integrity sha512-P4/62zrgfH33CneE3Dn4WhJVA22YUU0eR51wKIan4NVRvwsA0YnPTwWGpNbpuacSujmSFLvyzpyuR30+fbq2Ew==
   dependencies:
-    "@noble/hashes" "2.0.1"
+    "@noble/hashes" "2.4.0"
 
 "@noble/hashes@^1.2.0":
   version "1.8.0"
   resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-1.8.0.tgz"
   integrity sha512-jCs9ldd7NwzpgXDIf6P3+NrHh9/sD6CQdxHyjQI+h/6rDNo88ypBxxz45UDuZHz9r3tNz7N/VInSVoVdtXEI4A==
 
-"@noble/hashes@^2.0.1":
-  version "2.0.1"
-  resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-2.0.1.tgz"
-  integrity sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==
+"@noble/hashes@^2.3.0":
+  version "2.4.0"
+  resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-2.4.0.tgz"
+  integrity sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==
 
-"@noble/hashes@2.0.1":
-  version "2.0.1"
-  resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-2.0.1.tgz"
-  integrity sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==
+"@noble/hashes@2.4.0":
+  version "2.4.0"
+  resolved "https://registry.npmjs.org/@noble/hashes/-/hashes-2.4.0.tgz"
+  integrity sha512-X5XaVWZIBCT7HHZGm5I7ZQXDwLG+bGXuSrMQAW+7Zvl87h1kmc1ZB1VSRJcpUfoUrGQp4Fkoxm5kZ+Ms+aW+eA==
 
 "@pkgjs/parseargs@^0.11.0":
   version "0.11.0"
@@ -181,27 +181,26 @@
   resolved "https://registry.npmjs.org/@rollup/rollup-darwin-arm64/-/rollup-darwin-arm64-4.50.1.tgz"
   integrity sha512-xc6i2AuWh++oGi4ylOFPmzJOEeAa2lJeGUGb4MudOtgfyyjr4UPNK+eEWTPLvmPJIY/pgw6ssFIox23SyrkkJw==
 
-"@scure/base@^2.0.0", "@scure/base@2.0.0":
-  version "2.0.0"
-  resolved "https://registry.npmjs.org/@scure/base/-/base-2.0.0.tgz"
-  integrity sha512-3E1kpuZginKkek01ovG8krQ0Z44E3DHPjc5S2rjJw9lZn3KSQOs8S7wqikF/AH7iRanHypj85uGyxk0XAyC37w==
+"@scure/base@^2.3.0", "@scure/base@2.4.0":
+  version "2.4.0"
+  resolved "https://registry.npmjs.org/@scure/base/-/base-2.4.0.tgz"
+  integrity sha512-thZ1TuJwFwBblOhgsjDKvvGirBxNp+wSvY/DR6tJBJOTDhdAAcHJ8Vbr2eFnqaxeca4+t0i9KBf+uHYGWwZORg==
 
-"@scure/bip32@^2.0.1":
-  version "2.0.1"
-  resolved "https://registry.npmjs.org/@scure/bip32/-/bip32-2.0.1.tgz"
-  integrity sha512-4Md1NI5BzoVP+bhyJaY3K6yMesEFzNS1sE/cP+9nuvE7p/b0kx9XbpDHHFl8dHtufcbdHRUUQdRqLIPHN/s7yA==
+"@scure/bip32@^2.3.0":
+  version "2.4.0"
+  resolved "https://registry.npmjs.org/@scure/bip32/-/bip32-2.4.0.tgz"
+  integrity sha512-i3DS0CptAocyvqE4n3SUkpzeQK4vJMFwWLofTwRiiKo2aWojBOfyMCgfKw9HVpO6fSY5AK86sHS/Uzn8kK9Few==
   dependencies:
-    "@noble/curves" "2.0.1"
-    "@noble/hashes" "2.0.1"
-    "@scure/base" "2.0.0"
+    "@noble/curves" "2.4.0"
+    "@noble/hashes" "2.4.0"
+    "@scure/base" "2.4.0"
 
-"@scure/bip39@^2.0.1":
-  version "2.0.1"
-  resolved "https://registry.npmjs.org/@scure/bip39/-/bip39-2.0.1.tgz"
-  integrity sha512-PsxdFj/d2AcJcZDX1FXN3dDgitDDTmwf78rKZq1a6c1P1Nan1X/Sxc7667zU3U+AN60g7SxxP0YCVw2H/hBycg==
+"@scure/bip39@^2.3.0":
+  version "2.4.0"
+  resolved "https://registry.npmjs.org/@scure/bip39/-/bip39-2.4.0.tgz"
+  integrity sha512-82dxFbZUYboyOf0AXiydsQrFQ5Q4h9mX+O2UkE91ROYmsc0BKMGZLwDmy96Jpa2+vrtoxomjUhy1RPIgH/r2nA==
   dependencies:
-    "@noble/hashes" "2.0.1"
-    "@scure/base" "2.0.0"
+    "@noble/hashes" "2.4.0"
 
 "@standard-schema/spec@^1.0.0":
   version "1.1.0"
@@ -764,20 +763,20 @@ gopd@^1.2.0:
   resolved "https://registry.npmjs.org/gopd/-/gopd-1.2.0.tgz"
   integrity sha512-ZUKRh6/kUFoAiTAtTYPZJ3hw9wNxx+BIBOijnlG9PnrJsCcSjs1wyyD6vJpaYtgnzDrKYRSqf3OO6Rfa93xsRg==
 
-gql.tada@^1.9.0:
-  version "1.9.0"
-  resolved "https://registry.npmjs.org/gql.tada/-/gql.tada-1.9.0.tgz"
-  integrity sha512-1LMiA46dRs5oF7Qev6vMU32gmiNvM3+3nHoQZA9K9j2xQzH8xOAWnnJrLSbZOFHTSdFxqn86TL6beo1/7ja/aA==
+gql.tada@^1.11.3:
+  version "1.11.3"
+  resolved "https://registry.npmjs.org/gql.tada/-/gql.tada-1.11.3.tgz"
+  integrity sha512-5JCI4j2f0nug8ILaCQys/yjOP78QqqjVUf47OQsME63rZfemsHT3e5vcfbHsnZiG6vxyqpKUJArtXEVwSefUhw==
   dependencies:
-    "@0no-co/graphql.web" "^1.0.5"
-    "@0no-co/graphqlsp" "^1.12.13"
-    "@gql.tada/cli-utils" "1.7.2"
-    "@gql.tada/internal" "1.0.8"
+    "@0no-co/graphql.web" "^1.3.2"
+    "@0no-co/graphqlsp" "^1.17.3"
+    "@gql.tada/cli-utils" "1.9.3"
+    "@gql.tada/internal" "1.2.2"
 
-"graphql@^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0", "graphql@^14.0.0 || ^15.0.0 || ^16.0.0", "graphql@^15.5.0 || ^16.0.0 || ^17.0.0", graphql@^16.12.0:
-  version "16.13.1"
-  resolved "https://registry.npmjs.org/graphql/-/graphql-16.13.1.tgz"
-  integrity sha512-gGgrVCoDKlIZ8fIqXBBb0pPKqDgki0Z/FSKNiQzSGj2uEYHr1tq5wmBegGwJx6QB5S5cM0khSBpi/JFHMCvsmQ==
+"graphql@^0.8.0 || ^0.9.0 || ^0.10.0 || ^0.11.0 || ^0.12.0 || ^0.13.0 || ^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0", "graphql@^14.0.0 || ^15.0.0 || ^16.0.0 || ^17.0.0", "graphql@^15.5.0 || ^16.0.0 || ^17.0.0", graphql@^17.0.2:
+  version "17.0.2"
+  resolved "https://registry.npmjs.org/graphql/-/graphql-17.0.2.tgz"
+  integrity sha512-FRWbddMxfkjiB7z+aQDWIR+E34xo9I8c9mtK2RPv8PmMzKRvrdsreHL/Ui/TmwHJfhHChEtsFPyMHKI+xuarQQ==
 
 has-symbols@^1.0.3, has-symbols@^1.1.0:
   version "1.1.0"
@@ -990,10 +989,10 @@ pkg-types@^1.3.1:
     mlly "^1.7.4"
     pathe "^2.0.1"
 
-poseidon-lite@0.2.1:
-  version "0.2.1"
-  resolved "https://registry.npmjs.org/poseidon-lite/-/poseidon-lite-0.2.1.tgz"
-  integrity sha512-xIr+G6HeYfOhCuswdqcFpSX47SPhm0EpisWJ6h7fHlWwaVIvH3dLnejpatrtw6Xc6HaLrpq05y7VRfvDmDGIog==
+poseidon-lite@0.3.0:
+  version "0.3.0"
+  resolved "https://registry.npmjs.org/poseidon-lite/-/poseidon-lite-0.3.0.tgz"
+  integrity sha512-ilJj4MIve4uBEG7SrtPqUUNkvpJ/pLVbndxa0WvebcQqeIhe+h72JR4g0EvwchUzm9sOQDlOjiDNmRAgxNZl4A==
 
 postcss-load-config@^6.0.1:
   version "6.0.1"
@@ -1241,7 +1240,7 @@ tsup@^8.0.2:
     tinyglobby "^0.2.11"
     tree-kill "^1.2.2"
 
-typescript@^5.0.0, typescript@>=4.5.0, typescript@>=5:
+typescript@^5.0.0, "typescript@^5.0.0 || ^6.0.0", "typescript@^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0", typescript@>=4.5.0, typescript@>=5:
   version "5.9.2"
   resolved "https://registry.npmjs.org/typescript/-/typescript-5.9.2.tgz"
   integrity sha512-CWBzXQrc/qOkhidw1OzBTQuYRbfyxDXJMVJ1XNwUHGROVmuaeiEm3OslpZ1RV96d7SKKjZKrSJu3+t/xlw3R9A==
@@ -1256,10 +1255,10 @@ undici-types@~6.21.0:
   resolved "https://registry.npmjs.org/undici-types/-/undici-types-6.21.0.tgz"
   integrity sha512-iwDZqg0QAGrg9Rav5H4n0M64c3mkR59cJ6wQp+7C4nI0gsmExaedaYLNO44eT4AtBBwjbTiGPMlt2Md0T9H9JQ==
 
-valibot@^1.2.0:
-  version "1.3.1"
-  resolved "https://registry.npmjs.org/valibot/-/valibot-1.3.1.tgz"
-  integrity sha512-sfdRir/QFM0JaF22hqTroPc5xy4DimuGQVKFrzF1YfGwaS1nJot3Y8VqMdLO2Lg27fMzat2yD3pY5PbAYO39Gg==
+valibot@^1.4.2:
+  version "1.5.0"
+  resolved "https://registry.npmjs.org/valibot/-/valibot-1.5.0.tgz"
+  integrity sha512-nil6AkP2TChWL43Z5uJ6GTxX01CUA+g8LWUM+N/rB9NBbkUMaUsi9PUNzlUPgoKASgmx9f7eGOYpJ04/fSa6FQ==
 
 "vite@^6.0.0 || ^7.0.0", "vite@^6.0.0 || ^7.0.0-0":
   version "7.3.1"
