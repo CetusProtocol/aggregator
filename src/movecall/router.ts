@@ -93,6 +93,13 @@ export interface SwapContextV2 extends SwapContext {
   maxAmountIn: string | BN | bigint | number
 }
 
+export interface SwapContextV3
+  extends Omit<SwapContextV2, "expectAmountOut" | "amountOutLimit"> {
+  quoteAmountIn: string | BN | bigint | number
+  quoteAmountOut: string | BN | bigint | number
+  slippage: string | BN | bigint | number
+}
+
 /**
  * Creates a new swap context with max amount in validation (v2).
  * This function calls new_swap_context_v2 which validates that the input coin value
@@ -137,6 +144,42 @@ export function newSwapContextV2(
   return swap_context
 }
 
+export function newSwapContextV3(
+  params: SwapContextV3,
+  txb: Transaction
+): TransactionObjectArgument {
+  const {
+    quoteID,
+    fromCoinType,
+    targetCoinType,
+    maxAmountIn,
+    quoteAmountIn,
+    quoteAmountOut,
+    slippage,
+    inputCoin,
+    feeRate,
+    feeRecipient,
+    aggregatorPublishedAt,
+    packages,
+  } = params
+  const publishedAt = getAggregatorPublishedAt(packages, aggregatorPublishedAt)
+
+  return txb.moveCall({
+    target: `${publishedAt}::router::new_swap_context_v3`,
+    typeArguments: [fromCoinType, targetCoinType],
+    arguments: [
+      txb.pure.string(quoteID),
+      txb.pure.u64(maxAmountIn.toString()),
+      txb.pure.u64(quoteAmountIn.toString()),
+      txb.pure.u64(quoteAmountOut.toString()),
+      txb.pure.u64(slippage.toString()),
+      inputCoin,
+      txb.pure.u32(Number(feeRate.toString())),
+      txb.pure.address(feeRecipient),
+    ],
+  }) as TransactionObjectArgument
+}
+
 export interface ConfirmSwapContext {
   swapContext: TransactionObjectArgument
   targetCoinType: string
@@ -160,6 +203,21 @@ export function confirmSwap(
     arguments: [swapContext],
   }) as TransactionObjectArgument
   return targetCoin
+}
+
+export function confirmSwapV3(
+  params: ConfirmSwapContext,
+  txb: Transaction
+): TransactionObjectArgument {
+  const { swapContext, targetCoinType, aggregatorPublishedAt, packages } =
+    params
+  const publishedAt = getAggregatorPublishedAt(packages, aggregatorPublishedAt)
+
+  return txb.moveCall({
+    target: `${publishedAt}::router::confirm_swap_v3`,
+    typeArguments: [targetCoinType],
+    arguments: [swapContext],
+  }) as TransactionObjectArgument
 }
 
 export interface TakeBalanceContext {

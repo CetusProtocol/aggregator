@@ -14,14 +14,21 @@ import {
   MergeSwapInputCoin,
   MergeSwapRouterData,
   DeepbookV3ConfigResponse,
+  RebalanceRouterData,
 } from "./types/shared"
 import {
   getRouterResult,
+  getRebalanceRouterResult,
   processFlattenRoutes,
   getMergeSwapResult,
   getDeepbookV3Config,
 } from "./api"
 import { Env } from "./config"
+import {
+  AggregatorError,
+  TransactionErrorCode,
+  parseAggregatorContractError,
+} from "./errors"
 import { CalculateAmountLimit, CalculateAmountLimitBN } from "./math"
 import { CoinUtils } from "./types/CoinAssist"
 import * as Constants from "./const"
@@ -33,6 +40,7 @@ import { TurbosRouter } from "./movecall/turbos"
 import { BluefinRouter } from "./movecall/bluefin"
 import { MomentumRouter } from "./movecall/momentum"
 import { MagmaRouter } from "./movecall/magma"
+import { DipcoinRouter } from "./movecall/dipcoin"
 import { KriyaV2Router } from "./movecall/kriya_v2"
 import { FlowxV2Router } from "./movecall/flowx_v2"
 import { BluemoveRouter } from "./movecall/bluemove"
@@ -53,9 +61,8 @@ import { AfsuiRouter } from "./movecall/afsui"
 import { HaedalRouter } from "./movecall/haedal"
 import { HawalRouter } from "./movecall/hawal"
 import {
-  newSwapContext,
-  newSwapContextV2,
-  confirmSwap,
+  newSwapContextV3,
+  confirmSwapV3,
   transferOrDestroyCoin,
   takeBalance,
   transferBalance,
@@ -63,7 +70,12 @@ import {
 import { completionCoin, compareCoins } from "./utils/coin"
 import { coinWithBalance } from "@mysten/sui/transactions"
 import { SuiGrpcClient } from "@mysten/sui/grpc"
-import { PythAdapter } from "./pyth/adapter"
+import { fromHex, SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
+import {
+  PythAdapter,
+  PythServiceProtocol,
+  PythUrlEntry,
+} from "./pyth/adapter"
 import { processEndpoint } from "./utils"
 import { Signer } from "@mysten/sui/cryptography"
 import { HaedalHMMV2Router } from "./movecall/haedal_hmm_v2"
@@ -74,9 +86,11 @@ import { FerraClmmRouter } from "./movecall/ferra_clmm"
 import { BoltRouter } from "./movecall/bolt"
 import { MagmaPropAmmRouter } from "./movecall/magmapropamm"
 import { HaedalPropAmmRouter } from "./movecall/haedalpropamm"
+import { CetusTideRouter } from "./movecall/cetus_tide"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
+export const DIPCOIN = "DIPCOIN"
 export const KRIYA = "KRIYA"
 export const FLOWXV2 = "FLOWX"
 export const FLOWXV3 = "FLOWXV3"
@@ -112,11 +126,13 @@ export const FERRACLMM = "FERRACLMM"
 export const BOLT = "BOLT"
 export const MAGMAPROPAMM = "MAGMAPROPAMM"
 export const HAEDALPROPAMM = "HAEDALPROPAMM"
+export const CETUS_TIDE = "CETUS_TIDE"
 export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v3"
 
 export const ALL_DEXES = [
   CETUS,
   KRIYA,
+  DIPCOIN,
   FLOWXV2,
   FLOWXV3,
   KRIYAV3,
@@ -150,7 +166,92 @@ export const ALL_DEXES = [
   BOLT,
   MAGMAPROPAMM,
   HAEDALPROPAMM,
+  CETUS_TIDE,
 ]
+
+export const PYTH_ORACLE_BASED_DEXES = [
+  HAEDALPMM,
+  METASTABLE,
+  STEAMM_OMM_V2,
+  HAEDALHMMV2,
+  HAEDALPROPAMM,
+]
+
+// Providers that are automatically removed from routing when the caller
+// declares a slippage at or below MAX_TIGHT_SLIPPAGE: their fills cannot
+// reliably satisfy such a tight output limit, so routing through them would
+// frequently abort on-chain with a slippage check failure.
+export const TIGHT_SLIPPAGE_EXCLUDED_DEXES = [CETUS_TIDE]
+
+// 0.1% — at or below this threshold TIGHT_SLIPPAGE_EXCLUDED_DEXES are
+// filtered out.
+export const MAX_TIGHT_SLIPPAGE = 0.001
+
+function slippageToContractValue(slippage: number): number {
+  if (!Number.isFinite(slippage) || slippage < 0 || slippage >= 1) {
+    throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
+  }
+  return Math.floor(slippage * 1_000_000)
+}
+
+/**
+ * When the caller declares a slippage at or below MAX_TIGHT_SLIPPAGE (0.1%),
+ * removes TIGHT_SLIPPAGE_EXCLUDED_DEXES (currently CETUS_TIDE) from the
+ * effective providers list, since those providers cannot reliably satisfy
+ * such a tight output limit and would abort on-chain with a slippage check
+ * failure. No-op when slippage is not provided or above the threshold.
+ */
+export function filterProvidersBySlippage<
+  T extends { providers?: string[]; slippage?: number },
+>(params: T): { params: T; providersExhausted: boolean } {
+  const { slippage } = params
+  if (slippage === undefined) {
+    return { params, providersExhausted: false }
+  }
+  if (!Number.isFinite(slippage) || slippage < 0 || slippage >= 1) {
+    throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
+  }
+  if (slippage > MAX_TIGHT_SLIPPAGE) {
+    return { params, providersExhausted: false }
+  }
+
+  const sourceProviders =
+    params.providers && params.providers.length > 0
+      ? params.providers
+      : ALL_DEXES
+  const providers = sourceProviders.filter(
+    provider =>
+      !TIGHT_SLIPPAGE_EXCLUDED_DEXES.includes(provider.trim().toUpperCase())
+  )
+
+  return {
+    params: { ...params, providers },
+    providersExhausted: providers.length === 0,
+  }
+}
+
+function decodeRebalanceHex(
+  label: string,
+  value: string,
+  expectedLength?: number
+): number[] {
+  let bytes: number[]
+  try {
+    bytes = Array.from(fromHex(value))
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new Error(`PQF rebalance: invalid ${label} hex: ${reason}`)
+  }
+  if (bytes.length === 0) {
+    throw new Error(`PQF rebalance: ${label} must not be empty`)
+  }
+  if (expectedLength != null && bytes.length !== expectedLength) {
+    throw new Error(
+      `PQF rebalance: ${label} must be ${expectedLength} bytes, got ${bytes.length}`
+    )
+  }
+  return bytes
+}
 
 export type BuildRouterSwapParamsV3 = {
   router: RouterDataV3
@@ -179,6 +280,21 @@ export type BuildFastRouterSwapParamsV3 = {
   // (which belongs to the sponsor). SUI input is taken from the sender's own coins and
   // SUI output is delivered to the sender instead of being merged into the gas coin.
   sponsored?: boolean
+}
+
+export type BuildRebalanceSwapParams = {
+  router: RebalanceRouterData
+  slippage: number
+  txb: Transaction
+  pqfPublishedAt: string
+  versionedObjectId: string
+  globalConfigObjectId: string
+  marketMakerObjectId: string
+  poolObjectId: string
+  baseCoinType: string
+  quoteCoinType: string
+  partner?: string
+  cetusDlmmPartner?: string
 }
 
 // Parameters for assembling a Sui sponsored transaction from a pre-built transaction
@@ -309,6 +425,40 @@ function findPythPriceIDs(paths: Path[]): string[] {
         priceIDs.add(path.extendedDetails.haedalhmmv2_base_price_seed)
       }
     }
+    if (path.provider === HAEDALPROPAMM) {
+      // Legacy Pyth core mode only; "pyth_core_v2" seeds go through the v2
+      // adapter (findPythCoreV2PriceIDs).
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.haedalpropamm_oracle_mode === "pyth_core" &&
+        path.extendedDetails.haedalpropamm_base_price_seed &&
+        path.extendedDetails.haedalpropamm_quote_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.haedalpropamm_base_price_seed)
+        priceIDs.add(path.extendedDetails.haedalpropamm_quote_price_seed)
+      }
+    }
+  }
+  return Array.from(priceIDs)
+}
+
+// Seeds needing PriceInfoObjects from the pro-compatible ("Pyth core v2")
+// deployment. Only HAEDALPROPAMM pools whose oracle mode is "pyth_core_v2"
+// use it; everything else stays on the legacy deployment above.
+function findPythCoreV2PriceIDs(paths: Path[]): string[] {
+  const priceIDs = new Set<string>()
+  for (const path of paths) {
+    if (path.provider === HAEDALPROPAMM) {
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.haedalpropamm_oracle_mode === "pyth_core_v2" &&
+        path.extendedDetails.haedalpropamm_base_price_seed &&
+        path.extendedDetails.haedalpropamm_quote_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.haedalpropamm_base_price_seed)
+        priceIDs.add(path.extendedDetails.haedalpropamm_quote_price_seed)
+      }
+    }
   }
   return Array.from(priceIDs)
 }
@@ -324,6 +474,18 @@ export type AggregatorClientParams = {
   overlayFeeRate?: number
   overlayFeeReceiver?: string
   cetusDlmmPartner?: string
+  pythAvailabilityCheckInterval?: number
+  // Overrides for the new Pyth core deployment (used only by HAEDALPROPAMM).
+  // Defaults come from Constants.PYTH_CORE_V2_CONFIG. Teams with their own
+  // registered Pyth api key can point pythUrls at their endpoint here; an
+  // apiKey is bound to exactly the url it is declared with:
+  //   pythUrls: [{ url: "https://my.endpoint", apiKey: "my-key" }]
+  pythCoreV2?: {
+    pythStateId?: string
+    wormholeStateId?: string
+    pythUrls?: Array<string | PythUrlEntry>
+    protocol?: PythServiceProtocol
+  }
 }
 
 interface PythConfig {
@@ -339,11 +501,17 @@ export class AggregatorClient {
   public apiKey: string
 
   protected pythAdapter: PythAdapter
+  // Adapter for the new Pyth core deployment; only HAEDALPROPAMM builds
+  // against it. Everything else stays on `pythAdapter` (legacy deployment).
+  protected pythAdapterV2: PythAdapter
   protected overlayFeeRate: number
   protected overlayFeeReceiver: string
   protected partner?: string
   protected cetusDlmmPartner?: string
-
+  private pythAvailabilityCheckInterval?: number
+  private pythAvailabilityCheckedAt?: number
+  private pythAvailable?: boolean
+  private pythAvailabilityPromise?: Promise<boolean>
   private static readonly CONFIG: Record<Env, PythConfig> = {
     [Env.Testnet]: {
       wormholeStateId:
@@ -374,17 +542,42 @@ export class AggregatorClient {
       params.client ?? new SuiGrpcClient({ network, baseUrl: grpcUrl })
     this.signer = params.signer || ""
     this.env = params.env || Env.Mainnet
+    this.apiKey = params.apiKey || ""
 
     const config = AggregatorClient.CONFIG[this.env]
     this.pythAdapter = new PythAdapter(
       this.client,
       config.pythStateId,
       config.wormholeStateId,
-      params.pythUrls ?? [],
+      params.pythUrls ?? [Constants.CLIENT_CONFIG.DEFAULT_PYTH_URL]
     )
-    this.apiKey = params.apiKey || ""
+    const configV2 =
+      Constants.PYTH_CORE_V2_CONFIG[
+        this.env === Env.Testnet ? "Testnet" : "Mainnet"
+      ]
+    // Pro-compatible ("Pyth core v2") deployment adapter; only exercised for
+    // HAEDALPROPAMM paths whose oracle mode is "pyth_core_v2". Defaults live
+    // in Constants.PYTH_CORE_V2_CONFIG; the client's Cetus apiKey is bound
+    // only to the default Cetus proxy urls, never to caller-provided ones
+    // (each entry carries its own key).
+    // No fallback url: cross-deployment update data aborts on-chain.
+    this.pythAdapterV2 = new PythAdapter(
+      this.client,
+      params.pythCoreV2?.pythStateId ?? configV2.pythStateId,
+      params.pythCoreV2?.wormholeStateId ?? configV2.wormholeStateId,
+      params.pythCoreV2?.pythUrls ??
+        configV2.pythUrls.map(url => ({ url, apiKey: this.apiKey })),
+      {
+        protocol: params.pythCoreV2?.protocol ?? configV2.protocol,
+        fallbackUrl: null,
+      }
+    )
     this.partner = params.partner
     this.cetusDlmmPartner = params.cetusDlmmPartner
+    this.pythAvailabilityCheckInterval =
+      validatePythAvailabilityCheckInterval(
+        params.pythAvailabilityCheckInterval
+      )
 
     // Override overlay fee rate calculation for v3
     if (params.overlayFeeRate) {
@@ -442,25 +635,143 @@ export class AggregatorClient {
   }
 
   async findRouters(params: FindRouterParams): Promise<RouterDataV3 | null> {
+    const slippageFiltered = filterProvidersBySlippage(params)
+    if (slippageFiltered.providersExhausted) {
+      return emptyRouterResult(slippageFiltered.params.byAmountIn)
+    }
+
+    const {
+      params: routerParams,
+      providersExhausted,
+    } = await this.filterProvidersByPythAvailability(slippageFiltered.params)
+
+    if (providersExhausted) {
+      return emptyRouterResult(routerParams.byAmountIn)
+    }
+
     return getRouterResult(
       this.endpoint,
       this.apiKey,
-      params,
+      routerParams,
       this.overlayFeeRate,
       this.overlayFeeReceiver
+    )
+  }
+
+  async findRebalanceRouters(
+    params: FindRouterParams
+  ): Promise<RebalanceRouterData | null> {
+    const {
+      params: routerParams,
+      providersExhausted,
+    } = await this.filterProvidersByPythAvailability(params)
+
+    if (providersExhausted) {
+      return emptyRouterResult(routerParams.byAmountIn)
+    }
+
+    return getRebalanceRouterResult(
+      this.endpoint,
+      this.apiKey,
+      routerParams
     )
   }
 
   async findMergeSwapRouters(
     params: MergeSwapParams
   ): Promise<MergeSwapRouterData | null> {
+    const slippageFiltered = filterProvidersBySlippage(params)
+    if (slippageFiltered.providersExhausted) {
+      return emptyMergeSwapResult()
+    }
+
+    const {
+      params: routerParams,
+      providersExhausted,
+    } = await this.filterProvidersByPythAvailability(slippageFiltered.params)
+
+    if (providersExhausted) {
+      return emptyMergeSwapResult()
+    }
+
     return getMergeSwapResult(
       this.endpoint,
       this.apiKey,
-      params,
+      routerParams,
       this.overlayFeeRate,
       this.overlayFeeReceiver
     )
+  }
+
+  private async filterProvidersByPythAvailability<
+    T extends {
+      providers?: string[]
+      pythAvailabilityCheckInterval?: number
+    },
+  >(params: T): Promise<{ params: T; providersExhausted: boolean }> {
+    const interval = validatePythAvailabilityCheckInterval(
+      params.pythAvailabilityCheckInterval ??
+        this.pythAvailabilityCheckInterval
+    )
+
+    if (interval === undefined) {
+      return { params, providersExhausted: false }
+    }
+
+    const sourceProviders =
+      params.providers && params.providers.length > 0
+        ? params.providers
+        : ALL_DEXES
+    if (
+      !sourceProviders.some(provider =>
+        PYTH_ORACLE_BASED_DEXES.includes(provider)
+      )
+    ) {
+      return { params, providersExhausted: false }
+    }
+
+    const pythAvailable = await this.getPythAvailability(interval)
+    if (pythAvailable) {
+      return { params, providersExhausted: false }
+    }
+
+    const providers = sourceProviders.filter(
+      provider => !PYTH_ORACLE_BASED_DEXES.includes(provider)
+    )
+
+    return {
+      params: { ...params, providers },
+      providersExhausted: providers.length === 0,
+    }
+  }
+
+  private async getPythAvailability(interval: number): Promise<boolean> {
+    const now = Date.now()
+    if (
+      this.pythAvailable !== undefined &&
+      this.pythAvailabilityCheckedAt !== undefined &&
+      now - this.pythAvailabilityCheckedAt < interval
+    ) {
+      return this.pythAvailable
+    }
+
+    if (this.pythAvailabilityPromise) {
+      return this.pythAvailabilityPromise
+    }
+
+    this.pythAvailabilityPromise = this.pythAdapterV2
+      .isHermesAvailable()
+      .catch(() => false)
+      .then(available => {
+        this.pythAvailable = available
+        this.pythAvailabilityCheckedAt = Date.now()
+        return available
+      })
+      .finally(() => {
+        this.pythAvailabilityPromise = undefined
+      })
+
+    return this.pythAvailabilityPromise
   }
 
   async executeFlexibleInputSwap(
@@ -479,7 +790,10 @@ export class AggregatorClient {
     provider: string,
     pythPriceIDs: Map<string, string>,
     partner?: string,
-    cetusDlmmPartner?: string
+    cetusDlmmPartner?: string,
+    // PriceInfoObjects from the new Pyth core deployment; consumed only by
+    // HAEDALPROPAMM. Every other DEX keeps reading pythPriceIDs (legacy).
+    pythCoreV2PriceIDs?: Map<string, string>
   ): DexRouter {
     switch (provider) {
       case CETUS:
@@ -496,6 +810,8 @@ export class AggregatorClient {
         return new MomentumRouter(this.env)
       case MAGMA:
         return new MagmaRouter(this.env)
+      case DIPCOIN:
+        return new DipcoinRouter(this.env)
       case KRIYA:
         return new KriyaV2Router(this.env)
       case FLOWXV2:
@@ -551,7 +867,13 @@ export class AggregatorClient {
       case MAGMAPROPAMM:
         return new MagmaPropAmmRouter(this.env)
       case HAEDALPROPAMM:
-        return new HaedalPropAmmRouter(this.env)
+        return new HaedalPropAmmRouter(
+          this.env,
+          pythPriceIDs,
+          pythCoreV2PriceIDs ?? new Map()
+        )
+      case CETUS_TIDE:
+        return new CetusTideRouter()
       default:
         throw new Error(
           `${Constants.CLIENT_CONFIG.ERRORS.UNSUPPORTED_DEX} ${provider}`
@@ -563,25 +885,32 @@ export class AggregatorClient {
     txb: Transaction,
     inputCoin: TransactionObjectArgument,
     routerData: RouterDataV3,
-    expectAmountOut: string,
-    amountOutLimit: string,
+    quoteAmountIn: string,
+    quoteAmountOut: string,
+    slippage: number,
     pythPriceIDs: Map<string, string>,
     partner?: string,
-    cetusDlmmPartner?: string
+    cetusDlmmPartner?: string,
+    pythCoreV2PriceIDs?: Map<string, string>
   ): TransactionObjectArgument {
     if (routerData.quoteID == null) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
     }
+    if (!routerData.byAmountIn && routerData.paths.some(path => path.provider === DIPCOIN)) {
+      throw new Error("DipCoin only supports exact input")
+    }
     // Step 1: Flatten and sort routes for V3 execution
     const processedData = processFlattenRoutes(routerData)
 
-    const swapCtx = newSwapContext(
+    const swapCtx = newSwapContextV3(
       {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
-        expectAmountOut,
-        amountOutLimit,
+        maxAmountIn: Constants.U64_MAX,
+        quoteAmountIn,
+        quoteAmountOut,
+        slippage: slippageToContractValue(slippage),
         inputCoin,
         feeRate: this.overlayFeeRate,
         feeRecipient: this.overlayFeeReceiver,
@@ -601,7 +930,8 @@ export class AggregatorClient {
             path.provider,
             pythPriceIDs,
             partner,
-            cetusDlmmPartner
+            cetusDlmmPartner,
+            pythCoreV2PriceIDs
           )
         )
       }
@@ -609,7 +939,7 @@ export class AggregatorClient {
       dex.swap(txb, flattenedPath, swapCtx, { pythPriceIDs })
     }
 
-    const outputCoin = confirmSwap(
+    const outputCoin = confirmSwapV3(
       {
         swapContext: swapCtx,
         targetCoinType: processedData.targetCoinType,
@@ -626,26 +956,32 @@ export class AggregatorClient {
     inputCoin: TransactionObjectArgument,
     routerData: RouterDataV3,
     maxAmountIn: BN,
-    expectAmountOut: string,
-    amountOutLimit: string,
+    quoteAmountIn: string,
+    quoteAmountOut: string,
+    slippage: number,
     pythPriceIDs: Map<string, string>,
     partner?: string,
-    cetusDlmmPartner?: string
+    cetusDlmmPartner?: string,
+    pythCoreV2PriceIDs?: Map<string, string>
   ): TransactionObjectArgument {
     if (routerData.quoteID == null) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
     }
+    if (!routerData.byAmountIn && routerData.paths.some(path => path.provider === DIPCOIN)) {
+      throw new Error("DipCoin only supports exact input")
+    }
     // Step 1: Flatten and sort routes for V3 execution
     const processedData = processFlattenRoutes(routerData)
 
-    const swapCtx = newSwapContextV2(
+    const swapCtx = newSwapContextV3(
       {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
         maxAmountIn,
-        expectAmountOut,
-        amountOutLimit,
+        quoteAmountIn,
+        quoteAmountOut,
+        slippage: slippageToContractValue(slippage),
         inputCoin,
         feeRate: this.overlayFeeRate,
         feeRecipient: this.overlayFeeReceiver,
@@ -665,7 +1001,8 @@ export class AggregatorClient {
             path.provider,
             pythPriceIDs,
             partner,
-            cetusDlmmPartner
+            cetusDlmmPartner,
+            pythCoreV2PriceIDs
           )
         )
       }
@@ -673,7 +1010,7 @@ export class AggregatorClient {
       dex.swap(txb, flattenedPath, swapCtx, { pythPriceIDs })
     }
 
-    const outputCoin = confirmSwap(
+    const outputCoin = confirmSwapV3(
       {
         swapContext: swapCtx,
         targetCoinType: processedData.targetCoinType,
@@ -689,20 +1026,26 @@ export class AggregatorClient {
     txb: Transaction,
     inputCoin: TransactionObjectArgument,
     routerData: RouterDataV3,
-    amountOut: string,
-    _amountLimit: string, // it will set when build inputcoin
+    quoteAmountIn: string,
+    quoteAmountOut: string,
+    slippage: number,
     partner?: string
   ): TransactionObjectArgument {
+    if (routerData.paths.some(path => path.provider === DIPCOIN)) {
+      throw new Error("DipCoin only supports exact input")
+    }
     const receipts: TransactionObjectArgument[] = []
     const dex = new CetusRouter(this.env, partner)
     const processedData = processFlattenRoutes(routerData)
-    const swapCtx = newSwapContext(
+    const swapCtx = newSwapContextV3(
       {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
-        expectAmountOut: amountOut,
-        amountOutLimit: amountOut, // amountOutLimit equals expectAmountOut when fix amout out
+        maxAmountIn: Constants.U64_MAX,
+        quoteAmountIn,
+        quoteAmountOut,
+        slippage: slippageToContractValue(slippage),
         inputCoin,
         feeRate: this.overlayFeeRate,
         feeRecipient: this.overlayFeeReceiver,
@@ -807,7 +1150,7 @@ export class AggregatorClient {
       txb
     )
 
-    const outputCoin = confirmSwap(
+    const outputCoin = confirmSwapV3(
       {
         swapContext: swapCtx,
         targetCoinType: processedData.targetCoinType,
@@ -824,21 +1167,26 @@ export class AggregatorClient {
     inputCoin: TransactionObjectArgument,
     routerData: RouterDataV3,
     maxAmountIn: BN,
-    amountOut: string,
-    _amountLimit: string, // it will set when build inputcoin
+    quoteAmountIn: string,
+    quoteAmountOut: string,
+    slippage: number,
     partner?: string
   ): TransactionObjectArgument {
+    if (routerData.paths.some(path => path.provider === DIPCOIN)) {
+      throw new Error("DipCoin only supports exact input")
+    }
     const receipts: TransactionObjectArgument[] = []
     const dex = new CetusRouter(this.env, partner)
     const processedData = processFlattenRoutes(routerData)
-    const swapCtx = newSwapContextV2(
+    const swapCtx = newSwapContextV3(
       {
         quoteID: processedData.quoteID,
         fromCoinType: processedData.fromCoinType,
         targetCoinType: processedData.targetCoinType,
         maxAmountIn,
-        expectAmountOut: amountOut,
-        amountOutLimit: amountOut, // amountOutLimit equals expectAmountOut when fix amout out
+        quoteAmountIn,
+        quoteAmountOut,
+        slippage: slippageToContractValue(slippage),
         inputCoin,
         feeRate: this.overlayFeeRate,
         feeRecipient: this.overlayFeeReceiver,
@@ -943,7 +1291,7 @@ export class AggregatorClient {
       txb
     )
 
-    const outputCoin = confirmSwap(
+    const outputCoin = confirmSwapV3(
       {
         swapContext: swapCtx,
         targetCoinType: processedData.targetCoinType,
@@ -955,14 +1303,161 @@ export class AggregatorClient {
     return outputCoin
   }
 
+  async rebalanceSwap(params: BuildRebalanceSwapParams): Promise<void> {
+    const {
+      router,
+      slippage,
+      txb,
+      pqfPublishedAt,
+      versionedObjectId,
+      globalConfigObjectId,
+      marketMakerObjectId,
+      poolObjectId,
+      baseCoinType,
+      quoteCoinType,
+      partner,
+      cetusDlmmPartner,
+    } = params
+
+    slippageToContractValue(slippage)
+    if (this.overlayFeeRate !== 0) {
+      throw new Error("PQF rebalance does not support an aggregator overlay fee")
+    }
+    if (router.error) {
+      throw new Error(`PQF rebalance route error: ${router.error.msg}`)
+    }
+    if (!router.byAmountIn) {
+      throw new Error("PQF rebalance route only supports byAmountIn=true")
+    }
+    if (router.paths.length === 0) {
+      throw new Error("PQF rebalance route has no paths")
+    }
+    if (
+      !router.rebalanceQuoteBcs ||
+      !router.rebalanceQuoteSignature ||
+      !router.rebalanceQuote
+    ) {
+      throw new Error("PQF rebalance route is missing signed quote fields")
+    }
+    for (const [label, value] of Object.entries({
+      pqfPublishedAt,
+      versionedObjectId,
+      globalConfigObjectId,
+      marketMakerObjectId,
+      poolObjectId,
+      baseCoinType,
+      quoteCoinType,
+    })) {
+      if (!value) {
+        throw new Error(`PQF rebalance: ${label} is required`)
+      }
+    }
+
+    const quote = router.rebalanceQuote
+    if (!router.amountIn.eq(new BN(quote.amountIn))) {
+      throw new Error(
+        "PQF rebalance: route amountIn does not match the signed quote"
+      )
+    }
+    if (!router.amountOut.eq(new BN(quote.amountOut))) {
+      throw new Error(
+        "PQF rebalance: route amountOut does not match the signed quote"
+      )
+    }
+
+    const processed = processFlattenRoutes(router)
+    const routeCoinIn = completionCoin(processed.fromCoinType)
+    const routeCoinOut = completionCoin(processed.targetCoinType)
+    const signedCoinIn = completionCoin(quote.coinIn)
+    const signedCoinOut = completionCoin(quote.coinOut)
+    if (routeCoinIn !== signedCoinIn || routeCoinOut !== signedCoinOut) {
+      throw new Error(
+        "PQF rebalance: route coin types do not match the signed quote"
+      )
+    }
+
+    const base = completionCoin(baseCoinType)
+    const quoteType = completionCoin(quoteCoinType)
+    let baseToQuote: boolean
+    if (signedCoinIn === base && signedCoinOut === quoteType) {
+      baseToQuote = true
+    } else if (signedCoinIn === quoteType && signedCoinOut === base) {
+      baseToQuote = false
+    } else {
+      throw new Error(
+        "PQF rebalance: signed quote coin types do not match the pool pair"
+      )
+    }
+
+    const rebalanceQuoteBytes = decodeRebalanceHex(
+      "rebalance_quote_bcs",
+      router.rebalanceQuoteBcs
+    )
+    const rebalanceQuoteSignature = decodeRebalanceHex(
+      "rebalance_quote_signature",
+      router.rebalanceQuoteSignature,
+      96
+    )
+    const beginFunction = baseToQuote
+      ? "begin_rebalance_base_to_quote"
+      : "begin_rebalance_quote_to_base"
+    const finishFunction = baseToQuote
+      ? "finish_rebalance_base_to_quote"
+      : "finish_rebalance_quote_to_base"
+
+    const [borrowedBalance, receipt] = txb.moveCall({
+      target: `${pqfPublishedAt}::orderbook_v2::${beginFunction}`,
+      typeArguments: [baseCoinType, quoteCoinType],
+      arguments: [
+        txb.object(versionedObjectId),
+        txb.object(globalConfigObjectId),
+        txb.object(marketMakerObjectId),
+        txb.object(poolObjectId),
+        txb.pure.u64(router.amountIn.toString()),
+        txb.pure.vector("u8", rebalanceQuoteBytes),
+        txb.pure.vector("u8", rebalanceQuoteSignature),
+        txb.object(SUI_CLOCK_OBJECT_ID),
+      ],
+    })
+    const borrowedCoin = txb.moveCall({
+      target: "0x2::coin::from_balance",
+      typeArguments: [signedCoinIn],
+      arguments: [borrowedBalance],
+    }) as TransactionObjectArgument
+
+    const repayCoin = await this.routerSwap({
+      router,
+      inputCoin: borrowedCoin,
+      slippage,
+      txb,
+      partner: partner ?? this.partner,
+      cetusDlmmPartner: cetusDlmmPartner ?? this.cetusDlmmPartner,
+    })
+    const repayBalance = txb.moveCall({
+      target: "0x2::coin::into_balance",
+      typeArguments: [signedCoinOut],
+      arguments: [repayCoin],
+    })
+
+    txb.moveCall({
+      target: `${pqfPublishedAt}::orderbook_v2::${finishFunction}`,
+      typeArguments: [baseCoinType, quoteCoinType],
+      arguments: [
+        txb.object(versionedObjectId),
+        txb.object(marketMakerObjectId),
+        txb.object(poolObjectId),
+        repayBalance,
+        receipt,
+      ],
+    })
+  }
+
   async routerSwap(
     params: BuildRouterSwapParamsV3
   ): Promise<TransactionObjectArgument> {
     const { router, inputCoin, slippage, txb, partner, cetusDlmmPartner } = params
 
-    if (slippage > 1 || slippage < 0) {
-      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
-    }
+    slippageToContractValue(slippage)
 
     if (
       !params.router.packages ||
@@ -990,36 +1485,30 @@ export class AggregatorClient {
     const expectedAmountOut = byAmountIn ? amountOut.sub(overlayFee) : amountOut
     const expectedAmountIn = byAmountIn ? amountIn : amountIn.add(overlayFee)
 
-    const amountLimit = CalculateAmountLimitBN(
-      byAmountIn ? expectedAmountOut : expectedAmountIn,
-      byAmountIn,
-      slippage
-    )
-
-    const priceIDs = findPythPriceIDs(router.paths)
-    const priceInfoObjectIds =
-      priceIDs.length > 0
-        ? await this.updatePythPriceIDs(priceIDs, txb)
-        : new Map<string, string>()
+    const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
+      await this.preparePythPriceInfoObjects(router.paths, txb)
 
     if (byAmountIn) {
       return this.expectInputSwapV3(
         txb,
         inputCoin,
         router,
-        amountOut.toString(),
-        amountLimit.toString(),
+        expectedAmountIn.toString(),
+        expectedAmountOut.toString(),
+        slippage,
         priceInfoObjectIds,
         partner ?? this.partner,
-        cetusDlmmPartner ?? this.cetusDlmmPartner
+        cetusDlmmPartner ?? this.cetusDlmmPartner,
+        pythCoreV2PriceIDs
       )
     } else {
       return this.expectOutputSwapV3(
         txb,
         inputCoin,
         router,
-        amountOut.toString(),
-        amountLimit.toString(),
+        expectedAmountIn.toString(),
+        expectedAmountOut.toString(),
+        slippage,
         partner ?? this.partner
       )
     }
@@ -1039,9 +1528,7 @@ export class AggregatorClient {
   ): Promise<TransactionObjectArgument> {
     const { router, inputCoin, slippage, txb, partner, maxAmountIn } = params
 
-    if (slippage > 1 || slippage < 0) {
-      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
-    }
+    slippageToContractValue(slippage)
 
     if (
       !params.router.packages ||
@@ -1069,17 +1556,8 @@ export class AggregatorClient {
     const expectedAmountOut = byAmountIn ? amountOut.sub(overlayFee) : amountOut
     const expectedAmountIn = byAmountIn ? amountIn : amountIn.add(overlayFee)
 
-    const amountLimit = CalculateAmountLimitBN(
-      byAmountIn ? expectedAmountOut : expectedAmountIn,
-      byAmountIn,
-      slippage
-    )
-
-    const priceIDs = findPythPriceIDs(router.paths)
-    const priceInfoObjectIds =
-      priceIDs.length > 0
-        ? await this.updatePythPriceIDs(priceIDs, txb)
-        : new Map<string, string>()
+    const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
+      await this.preparePythPriceInfoObjects(router.paths, txb)
 
     if (byAmountIn) {
       return this.expectInputSwapV3WithMaxAmountIn(
@@ -1087,20 +1565,24 @@ export class AggregatorClient {
         inputCoin,
         router,
         maxAmountIn,
-        amountOut.toString(),
-        amountLimit.toString(),
+        expectedAmountIn.toString(),
+        expectedAmountOut.toString(),
+        slippage,
         priceInfoObjectIds,
-        partner ?? this.partner
+        partner ?? this.partner,
+        undefined,
+        pythCoreV2PriceIDs
       )
     } else {
-      // For fixed output swaps, we still use the v2 context with max amount validation
+      // Fixed-output swaps use the same v3 quote guard and max-input bound.
       return this.expectOutputSwapV3WithMaxAmountIn(
         txb,
         inputCoin,
         router,
         maxAmountIn,
-        amountOut.toString(),
-        amountLimit.toString(),
+        expectedAmountIn.toString(),
+        expectedAmountOut.toString(),
+        slippage,
         partner ?? this.partner
       )
     }
@@ -1239,9 +1721,7 @@ export class AggregatorClient {
   ): Promise<TransactionObjectArgument> {
     const { router, inputCoins, slippage, txb, partner } = params
 
-    if (slippage > 1 || slippage < 0) {
-      throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
-    }
+    slippageToContractValue(slippage)
 
     if (
       !router.packages ||
@@ -1360,6 +1840,8 @@ export class AggregatorClient {
   ): Promise<TransactionObjectArgument> {
     const { router, inputCoin, slippage, txb, partner } = params
 
+    slippageToContractValue(slippage)
+
     checkOverlayFeeConfig(this.overlayFeeRate, this.overlayFeeReceiver)
     let overlayFee = 0
     if (router.byAmountIn) {
@@ -1385,36 +1867,30 @@ export class AggregatorClient {
       ? router.amountIn
       : router.amountIn.add(new BN(overlayFee))
 
-    const amountLimit = CalculateAmountLimitBN(
-      router.byAmountIn ? expectedAmountOut : expectedAmountIn,
-      router.byAmountIn,
-      slippage
-    )
-
-    const priceIDs = findPythPriceIDs(router.paths)
-
-    const priceInfoObjectIds =
-      priceIDs.length > 0
-        ? await this.updatePythPriceIDs(priceIDs, txb)
-        : new Map<string, string>()
+    const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
+      await this.preparePythPriceInfoObjects(router.paths, txb)
 
     if (router.byAmountIn) {
       return this.expectInputSwapV3(
         txb,
         inputCoin,
         router,
+        expectedAmountIn.toString(),
         expectedAmountOut.toString(),
-        amountLimit.toString(),
+        slippage,
         priceInfoObjectIds,
-        partner ?? this.partner
+        partner ?? this.partner,
+        undefined,
+        pythCoreV2PriceIDs
       )
     } else {
       return this.expectOutputSwapV3(
         txb,
         inputCoin,
         router,
+        expectedAmountIn.toString(),
         expectedAmountOut.toString(),
-        amountLimit.toString(),
+        slippage,
         partner ?? this.partner
       )
     }
@@ -1578,11 +2054,28 @@ export class AggregatorClient {
     priceIDs: string[],
     txb: Transaction
   ): Promise<Map<string, string>> {
-    const priceUpdateData = await this.pythAdapter.getPriceFeedsUpdateData(priceIDs)
+    return this.updatePriceIDsWithAdapter(this.pythAdapter, priceIDs, txb)
+  }
+
+  // Same flow as updatePythPriceIDs but against the new Pyth core deployment.
+  // Only HAEDALPROPAMM consumes the resulting PriceInfoObjects.
+  async updatePythCoreV2PriceIDs(
+    priceIDs: string[],
+    txb: Transaction
+  ): Promise<Map<string, string>> {
+    return this.updatePriceIDsWithAdapter(this.pythAdapterV2, priceIDs, txb)
+  }
+
+  private async updatePriceIDsWithAdapter(
+    adapter: PythAdapter,
+    priceIDs: string[],
+    txb: Transaction
+  ): Promise<Map<string, string>> {
+    const priceUpdateData = await adapter.getPriceFeedsUpdateData(priceIDs)
 
     let priceInfoObjectIds: string[]
     try {
-      priceInfoObjectIds = await this.pythAdapter.updatePriceFeeds(
+      priceInfoObjectIds = await adapter.updatePriceFeeds(
         txb,
         priceUpdateData,
         priceIDs
@@ -1598,6 +2091,28 @@ export class AggregatorClient {
       priceInfoObjectIdsMap.set(priceIDs[i], priceInfoObjectIds[i])
     }
     return priceInfoObjectIdsMap
+  }
+
+  // Updates legacy-deployment feeds and (for HAEDALPROPAMM paths) new-deployment
+  // feeds in the same txb. The two maps are kept separate: the same seed can
+  // resolve to a different PriceInfoObject on each deployment.
+  private async preparePythPriceInfoObjects(
+    paths: Path[],
+    txb: Transaction
+  ): Promise<{ legacy: Map<string, string>; coreV2: Map<string, string> }> {
+    const priceIDs = findPythPriceIDs(paths)
+    const legacy =
+      priceIDs.length > 0
+        ? await this.updatePythPriceIDs(priceIDs, txb)
+        : new Map<string, string>()
+
+    const v2PriceIDs = findPythCoreV2PriceIDs(paths)
+    const coreV2 =
+      v2PriceIDs.length > 0
+        ? await this.updatePythCoreV2PriceIDs(v2PriceIDs, txb)
+        : new Map<string, string>()
+
+    return { legacy, coreV2 }
   }
 
   async devInspectTransactionBlock(txb: Transaction) {
@@ -1700,12 +2215,119 @@ export class AggregatorClient {
   }
 }
 
+/**
+ * Opt-in verification for executed transaction results: inspects the effects
+ * and throws an AggregatorError when the transaction failed on-chain.
+ *
+ * - Aggregator contract aborts (the `errors` module of the aggregator v3
+ *   package, e.g. slippage check failure) are thrown with a typed errorCode
+ *   such as TransactionErrorCode.AmountOutSlippageCheckFailed and a
+ *   human-readable message. Check with AggregatorError.isAggregatorErrorCode().
+ * - Any other on-chain failure is thrown with the raw error string as message
+ *   and errorCode TransactionErrorCode.TransactionFailed.
+ *
+ * Call it on the result of sendTransaction / executeWithSignatures, or on any
+ * execution result obtained via wallet adapters. Execution methods themselves
+ * do NOT throw on failure — their behavior is unchanged from prior versions.
+ *
+ * Example:
+ *   const res = await client.sendTransaction(txb, signer)
+ *   throwOnAggregatorContractFailure(res)
+ */
+export function throwOnAggregatorContractFailure(result: unknown): void {
+  const errorMessage = extractEffectsErrorMessage(result)
+  if (errorMessage === null) {
+    return
+  }
+
+  const parsed = parseAggregatorContractError(errorMessage)
+  if (parsed) {
+    throw new AggregatorError(
+      `${parsed.msg} (abort code ${parsed.code}${
+        parsed.command !== undefined ? `, command ${parsed.command}` : ""
+      })`,
+      parsed.errorCode
+    )
+  }
+
+  throw new AggregatorError(errorMessage, TransactionErrorCode.TransactionFailed)
+}
+
+// Extracts the failure message from transaction effects, supporting both the
+// current @mysten/sui effects shape ({ success: boolean, error: { message } })
+// and the legacy JSON-RPC shape ({ status: "failure", error: string }).
+// Returns null when the transaction succeeded or effects are absent.
+function extractEffectsErrorMessage(result: unknown): string | null {
+  const effects = (result as any)?.effects ?? (result as any)?.Transaction?.effects
+  const status = effects?.status
+  if (!status) {
+    return null
+  }
+
+  // Current shape: { success: boolean, error: { message: string } | null }
+  if (typeof status.success === "boolean") {
+    if (status.success) {
+      return null
+    }
+    return (
+      status.error?.message ??
+      (typeof status.error === "string" ? status.error : "Unknown error")
+    )
+  }
+
+  // Legacy shape: { status: "success" | "failure", error?: string }
+  if (typeof status.status === "string") {
+    if (status.status !== "failure") {
+      return null
+    }
+    return typeof status.error === "string"
+      ? status.error
+      : status.error?.message ?? "Unknown error"
+  }
+
+  return null
+}
+
 function generateUUID(): string {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0
     const v = c === "x" ? r : (r & 0x3) | 0x8
     return v.toString(16)
   })
+}
+
+function validatePythAvailabilityCheckInterval(
+  interval: number | undefined
+): number | undefined {
+  if (interval === undefined) {
+    return undefined
+  }
+  if (!Number.isFinite(interval) || interval < 0) {
+    throw new Error(
+      "pythAvailabilityCheckInterval must be a non-negative number"
+    )
+  }
+  return interval
+}
+
+function emptyRouterResult(byAmountIn: boolean): RouterDataV3 {
+  return {
+    quoteID: "",
+    amountIn: Constants.ZERO,
+    amountOut: Constants.ZERO,
+    paths: [],
+    byAmountIn,
+    insufficientLiquidity: true,
+    deviationRatio: 0,
+  }
+}
+
+function emptyMergeSwapResult(): MergeSwapRouterData {
+  return {
+    quoteID: "",
+    totalAmountOut: Constants.ZERO,
+    allRoutes: [],
+  }
 }
 
 function recordFirstCoinIndex(paths: Path[]): Map<string, number> {

@@ -16,7 +16,20 @@ export interface FindRouterParams {
   splitFactor?: number
   splitCount?: number
   providers?: string[]
+  /** Pool IDs to exclude from this quote (all hops/directions); at most 50. */
+  excludePools?: string[]
+  /** Only these pools may be used at every hop; empty means unrestricted. */
+  includePools?: string[]
+  pythAvailabilityCheckInterval?: number
   liquidityChanges?: PreSwapLpChangeParams[]
+  /**
+   * The slippage the caller intends to use when building the swap
+   * (a fraction, e.g. 0.01 = 1%). Not sent to the router API.
+   * When set at or below 0.001 (0.1%), providers that cannot honor such
+   * tight slippage (currently CETUS_TIDE) are automatically removed from
+   * the effective providers list.
+   */
+  slippage?: number
 }
 
 export interface MergeSwapFromCoin {
@@ -29,7 +42,20 @@ export interface MergeSwapParams {
   byAmountIn: boolean
   depth?: number
   providers?: string[]
+  /** Pool IDs to exclude from this quote (all hops/directions); at most 50. */
+  excludePools?: string[]
+  /** Only these pools may be used at every hop; empty means unrestricted. */
+  includePools?: string[]
+  pythAvailabilityCheckInterval?: number
   froms: MergeSwapFromCoin[]
+  /**
+   * The slippage the caller intends to use when building the swap
+   * (a fraction, e.g. 0.01 = 1%). Not sent to the router API.
+   * When set at or below 0.001 (0.1%), providers that cannot honor such
+   * tight slippage (currently CETUS_TIDE) are automatically removed from
+   * the effective providers list.
+   */
+  slippage?: number
 }
 
 export interface MergeSwapInputCoin {
@@ -134,9 +160,26 @@ export type ExtendedDetails = {
   haedalpropamm_pool_id?: string
   haedalpropamm_regime_id?: string
   haedalpropamm_oracle_mode?: string
+  haedalpropamm_base_price_seed?: string
+  haedalpropamm_quote_price_seed?: string
   haedalpropamm_base_price_info_object?: string
   haedalpropamm_quote_price_info_object?: string
+  // cetus tide
+  cetus_tide_fill?: CetusTideFill
+  cetus_tide_mm_object_id?: string
+  cetus_tide_versioned?: string
+  cetus_tide_global_config?: string
+  /** 1 = orderbook, 2 = orderbook_v2. Missing is inferred from the signature shape. */
+  cetus_tide_orderbook_version?: number
   aux_shared_versions?: Record<string, number>
+}
+
+export type CetusTideFill = {
+  envelope: string // 0x + BCS bytes of SignedQuote/SignedQuoteV2
+  signature?: string // V1 signature; omitted by V2 responses
+  signatures?: string[] // V2 canonical signature bundle; omitted by V1 responses
+  quote_hash: string // 0x + blake2b256(envelope_bytes)
+  sig_expiry_ms: string | number // u64 wire
 }
 
 // Path type with V3 capabilities (using direction instead of a2b, string amounts)
@@ -193,6 +236,28 @@ export type RouterDataV3 = {
   totalDeepFee?: number
   error?: RouterError
   overlayFee?: number
+}
+
+export type RebalanceQuote = {
+  domain: string
+  coinIn: string
+  coinOut: string
+  amountIn: string
+  amountOut: string
+  issuedAtMs: string
+  expiryMs: string
+  signerVersion: string
+}
+
+/**
+ * A successful response from the dedicated PQF rebalance quote endpoint.
+ * The signed fields are optional so API error responses can use the same
+ * RouterDataV3 error shape as ordinary route requests.
+ */
+export type RebalanceRouterData = RouterDataV3 & {
+  rebalanceQuoteBcs?: string
+  rebalanceQuoteSignature?: string
+  rebalanceQuote?: RebalanceQuote
 }
 
 export type MergeRoute = {

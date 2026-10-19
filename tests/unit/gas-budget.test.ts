@@ -30,8 +30,8 @@ describe("lookupGasBudget", () => {
     expect(lookupGasBudget(29, false)).toBe(0.25 * SUI)
     expect(lookupGasBudget(30, false)).toBe(0.35 * SUI)
     expect(lookupGasBudget(39, false)).toBe(0.35 * SUI)
-    expect(lookupGasBudget(40, false)).toBe(0.5 * SUI)
-    expect(lookupGasBudget(100, false)).toBe(0.5 * SUI)
+    expect(lookupGasBudget(40, false)).toBe(0.4 * SUI)
+    expect(lookupGasBudget(100, false)).toBe(0.4 * SUI)
   })
 
   test("bucket boundaries with Pyth", () => {
@@ -43,8 +43,8 @@ describe("lookupGasBudget", () => {
     expect(lookupGasBudget(29, true)).toBe(0.2 * SUI)
     expect(lookupGasBudget(30, true)).toBe(0.3 * SUI)
     expect(lookupGasBudget(39, true)).toBe(0.3 * SUI)
-    expect(lookupGasBudget(40, true)).toBe(0.5 * SUI)
-    expect(lookupGasBudget(100, true)).toBe(0.5 * SUI)
+    expect(lookupGasBudget(40, true)).toBe(0.4 * SUI)
+    expect(lookupGasBudget(100, true)).toBe(0.4 * SUI)
   })
 
   test("every table entry has positive integer MIST budgets", () => {
