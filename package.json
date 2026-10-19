@@ -1,6 +1,6 @@
 {
   "name": "@cetusprotocol/aggregator-sdk",
-  "version": "1.6.6",
+  "version": "1.6.7",
   "type": "module",
   "sideEffects": false,
   "main": "dist/index.js",

@@ -3,6 +3,8 @@ import { AggregatorClient, Env } from "~/index"
 
 const ENDPOINT = "https://router.test"
 const PYTH_URL = "https://hermes.pyth.network"
+const CETUS_PYTH_URL =
+  "https://api-sui.cetus.zone/v1/pyth/price-update-data"
 const FROM_COIN = "0x2::sui::SUI"
 const TARGET_COIN = "0x1::coin::COIN"
 
@@ -89,7 +91,7 @@ describe("Pyth availability provider filtering", () => {
 
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = String(input)
-      if (url === PYTH_URL) {
+      if (url === PYTH_URL || url === CETUS_PYTH_URL) {
         return { status: pythAvailable ? 200 : 503 }
       }
       return makeRouterResponse()
@@ -129,7 +131,7 @@ describe("Pyth availability provider filtering", () => {
   test("returns an empty route result when all requested providers are filtered", async () => {
     const fetchMock = vi.fn(async (input: string | URL | Request) => {
       const url = String(input)
-      if (url === PYTH_URL) {
+      if (url === PYTH_URL || url === CETUS_PYTH_URL) {
         return { status: 503 }
       }
       return makeRouterResponse()

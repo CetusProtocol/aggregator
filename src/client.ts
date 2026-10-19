@@ -63,7 +63,11 @@ import {
 import { completionCoin, compareCoins } from "./utils/coin"
 import { coinWithBalance } from "@mysten/sui/transactions"
 import { SuiGrpcClient } from "@mysten/sui/grpc"
-import { PythAdapter } from "./pyth/adapter"
+import {
+  PythAdapter,
+  PythServiceProtocol,
+  PythUrlEntry,
+} from "./pyth/adapter"
 import { processEndpoint } from "./utils"
 import { Signer } from "@mysten/sui/cryptography"
 import { HaedalHMMV2Router } from "./movecall/haedal_hmm_v2"
@@ -321,8 +325,32 @@ function findPythPriceIDs(paths: Path[]): string[] {
       }
     }
     if (path.provider === HAEDALPROPAMM) {
+      // Legacy Pyth core mode only; "pyth_core_v2" seeds go through the v2
+      // adapter (findPythCoreV2PriceIDs).
       if (
         path.extendedDetails &&
+        path.extendedDetails.haedalpropamm_oracle_mode === "pyth_core" &&
+        path.extendedDetails.haedalpropamm_base_price_seed &&
+        path.extendedDetails.haedalpropamm_quote_price_seed
+      ) {
+        priceIDs.add(path.extendedDetails.haedalpropamm_base_price_seed)
+        priceIDs.add(path.extendedDetails.haedalpropamm_quote_price_seed)
+      }
+    }
+  }
+  return Array.from(priceIDs)
+}
+
+// Seeds needing PriceInfoObjects from the pro-compatible ("Pyth core v2")
+// deployment. Only HAEDALPROPAMM pools whose oracle mode is "pyth_core_v2"
+// use it; everything else stays on the legacy deployment above.
+function findPythCoreV2PriceIDs(paths: Path[]): string[] {
+  const priceIDs = new Set<string>()
+  for (const path of paths) {
+    if (path.provider === HAEDALPROPAMM) {
+      if (
+        path.extendedDetails &&
+        path.extendedDetails.haedalpropamm_oracle_mode === "pyth_core_v2" &&
         path.extendedDetails.haedalpropamm_base_price_seed &&
         path.extendedDetails.haedalpropamm_quote_price_seed
       ) {
@@ -346,6 +374,17 @@ export type AggregatorClientParams = {
   overlayFeeReceiver?: string
   cetusDlmmPartner?: string
   pythAvailabilityCheckInterval?: number
+  // Overrides for the new Pyth core deployment (used only by HAEDALPROPAMM).
+  // Defaults come from Constants.PYTH_CORE_V2_CONFIG. Teams with their own
+  // registered Pyth api key can point pythUrls at their endpoint here; an
+  // apiKey is bound to exactly the url it is declared with:
+  //   pythUrls: [{ url: "https://my.endpoint", apiKey: "my-key" }]
+  pythCoreV2?: {
+    pythStateId?: string
+    wormholeStateId?: string
+    pythUrls?: Array<string | PythUrlEntry>
+    protocol?: PythServiceProtocol
+  }
 }
 
 interface PythConfig {
@@ -361,6 +400,9 @@ export class AggregatorClient {
   public apiKey: string
 
   protected pythAdapter: PythAdapter
+  // Adapter for the new Pyth core deployment; only HAEDALPROPAMM builds
+  // against it. Everything else stays on `pythAdapter` (legacy deployment).
+  protected pythAdapterV2: PythAdapter
   protected overlayFeeRate: number
   protected overlayFeeReceiver: string
   protected partner?: string
@@ -399,15 +441,36 @@ export class AggregatorClient {
       params.client ?? new SuiGrpcClient({ network, baseUrl: grpcUrl })
     this.signer = params.signer || ""
     this.env = params.env || Env.Mainnet
+    this.apiKey = params.apiKey || ""
 
     const config = AggregatorClient.CONFIG[this.env]
     this.pythAdapter = new PythAdapter(
       this.client,
       config.pythStateId,
       config.wormholeStateId,
-      params.pythUrls ?? [],
+      params.pythUrls ?? [Constants.CLIENT_CONFIG.DEFAULT_PYTH_URL]
     )
-    this.apiKey = params.apiKey || ""
+    const configV2 =
+      Constants.PYTH_CORE_V2_CONFIG[
+        this.env === Env.Testnet ? "Testnet" : "Mainnet"
+      ]
+    // Pro-compatible ("Pyth core v2") deployment adapter; only exercised for
+    // HAEDALPROPAMM paths whose oracle mode is "pyth_core_v2". Defaults live
+    // in Constants.PYTH_CORE_V2_CONFIG; the client's Cetus apiKey is bound
+    // only to the default Cetus proxy urls, never to caller-provided ones
+    // (each entry carries its own key).
+    // No fallback url: cross-deployment update data aborts on-chain.
+    this.pythAdapterV2 = new PythAdapter(
+      this.client,
+      params.pythCoreV2?.pythStateId ?? configV2.pythStateId,
+      params.pythCoreV2?.wormholeStateId ?? configV2.wormholeStateId,
+      params.pythCoreV2?.pythUrls ??
+        configV2.pythUrls.map(url => ({ url, apiKey: this.apiKey })),
+      {
+        protocol: params.pythCoreV2?.protocol ?? configV2.protocol,
+        fallbackUrl: null,
+      }
+    )
     this.partner = params.partner
     this.cetusDlmmPartner = params.cetusDlmmPartner
     this.pythAvailabilityCheckInterval =
@@ -589,7 +652,10 @@ export class AggregatorClient {
     provider: string,
     pythPriceIDs: Map<string, string>,
     partner?: string,
-    cetusDlmmPartner?: string
+    cetusDlmmPartner?: string,
+    // PriceInfoObjects from the new Pyth core deployment; consumed only by
+    // HAEDALPROPAMM. Every other DEX keeps reading pythPriceIDs (legacy).
+    pythCoreV2PriceIDs?: Map<string, string>
   ): DexRouter {
     switch (provider) {
       case CETUS:
@@ -661,7 +727,11 @@ export class AggregatorClient {
       case MAGMAPROPAMM:
         return new MagmaPropAmmRouter(this.env)
       case HAEDALPROPAMM:
-        return new HaedalPropAmmRouter(this.env, pythPriceIDs)
+        return new HaedalPropAmmRouter(
+          this.env,
+          pythPriceIDs,
+          pythCoreV2PriceIDs ?? new Map()
+        )
       case CETUS_TIDE:
         return new CetusTideRouter()
       default:
@@ -679,7 +749,8 @@ export class AggregatorClient {
     amountOutLimit: string,
     pythPriceIDs: Map<string, string>,
     partner?: string,
-    cetusDlmmPartner?: string
+    cetusDlmmPartner?: string,
+    pythCoreV2PriceIDs?: Map<string, string>
   ): TransactionObjectArgument {
     if (routerData.quoteID == null) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
@@ -713,7 +784,8 @@ export class AggregatorClient {
             path.provider,
             pythPriceIDs,
             partner,
-            cetusDlmmPartner
+            cetusDlmmPartner,
+            pythCoreV2PriceIDs
           )
         )
       }
@@ -742,7 +814,8 @@ export class AggregatorClient {
     amountOutLimit: string,
     pythPriceIDs: Map<string, string>,
     partner?: string,
-    cetusDlmmPartner?: string
+    cetusDlmmPartner?: string,
+    pythCoreV2PriceIDs?: Map<string, string>
   ): TransactionObjectArgument {
     if (routerData.quoteID == null) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
@@ -777,7 +850,8 @@ export class AggregatorClient {
             path.provider,
             pythPriceIDs,
             partner,
-            cetusDlmmPartner
+            cetusDlmmPartner,
+            pythCoreV2PriceIDs
           )
         )
       }
@@ -1108,11 +1182,8 @@ export class AggregatorClient {
       slippage
     )
 
-    const priceIDs = findPythPriceIDs(router.paths)
-    const priceInfoObjectIds =
-      priceIDs.length > 0
-        ? await this.updatePythPriceIDs(priceIDs, txb)
-        : new Map<string, string>()
+    const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
+      await this.preparePythPriceInfoObjects(router.paths, txb)
 
     if (byAmountIn) {
       return this.expectInputSwapV3(
@@ -1123,7 +1194,8 @@ export class AggregatorClient {
         amountLimit.toString(),
         priceInfoObjectIds,
         partner ?? this.partner,
-        cetusDlmmPartner ?? this.cetusDlmmPartner
+        cetusDlmmPartner ?? this.cetusDlmmPartner,
+        pythCoreV2PriceIDs
       )
     } else {
       return this.expectOutputSwapV3(
@@ -1187,11 +1259,8 @@ export class AggregatorClient {
       slippage
     )
 
-    const priceIDs = findPythPriceIDs(router.paths)
-    const priceInfoObjectIds =
-      priceIDs.length > 0
-        ? await this.updatePythPriceIDs(priceIDs, txb)
-        : new Map<string, string>()
+    const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
+      await this.preparePythPriceInfoObjects(router.paths, txb)
 
     if (byAmountIn) {
       return this.expectInputSwapV3WithMaxAmountIn(
@@ -1202,7 +1271,9 @@ export class AggregatorClient {
         amountOut.toString(),
         amountLimit.toString(),
         priceInfoObjectIds,
-        partner ?? this.partner
+        partner ?? this.partner,
+        undefined,
+        pythCoreV2PriceIDs
       )
     } else {
       // For fixed output swaps, we still use the v2 context with max amount validation
@@ -1503,12 +1574,8 @@ export class AggregatorClient {
       slippage
     )
 
-    const priceIDs = findPythPriceIDs(router.paths)
-
-    const priceInfoObjectIds =
-      priceIDs.length > 0
-        ? await this.updatePythPriceIDs(priceIDs, txb)
-        : new Map<string, string>()
+    const { legacy: priceInfoObjectIds, coreV2: pythCoreV2PriceIDs } =
+      await this.preparePythPriceInfoObjects(router.paths, txb)
 
     if (router.byAmountIn) {
       return this.expectInputSwapV3(
@@ -1518,7 +1585,9 @@ export class AggregatorClient {
         expectedAmountOut.toString(),
         amountLimit.toString(),
         priceInfoObjectIds,
-        partner ?? this.partner
+        partner ?? this.partner,
+        undefined,
+        pythCoreV2PriceIDs
       )
     } else {
       return this.expectOutputSwapV3(
@@ -1690,11 +1759,28 @@ export class AggregatorClient {
     priceIDs: string[],
     txb: Transaction
   ): Promise<Map<string, string>> {
-    const priceUpdateData = await this.pythAdapter.getPriceFeedsUpdateData(priceIDs)
+    return this.updatePriceIDsWithAdapter(this.pythAdapter, priceIDs, txb)
+  }
+
+  // Same flow as updatePythPriceIDs but against the new Pyth core deployment.
+  // Only HAEDALPROPAMM consumes the resulting PriceInfoObjects.
+  async updatePythCoreV2PriceIDs(
+    priceIDs: string[],
+    txb: Transaction
+  ): Promise<Map<string, string>> {
+    return this.updatePriceIDsWithAdapter(this.pythAdapterV2, priceIDs, txb)
+  }
+
+  private async updatePriceIDsWithAdapter(
+    adapter: PythAdapter,
+    priceIDs: string[],
+    txb: Transaction
+  ): Promise<Map<string, string>> {
+    const priceUpdateData = await adapter.getPriceFeedsUpdateData(priceIDs)
 
     let priceInfoObjectIds: string[]
     try {
-      priceInfoObjectIds = await this.pythAdapter.updatePriceFeeds(
+      priceInfoObjectIds = await adapter.updatePriceFeeds(
         txb,
         priceUpdateData,
         priceIDs
@@ -1710,6 +1796,28 @@ export class AggregatorClient {
       priceInfoObjectIdsMap.set(priceIDs[i], priceInfoObjectIds[i])
     }
     return priceInfoObjectIdsMap
+  }
+
+  // Updates legacy-deployment feeds and (for HAEDALPROPAMM paths) new-deployment
+  // feeds in the same txb. The two maps are kept separate: the same seed can
+  // resolve to a different PriceInfoObject on each deployment.
+  private async preparePythPriceInfoObjects(
+    paths: Path[],
+    txb: Transaction
+  ): Promise<{ legacy: Map<string, string>; coreV2: Map<string, string> }> {
+    const priceIDs = findPythPriceIDs(paths)
+    const legacy =
+      priceIDs.length > 0
+        ? await this.updatePythPriceIDs(priceIDs, txb)
+        : new Map<string, string>()
+
+    const v2PriceIDs = findPythCoreV2PriceIDs(paths)
+    const coreV2 =
+      v2PriceIDs.length > 0
+        ? await this.updatePythCoreV2PriceIDs(v2PriceIDs, txb)
+        : new Map<string, string>()
+
+    return { legacy, coreV2 }
   }
 
   async devInspectTransactionBlock(txb: Transaction) {

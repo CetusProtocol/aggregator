@@ -70,7 +70,7 @@ function makeRouterData(
 }
 
 describe("HAEDALPROPAMM Pyth price updates", () => {
-  test("collects HAEDALPROPAMM price seeds and swaps with updated price objects", async () => {
+  test("pyth_core mode updates via the legacy adapter and calls swap_*_pyth_core", async () => {
     const client = makeClient()
     const txb = new Transaction()
     const inputCoin = txb.object(
@@ -85,6 +85,9 @@ describe("HAEDALPROPAMM Pyth price updates", () => {
           [QUOTE_SEED, UPDATED_QUOTE_PRICE_OBJECT],
         ])
       )
+    const updatePythCoreV2PriceIDs = vi
+      .spyOn(client, "updatePythCoreV2PriceIDs")
+      .mockResolvedValue(new Map())
 
     await client.routerSwap({
       router: makeRouterData({
@@ -101,16 +104,62 @@ describe("HAEDALPROPAMM Pyth price updates", () => {
       txb,
     })
 
-    expect(updatePythPriceIDs).toHaveBeenCalledWith(
-      [BASE_SEED, QUOTE_SEED],
-      txb
-    )
+    expect(updatePythPriceIDs).toHaveBeenCalledWith([BASE_SEED, QUOTE_SEED], txb)
+    expect(updatePythCoreV2PriceIDs).not.toHaveBeenCalled()
 
     const txData = JSON.stringify(txb.getData())
+    expect(txData).toContain("swap_a2b_pyth_core")
+    expect(txData).not.toContain("swap_a2b_pyth_core_v2")
     expect(txData).toContain(UPDATED_BASE_PRICE_OBJECT)
     expect(txData).toContain(UPDATED_QUOTE_PRICE_OBJECT)
     expect(txData).not.toContain(STALE_BASE_PRICE_OBJECT)
     expect(txData).not.toContain(STALE_QUOTE_PRICE_OBJECT)
+  })
+
+  test("pyth_core_v2 mode updates via the v2 adapter and calls swap_*_pyth_core_v2", async () => {
+    const client = makeClient()
+    const txb = new Transaction()
+    const inputCoin = txb.object(
+      "0x3333333333333333333333333333333333333333333333333333333333333333"
+    )
+
+    const updatePythPriceIDs = vi
+      .spyOn(client, "updatePythPriceIDs")
+      .mockResolvedValue(new Map())
+    const updatePythCoreV2PriceIDs = vi
+      .spyOn(client, "updatePythCoreV2PriceIDs")
+      .mockResolvedValue(
+        new Map([
+          [BASE_SEED, UPDATED_BASE_PRICE_OBJECT],
+          [QUOTE_SEED, UPDATED_QUOTE_PRICE_OBJECT],
+        ])
+      )
+
+    await client.routerSwap({
+      router: makeRouterData({
+        haedalpropamm_pool_id: POOL_ID,
+        haedalpropamm_regime_id: REGIME_ID,
+        haedalpropamm_oracle_mode: "pyth_core_v2",
+        haedalpropamm_base_price_seed: BASE_SEED,
+        haedalpropamm_quote_price_seed: QUOTE_SEED,
+        haedalpropamm_base_price_info_object: STALE_BASE_PRICE_OBJECT,
+        haedalpropamm_quote_price_info_object: STALE_QUOTE_PRICE_OBJECT,
+      }),
+      inputCoin,
+      slippage: 0.05,
+      txb,
+    })
+
+    expect(updatePythCoreV2PriceIDs).toHaveBeenCalledWith(
+      [BASE_SEED, QUOTE_SEED],
+      txb
+    )
+    expect(updatePythPriceIDs).not.toHaveBeenCalled()
+
+    const txData = JSON.stringify(txb.getData())
+    expect(txData).toContain("swap_a2b_pyth_core_v2")
+    expect(txData).toContain(UPDATED_BASE_PRICE_OBJECT)
+    expect(txData).toContain(UPDATED_QUOTE_PRICE_OBJECT)
   })
 
   test("fails clearly when HAEDALPROPAMM price seeds are missing", async () => {
@@ -121,6 +170,7 @@ describe("HAEDALPROPAMM Pyth price updates", () => {
     )
 
     vi.spyOn(client, "updatePythPriceIDs").mockResolvedValue(new Map())
+    vi.spyOn(client, "updatePythCoreV2PriceIDs").mockResolvedValue(new Map())
 
     await expect(
       client.routerSwap({

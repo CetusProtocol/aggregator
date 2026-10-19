@@ -7,6 +7,7 @@ import { Transaction } from "@mysten/sui/transactions"
 const MAX_ARGUMENT_SIZE = 16 * 1024
 const DEFAULT_HERMES_URL = "https://hermes.pyth.network"
 const DEFAULT_AVAILABILITY_TIMEOUT = 3000
+const DEFAULT_MAX_AGE_SECONDS = 30
 const DEFAULT_IS_AVAILABLE_STATUS = (status: number) =>
   status >= 200 && status < 400
 
@@ -28,10 +29,36 @@ export interface PythAvailabilityOptions {
   isAvailableStatus?: (status: number) => boolean
 }
 
+// How the configured urls serve price update data. The protocol is a property
+// of the adapter (all its urls speak the same one), never inferred from the
+// url string:
+// - "hermes": Pyth's hermes REST API (GET /v2/updates/price/latest).
+// - "priceUpdateData": the price-update-data API used by the new Pyth core
+//   flow (POST { price_seeds } → { price_update_data }), authenticated with
+//   an optional apiKey query param. The SDK default url for this protocol is
+//   a free rate-limited Cetus proxy, since the official service requires a
+//   registered api key.
+export type PythServiceProtocol = "hermes" | "priceUpdateData"
+
+// A price data source. An apiKey belongs to exactly one url — it is sent only
+// to that endpoint, never shared across sources.
+export interface PythUrlEntry {
+  url: string
+  apiKey?: string
+}
+
+export interface PythAdapterOptions {
+  // Appended as a last-resort data source. Defaults to public hermes for the
+  // "hermes" protocol; no fallback for "priceUpdateData" (its data and the
+  // hermes data verify on different deployments — never mix them).
+  fallbackUrl?: string | null
+  protocol?: PythServiceProtocol
+}
+
 export class PythAdapter {
   private client: SuiGrpcClient
   private hermesClients: HermesClient[]
-  private hermesUrls: string[]
+  private urlEntries: PythUrlEntry[]
   private pythStateId: ObjectId
   private wormholeStateId: ObjectId
   private pythPackageId: string | undefined
@@ -39,31 +66,49 @@ export class PythAdapter {
   private priceTableInfo: PriceTableInfo | undefined
   private priceFeedObjectIdCache = new Map<string, string>()
   private baseUpdateFee: number | undefined
+  private protocol: PythServiceProtocol
 
   constructor(
     client: SuiGrpcClient,
     pythStateId: ObjectId,
     wormholeStateId: ObjectId,
-    hermesUrls: string[],
+    urls: Array<string | PythUrlEntry>,
+    options: PythAdapterOptions = {}
   ) {
     this.client = client
     this.pythStateId = pythStateId
     this.wormholeStateId = wormholeStateId
+    this.protocol = options.protocol ?? "hermes"
 
-    const urls = Array.from(
-      new Set(hermesUrls.filter(Boolean).map(normalizeServiceUrl))
-    )
-    if (!urls.includes(DEFAULT_HERMES_URL)) {
-      urls.push(DEFAULT_HERMES_URL)
+    const fallbackUrl =
+      options.fallbackUrl !== undefined
+        ? options.fallbackUrl
+        : this.protocol === "hermes"
+          ? DEFAULT_HERMES_URL
+          : null
+
+    const seen = new Set<string>()
+    const entries: PythUrlEntry[] = []
+    for (const item of urls) {
+      const entry = typeof item === "string" ? { url: item } : item
+      if (!entry.url) continue
+      const url = normalizeServiceUrl(entry.url)
+      if (seen.has(url)) continue
+      seen.add(url)
+      entries.push({ url, apiKey: entry.apiKey })
     }
-    this.hermesUrls = urls
-    this.hermesClients = urls.map(
-      url => new HermesClient(url, { timeout: 3000 })
-    )
+    if (fallbackUrl && !seen.has(fallbackUrl)) {
+      entries.push({ url: fallbackUrl })
+    }
+    this.urlEntries = entries
+    this.hermesClients =
+      this.protocol === "hermes"
+        ? entries.map(e => new HermesClient(e.url, { timeout: 3000 }))
+        : []
   }
 
   getHermesUrls(): string[] {
-    return [...this.hermesUrls]
+    return this.urlEntries.map(e => e.url)
   }
 
   async checkHermesAvailability(
@@ -72,7 +117,7 @@ export class PythAdapter {
       isAvailableStatus = DEFAULT_IS_AVAILABLE_STATUS,
     }: PythAvailabilityOptions = {}
   ): Promise<PythAvailabilitySnapshot> {
-    if (this.hermesUrls.length === 0) {
+    if (this.urlEntries.length === 0) {
       return {
         checked: false,
         availableUrls: [],
@@ -80,10 +125,20 @@ export class PythAdapter {
       }
     }
 
+    const isPriceUpdateData = this.protocol === "priceUpdateData"
     const results = await Promise.all(
-      this.hermesUrls.map(async url => ({
-        url,
-        available: await checkServiceUrl(url, timeout, isAvailableStatus),
+      this.urlEntries.map(async entry => ({
+        url: entry.url,
+        available: await checkServiceUrl(
+          isPriceUpdateData
+            ? withApiKey(entry.url, entry.apiKey)
+            : entry.url,
+          timeout,
+          status =>
+            isAvailableStatus(status) ||
+            // POST-only endpoints answer GET probes with 405
+            (isPriceUpdateData && status === 405)
+        ),
       }))
     )
 
@@ -106,8 +161,14 @@ export class PythAdapter {
   async getPriceFeedsUpdateData(priceIDs: string[]): Promise<Buffer[]> {
     let lastError: Error | null = null
 
-    for (const hermes of this.hermesClients) {
+    for (let i = 0; i < this.urlEntries.length; i++) {
       try {
+        if (this.protocol === "priceUpdateData") {
+          const entry = this.urlEntries[i]
+          return await fetchPriceUpdateData(entry.url, entry.apiKey, priceIDs)
+        }
+
+        const hermes = this.hermesClients[i]
         const response = await hermes.getLatestPriceUpdates(priceIDs, {
           encoding: "hex",
         })
@@ -119,7 +180,7 @@ export class PythAdapter {
     }
 
     throw new Error(
-      `All Pyth Hermes endpoints are unavailable. Detailed error: ${lastError?.message}`
+      `All Pyth endpoints are unavailable. Detailed error: ${lastError?.message}`
     )
   }
 
@@ -395,4 +456,40 @@ async function checkServiceUrl(
 
 function normalizeServiceUrl(url: string) {
   return url.replace(/\/+$/, "")
+}
+
+async function fetchPriceUpdateData(
+  url: string,
+  apiKey: string | undefined,
+  priceIDs: string[]
+): Promise<Buffer[]> {
+  const response = await fetch(withApiKey(url, apiKey), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      price_seeds: priceIDs,
+      max_age_seconds: DEFAULT_MAX_AGE_SECONDS,
+    }),
+  })
+  if (!response.ok) {
+    throw new Error(`Pyth endpoint returned HTTP ${response.status}`)
+  }
+
+  const data = (await response.json()) as { price_update_data?: unknown }
+  if (
+    !Array.isArray(data.price_update_data) ||
+    !data.price_update_data.every(value => typeof value === "string")
+  ) {
+    throw new Error("Pyth endpoint returned invalid price_update_data")
+  }
+
+  return data.price_update_data.map(value => Buffer.from(value, "base64"))
+}
+
+function withApiKey(url: string, apiKey: string | undefined) {
+  const requestUrl = new URL(url)
+  if (apiKey) {
+    requestUrl.searchParams.set("apiKey", apiKey)
+  }
+  return requestUrl.toString()
 }

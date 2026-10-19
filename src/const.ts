@@ -192,6 +192,48 @@ export const DEEPBOOK_V3_DEEP_FEE_TYPES = {
 } as const
 
 // =============================================================================
+// PYTH CORE V2 — the pro-compatible Pyth deployment (package 0x55300367…,
+// vendored simple-majority wormhole 0x99de5c96…). Used ONLY by HAEDALPROPAMM
+// pools whose oracle mode is "pyth_core_v2" (per-pool CoreOraclePolicy,
+// surfaced by the aggregator API). Every other pyth-based DEX — and
+// HAEDALPROPAMM pools in "pyth_core" mode — keeps building against the legacy
+// PYTH_CONFIG above.
+//
+// The official Pyth data service no longer offers free access (projects must
+// register their own api key), so the SDK's default v2 data source is a free
+// rate-limited Cetus proxy (PYTH_CORE_V2_URL). Teams with their own key can
+// override urls/protocol via the client's `pythCoreV2` param.
+// =============================================================================
+
+// Free rate-limited Cetus proxy for Pyth core v2 price update data.
+export const PYTH_CORE_V2_URL =
+  "https://api-sui.cetus.zone/v1/pyth/price-update-data"
+
+export const PYTH_CORE_V2_CONFIG = {
+  // No testnet pro-compatible deployment yet; mirrors the legacy testnet
+  // deployment so a stray "pyth_core_v2" route fails at oracle verify instead
+  // of at config lookup.
+  Testnet: {
+    wormholeStateId:
+      "0x31358d198147da50db32eda2562951d53973a0c0ad5ed738e9b17d88b213d790",
+    pythStateId:
+      "0x243759059f4c3111179da5878c12f68d612c21a8d54d85edc86164bb18be1c7c",
+    pythUrls: ["https://hermes.pyth.network"],
+    protocol: "hermes",
+  },
+  Mainnet: {
+    // wormhole_simple_majority::state::State
+    wormholeStateId:
+      "0xdbca52b9fb4f712e25f61f974586d93ac541bcf8389564f0323bb07215168b5c",
+    // pyth_pro_compatible (0x55300367…)::state::State
+    pythStateId:
+      "0x03719fae774ddab3cfcaa53bbc046f0cbe21410019b6280811bf3f9f4b05839d",
+    pythUrls: [PYTH_CORE_V2_URL],
+    protocol: "priceUpdateData",
+  },
+} as const
+
+// =============================================================================
 // CLIENT CONFIGURATION
 // =============================================================================
 
