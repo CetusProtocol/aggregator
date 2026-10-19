@@ -21,7 +21,9 @@ import { Transaction } from "@mysten/sui/transactions"
  * Values are in MIST (1 SUI = 1e9 MIST). Each bucket's budget is at least 2x
  * the worst observed `required_gas_floor` across 15504 replayed mainnet
  * router transactions (validated 2026-06), and holds up to a 10x increase of
- * the reference gas price.
+ * the reference gas price. Exception: the top (40+ commands) bucket runs at
+ * ~1.6x margin — lowered from 0.5 to 0.4 SUI so max-balance swaps don't fail
+ * the gas coin balance >= budget check.
  */
 export const SWAP_GAS_BUDGET_TABLE: ReadonlyArray<{
   maxCommands: number
@@ -32,7 +34,7 @@ export const SWAP_GAS_BUDGET_TABLE: ReadonlyArray<{
   { maxCommands: 19, noPyth: 150_000_000, pyth: 100_000_000 },
   { maxCommands: 29, noPyth: 250_000_000, pyth: 200_000_000 },
   { maxCommands: 39, noPyth: 350_000_000, pyth: 300_000_000 },
-  { maxCommands: Infinity, noPyth: 500_000_000, pyth: 500_000_000 },
+  { maxCommands: Infinity, noPyth: 400_000_000, pyth: 400_000_000 },
 ]
 
 /**
