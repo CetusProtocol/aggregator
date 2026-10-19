@@ -715,15 +715,23 @@ export class AggregatorClient {
       return { params, providersExhausted: false }
     }
 
+    const sourceProviders =
+      params.providers && params.providers.length > 0
+        ? params.providers
+        : ALL_DEXES
+    if (
+      !sourceProviders.some(provider =>
+        PYTH_ORACLE_BASED_DEXES.includes(provider)
+      )
+    ) {
+      return { params, providersExhausted: false }
+    }
+
     const pythAvailable = await this.getPythAvailability(interval)
     if (pythAvailable) {
       return { params, providersExhausted: false }
     }
 
-    const sourceProviders =
-      params.providers && params.providers.length > 0
-        ? params.providers
-        : ALL_DEXES
     const providers = sourceProviders.filter(
       provider => !PYTH_ORACLE_BASED_DEXES.includes(provider)
     )
@@ -748,7 +756,7 @@ export class AggregatorClient {
       return this.pythAvailabilityPromise
     }
 
-    this.pythAvailabilityPromise = this.pythAdapter
+    this.pythAvailabilityPromise = this.pythAdapterV2
       .isHermesAvailable()
       .catch(() => false)
       .then(available => {

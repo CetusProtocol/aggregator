@@ -84,6 +84,18 @@ describe("Pyth availability provider filtering", () => {
     expect(urls[0]).toContain("providers=HAEDALPMM")
   })
 
+  test("does not check Pyth availability when no Pyth provider is requested", async () => {
+    const fetchMock = vi.fn(async () => makeRouterResponse())
+    vi.stubGlobal("fetch", fetchMock)
+
+    const client = makeClient({ pythAvailabilityCheckInterval: 10_000 })
+    await client.findRouters(makeFindRouterParams(["CETUS"]))
+
+    expect(fetchUrls(fetchMock)).toHaveLength(1)
+    expect(fetchUrls(fetchMock)[0]).toContain("/find_routes")
+    expect(fetchUrls(fetchMock)[0]).toContain("providers=CETUS")
+  })
+
   test("filters Pyth oracle providers while cached availability is unavailable", async () => {
     let now = 1_000
     let pythAvailable = false
@@ -103,7 +115,9 @@ describe("Pyth availability provider filtering", () => {
     await client.findRouters(
       makeFindRouterParams(["CETUS", "HAEDALPMM", "HAEDALPROPAMM"])
     )
-    expect(fetchUrls(fetchMock).filter(url => url === PYTH_URL)).toHaveLength(1)
+    expect(
+      fetchUrls(fetchMock).filter(url => url === CETUS_PYTH_URL)
+    ).toHaveLength(1)
     expect(fetchUrls(fetchMock).at(-1)).toContain("providers=CETUS")
     expect(fetchUrls(fetchMock).at(-1)).not.toContain("HAEDALPMM")
     expect(fetchUrls(fetchMock).at(-1)).not.toContain("HAEDALPROPAMM")
@@ -112,7 +126,9 @@ describe("Pyth availability provider filtering", () => {
     await client.findRouters(
       makeFindRouterParams(["CETUS", "HAEDALPMM", "HAEDALPROPAMM"])
     )
-    expect(fetchUrls(fetchMock).filter(url => url === PYTH_URL)).toHaveLength(1)
+    expect(
+      fetchUrls(fetchMock).filter(url => url === CETUS_PYTH_URL)
+    ).toHaveLength(1)
     expect(fetchUrls(fetchMock).at(-1)).toContain("providers=CETUS")
     expect(fetchUrls(fetchMock).at(-1)).not.toContain("HAEDALPMM")
     expect(fetchUrls(fetchMock).at(-1)).not.toContain("HAEDALPROPAMM")
@@ -122,7 +138,9 @@ describe("Pyth availability provider filtering", () => {
     await client.findRouters(
       makeFindRouterParams(["CETUS", "HAEDALPMM", "HAEDALPROPAMM"])
     )
-    expect(fetchUrls(fetchMock).filter(url => url === PYTH_URL)).toHaveLength(2)
+    expect(
+      fetchUrls(fetchMock).filter(url => url === CETUS_PYTH_URL)
+    ).toHaveLength(2)
     expect(fetchUrls(fetchMock).at(-1)).toContain(
       "providers=CETUS,HAEDALPMM,HAEDALPROPAMM"
     )
@@ -153,6 +171,6 @@ describe("Pyth availability provider filtering", () => {
       insufficientLiquidity: true,
       deviationRatio: 0,
     })
-    expect(fetchUrls(fetchMock)).toEqual([PYTH_URL])
+    expect(fetchUrls(fetchMock)).toEqual([CETUS_PYTH_URL])
   })
 })
