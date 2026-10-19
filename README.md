@@ -190,6 +190,102 @@ if (routerRes != null) {
 }
 ```
 
+### 6. Verify on-chain errors with typed error codes
+
+When a swap fails on-chain (e.g. the price moved and the slippage check aborts),
+the transaction effects only carry a raw `MoveAbort(...)` string. The SDK can
+verify it and surface a typed error code.
+
+Execution methods themselves never throw on on-chain failure — verification is
+opt-in via `throwOnAggregatorContractFailure`:
+
+```typescript
+import {
+  AggregatorError,
+  TransactionErrorCode,
+  throwOnAggregatorContractFailure,
+} from "@cetusprotocol/aggregator-sdk"
+
+try {
+  const res = await client.sendTransaction(txb, signer)
+  throwOnAggregatorContractFailure(res) // throws AggregatorError if the tx failed
+  // success — use res.events / res.balanceChanges as usual
+} catch (e) {
+  if (
+    AggregatorError.isAggregatorErrorCode(
+      e,
+      TransactionErrorCode.AmountOutSlippageCheckFailed
+    )
+  ) {
+    // abort code 1: increase slippage tolerance or refresh the quote
+  } else if (
+    AggregatorError.isAggregatorErrorCode(
+      e,
+      TransactionErrorCode.TransactionFailed
+    )
+  ) {
+    // failed on-chain, but not an aggregator contract abort (gas, pool abort, ...)
+    console.log((e as AggregatorError).message)
+  } else {
+    throw e // network / build / signing errors
+  }
+}
+```
+
+This also works on results from wallet adapters (e.g. `@mysten/dapp-kit`
+`useSignAndExecuteTransaction`) as long as effects are included, and supports
+both the legacy JSON-RPC effects shape and the current `@mysten/sui` shape.
+
+If you prefer branching over try/catch (e.g. mapping to i18n keys), parse
+without throwing:
+
+```typescript
+import { parseAggregatorContractError } from "@cetusprotocol/aggregator-sdk"
+
+const parsed = parseAggregatorContractError(
+  result.effects?.status?.error?.message ?? result.effects?.status?.error
+)
+if (parsed) {
+  parsed.code      // 1 (on-chain abort code)
+  parsed.errorCode // TransactionErrorCode.AmountOutSlippageCheckFailed
+  parsed.msg       // "Slippage check failed: ..."
+  parsed.command   // index of the failed PTB command
+}
+// parsed === null → the failure did not come from the aggregator contract
+```
+
+You can also pre-flight before the user signs, by running the same parser on a
+`devInspectTransactionBlock` simulation result.
+
+Common error codes for a swap UI:
+
+| errorCode                      | Abort code | Suggested user action           |
+| ------------------------------ | ---------- | ------------------------------- |
+| `AmountOutSlippageCheckFailed` | 1          | Increase slippage / re-quote    |
+| `ExceedMaxAmountIn`            | 7          | Re-quote (exact-out swap)       |
+| `InvalidSlippage`              | 9          | Slippage parameter out of range |
+| `TransactionFailed`            | —          | Generic failure, show message   |
+
+### 7. Tight slippage and CETUS_TIDE
+
+Pass your intended slippage to `findRouters` so providers that cannot honor
+very tight limits are excluded automatically. When `slippage` is at or below
+`0.001` (≤0.1%), `CETUS_TIDE` is removed from the effective providers list,
+avoiding routes that would abort on-chain with a slippage check failure:
+
+```typescript
+const routerRes = await client.findRouters({
+  from,
+  target,
+  amount,
+  byAmountIn: true,
+  slippage: 0.0005, // 0.05% — CETUS_TIDE is filtered out automatically
+})
+```
+
+The `slippage` parameter is optional and is not sent to the router API; when
+omitted, behavior is unchanged.
+
 # Aggregator Contract Interface
 
 ## Tags corresponding to different networks

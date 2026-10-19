@@ -20,7 +20,7 @@ import {
   RebalanceRouterData,
 } from "./types/shared"
 
-const SDK_VERSION = 1010700
+const SDK_VERSION = 1010701
 
 function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
   // Parse packages map from API response

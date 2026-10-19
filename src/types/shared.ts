@@ -18,6 +18,14 @@ export interface FindRouterParams {
   providers?: string[]
   pythAvailabilityCheckInterval?: number
   liquidityChanges?: PreSwapLpChangeParams[]
+  /**
+   * The slippage the caller intends to use when building the swap
+   * (a fraction, e.g. 0.01 = 1%). Not sent to the router API.
+   * When set at or below 0.001 (0.1%), providers that cannot honor such
+   * tight slippage (currently CETUS_TIDE) are automatically removed from
+   * the effective providers list.
+   */
+  slippage?: number
 }
 
 export interface MergeSwapFromCoin {
@@ -32,6 +40,14 @@ export interface MergeSwapParams {
   providers?: string[]
   pythAvailabilityCheckInterval?: number
   froms: MergeSwapFromCoin[]
+  /**
+   * The slippage the caller intends to use when building the swap
+   * (a fraction, e.g. 0.01 = 1%). Not sent to the router API.
+   * When set at or below 0.001 (0.1%), providers that cannot honor such
+   * tight slippage (currently CETUS_TIDE) are automatically removed from
+   * the effective providers list.
+   */
+  slippage?: number
 }
 
 export interface MergeSwapInputCoin {

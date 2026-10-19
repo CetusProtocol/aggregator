@@ -24,6 +24,11 @@ import {
   getDeepbookV3Config,
 } from "./api"
 import { Env } from "./config"
+import {
+  AggregatorError,
+  TransactionErrorCode,
+  parseAggregatorContractError,
+} from "./errors"
 import { CalculateAmountLimit, CalculateAmountLimitBN } from "./math"
 import { CoinUtils } from "./types/CoinAssist"
 import * as Constants from "./const"
@@ -169,11 +174,57 @@ export const PYTH_ORACLE_BASED_DEXES = [
   HAEDALPROPAMM,
 ]
 
+// Providers that are automatically removed from routing when the caller
+// declares a slippage at or below MAX_TIGHT_SLIPPAGE: their fills cannot
+// reliably satisfy such a tight output limit, so routing through them would
+// frequently abort on-chain with a slippage check failure.
+export const TIGHT_SLIPPAGE_EXCLUDED_DEXES = [CETUS_TIDE]
+
+// 0.1% — at or below this threshold TIGHT_SLIPPAGE_EXCLUDED_DEXES are
+// filtered out.
+export const MAX_TIGHT_SLIPPAGE = 0.001
+
 function slippageToContractValue(slippage: number): number {
   if (!Number.isFinite(slippage) || slippage < 0 || slippage >= 1) {
     throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
   }
   return Math.floor(slippage * 1_000_000)
+}
+
+/**
+ * When the caller declares a slippage at or below MAX_TIGHT_SLIPPAGE (0.1%),
+ * removes TIGHT_SLIPPAGE_EXCLUDED_DEXES (currently CETUS_TIDE) from the
+ * effective providers list, since those providers cannot reliably satisfy
+ * such a tight output limit and would abort on-chain with a slippage check
+ * failure. No-op when slippage is not provided or above the threshold.
+ */
+export function filterProvidersBySlippage<
+  T extends { providers?: string[]; slippage?: number },
+>(params: T): { params: T; providersExhausted: boolean } {
+  const { slippage } = params
+  if (slippage === undefined) {
+    return { params, providersExhausted: false }
+  }
+  if (!Number.isFinite(slippage) || slippage < 0 || slippage >= 1) {
+    throw new Error(Constants.CLIENT_CONFIG.ERRORS.INVALID_SLIPPAGE)
+  }
+  if (slippage > MAX_TIGHT_SLIPPAGE) {
+    return { params, providersExhausted: false }
+  }
+
+  const sourceProviders =
+    params.providers && params.providers.length > 0
+      ? params.providers
+      : ALL_DEXES
+  const providers = sourceProviders.filter(
+    provider =>
+      !TIGHT_SLIPPAGE_EXCLUDED_DEXES.includes(provider.trim().toUpperCase())
+  )
+
+  return {
+    params: { ...params, providers },
+    providersExhausted: providers.length === 0,
+  }
 }
 
 function decodeRebalanceHex(
@@ -581,10 +632,15 @@ export class AggregatorClient {
   }
 
   async findRouters(params: FindRouterParams): Promise<RouterDataV3 | null> {
+    const slippageFiltered = filterProvidersBySlippage(params)
+    if (slippageFiltered.providersExhausted) {
+      return emptyRouterResult(slippageFiltered.params.byAmountIn)
+    }
+
     const {
       params: routerParams,
       providersExhausted,
-    } = await this.filterProvidersByPythAvailability(params)
+    } = await this.filterProvidersByPythAvailability(slippageFiltered.params)
 
     if (providersExhausted) {
       return emptyRouterResult(routerParams.byAmountIn)
@@ -621,10 +677,15 @@ export class AggregatorClient {
   async findMergeSwapRouters(
     params: MergeSwapParams
   ): Promise<MergeSwapRouterData | null> {
+    const slippageFiltered = filterProvidersBySlippage(params)
+    if (slippageFiltered.providersExhausted) {
+      return emptyMergeSwapResult()
+    }
+
     const {
       params: routerParams,
       providersExhausted,
-    } = await this.filterProvidersByPythAvailability(params)
+    } = await this.filterProvidersByPythAvailability(slippageFiltered.params)
 
     if (providersExhausted) {
       return emptyMergeSwapResult()
@@ -2127,6 +2188,79 @@ export class AggregatorClient {
     const { signature: userSig } = await userSigner.signTransaction(bytes)
     return this.executeWithSignatures(bytes, [userSig, sponsorSig])
   }
+}
+
+/**
+ * Opt-in verification for executed transaction results: inspects the effects
+ * and throws an AggregatorError when the transaction failed on-chain.
+ *
+ * - Aggregator contract aborts (the `errors` module of the aggregator v3
+ *   package, e.g. slippage check failure) are thrown with a typed errorCode
+ *   such as TransactionErrorCode.AmountOutSlippageCheckFailed and a
+ *   human-readable message. Check with AggregatorError.isAggregatorErrorCode().
+ * - Any other on-chain failure is thrown with the raw error string as message
+ *   and errorCode TransactionErrorCode.TransactionFailed.
+ *
+ * Call it on the result of sendTransaction / executeWithSignatures, or on any
+ * execution result obtained via wallet adapters. Execution methods themselves
+ * do NOT throw on failure — their behavior is unchanged from prior versions.
+ *
+ * Example:
+ *   const res = await client.sendTransaction(txb, signer)
+ *   throwOnAggregatorContractFailure(res)
+ */
+export function throwOnAggregatorContractFailure(result: unknown): void {
+  const errorMessage = extractEffectsErrorMessage(result)
+  if (errorMessage === null) {
+    return
+  }
+
+  const parsed = parseAggregatorContractError(errorMessage)
+  if (parsed) {
+    throw new AggregatorError(
+      `${parsed.msg} (abort code ${parsed.code}${
+        parsed.command !== undefined ? `, command ${parsed.command}` : ""
+      })`,
+      parsed.errorCode
+    )
+  }
+
+  throw new AggregatorError(errorMessage, TransactionErrorCode.TransactionFailed)
+}
+
+// Extracts the failure message from transaction effects, supporting both the
+// current @mysten/sui effects shape ({ success: boolean, error: { message } })
+// and the legacy JSON-RPC shape ({ status: "failure", error: string }).
+// Returns null when the transaction succeeded or effects are absent.
+function extractEffectsErrorMessage(result: unknown): string | null {
+  const effects = (result as any)?.effects ?? (result as any)?.Transaction?.effects
+  const status = effects?.status
+  if (!status) {
+    return null
+  }
+
+  // Current shape: { success: boolean, error: { message: string } | null }
+  if (typeof status.success === "boolean") {
+    if (status.success) {
+      return null
+    }
+    return (
+      status.error?.message ??
+      (typeof status.error === "string" ? status.error : "Unknown error")
+    )
+  }
+
+  // Legacy shape: { status: "success" | "failure", error?: string }
+  if (typeof status.status === "string") {
+    if (status.status !== "failure") {
+      return null
+    }
+    return typeof status.error === "string"
+      ? status.error
+      : status.error?.message ?? "Unknown error"
+  }
+
+  return null
 }
 
 function generateUUID(): string {
