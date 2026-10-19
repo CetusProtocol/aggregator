@@ -39,6 +39,7 @@ export class CetusTideRouter implements DexRouter {
 
     const ed = path.extendedDetails
     const fill = this.validateFill(ed)
+    const orderbookVersion = this.resolveOrderbookVersion(ed, fill)
     const mmObjectId = ed.cetus_tide_mm_object_id!
     const versioned = ed.cetus_tide_versioned!
     const globalConfig = ed.cetus_tide_global_config!
@@ -51,32 +52,108 @@ export class CetusTideRouter implements DexRouter {
       ? Constants.AGGREGATOR_V3_CONFIG.MAX_AMOUNT_IN
       : path.amountIn
 
-    const envelopeBytes = Array.from(fromHex(fill.envelope))
-    const signatureBytes = Array.from(fromHex(fill.signature))
+    const envelopeBytes = this.decodeHex("envelope", fill.envelope)
     // request_id reuses quote_hash bytes — the tide tracker writes request_id
     // into ConsumeExecutedEvent.layer_fills to correlate fills with aggregator quotes.
-    const quoteHashBytes = Array.from(fromHex(fill.quote_hash))
+    const quoteHashBytes = this.decodeHex("quote_hash", fill.quote_hash, 32)
 
-    const args = [
-      swapContext,
-      txb.object(versioned),
-      txb.object(globalConfig),
-      txb.object(mmObjectId),
-      txb.object(path.id),
-      txb.pure.vector("u8", envelopeBytes),
-      txb.pure.vector("u8", signatureBytes),
-      txb.pure.vector("u8", quoteHashBytes),
-      txb.pure.u64(amountIn.toString()),
-      txb.pure.bool(path.direction),
-      txb.pure.vector("u8", quoteHashBytes),
-      txb.object(SUI_CLOCK_OBJECT_ID),
-    ]
+    if (orderbookVersion === 1) {
+      if (!fill.signature) {
+        throw new Error(
+          "Cetus Tide V1: cetus_tide_fill.signature is required"
+        )
+      }
+      const signatureBytes = this.decodeHex("signature", fill.signature, 96)
 
-    txb.moveCall({
-      target: `${path.publishedAt}::orderbook::swap`,
-      typeArguments: [baseCoinType, quoteCoinType],
-      arguments: args,
-    })
+      txb.moveCall({
+        target: `${path.publishedAt}::orderbook::swap`,
+        typeArguments: [baseCoinType, quoteCoinType],
+        arguments: [
+          swapContext,
+          txb.object(versioned),
+          txb.object(globalConfig),
+          txb.object(mmObjectId),
+          txb.object(path.id),
+          txb.pure.vector("u8", envelopeBytes),
+          txb.pure.vector("u8", signatureBytes),
+          txb.pure.vector("u8", quoteHashBytes),
+          txb.pure.u64(amountIn.toString()),
+          txb.pure.bool(path.direction),
+          txb.pure.vector("u8", quoteHashBytes),
+          txb.object(SUI_CLOCK_OBJECT_ID),
+        ],
+      })
+      return
+    }
+
+    if (orderbookVersion === 2) {
+      const signatures = fill.signatures
+      if (!signatures || signatures.length === 0) {
+        throw new Error(
+          "Cetus Tide V2: cetus_tide_fill.signatures must be a non-empty canonical bundle"
+        )
+      }
+      const signatureBundle = signatures.map((signature, index) =>
+        this.decodeHex(`signatures[${index}]`, signature, 96)
+      )
+
+      txb.moveCall({
+        target: `${path.publishedAt}::orderbook_v2::swap`,
+        typeArguments: [baseCoinType, quoteCoinType],
+        arguments: [
+          swapContext,
+          txb.object(versioned),
+          txb.object(globalConfig),
+          txb.object(mmObjectId),
+          txb.object(path.id),
+          txb.pure.vector("u8", envelopeBytes),
+          txb.pure.vector("vector<u8>", signatureBundle),
+          txb.pure.u64(amountIn.toString()),
+          txb.pure.bool(path.direction),
+          txb.pure.vector("u8", quoteHashBytes),
+          txb.object(SUI_CLOCK_OBJECT_ID),
+        ],
+      })
+      return
+    }
+  }
+
+  private resolveOrderbookVersion(
+    ed: ExtendedDetails,
+    fill: CetusTideFill
+  ): 1 | 2 {
+    const returnedVersion = ed.cetus_tide_orderbook_version
+
+    // Legacy V1 responses did not include an explicit version. A V2 response
+    // can still be recognized safely by its canonical multi-signature bundle.
+    if (returnedVersion == null) {
+      return fill.signatures && fill.signatures.length > 0 ? 2 : 1
+    }
+
+    const version = Number(returnedVersion)
+    if (version === 1 || version === 2) {
+      return version
+    }
+
+    throw new Error(
+      `Cetus Tide: unsupported orderbook version ${String(returnedVersion)}`
+    )
+  }
+
+  private decodeHex(label: string, value: string, expectedLength?: number) {
+    let bytes: number[]
+    try {
+      bytes = Array.from(fromHex(value))
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error)
+      throw new Error(`Cetus Tide: invalid ${label} hex: ${reason}`)
+    }
+    if (expectedLength != null && bytes.length !== expectedLength) {
+      throw new Error(
+        `Cetus Tide: ${label} must be ${expectedLength} bytes, got ${bytes.length}`
+      )
+    }
+    return bytes
   }
 
   private validateFill(ed: ExtendedDetails): CetusTideFill {

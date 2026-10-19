@@ -145,14 +145,17 @@ export type ExtendedDetails = {
   cetus_tide_mm_object_id?: string
   cetus_tide_versioned?: string
   cetus_tide_global_config?: string
+  /** 1 = orderbook, 2 = orderbook_v2. Missing is inferred from the signature shape. */
+  cetus_tide_orderbook_version?: number
   aux_shared_versions?: Record<string, number>
 }
 
 export type CetusTideFill = {
-  envelope: string         // 0x + BCS bytes of SignedQuote
-  signature: string        // 0x + (32B pubkey || 64B ed25519 sig)
-  quote_hash: string       // 0x + blake2b256(envelope_bytes)
-  sig_expiry_ms: string | number  // u64 wire
+  envelope: string // 0x + BCS bytes of SignedQuote/SignedQuoteV2
+  signature?: string // V1 signature; omitted by V2 responses
+  signatures?: string[] // V2 canonical signature bundle; omitted by V1 responses
+  quote_hash: string // 0x + blake2b256(envelope_bytes)
+  sig_expiry_ms: string | number // u64 wire
 }
 
 // Path type with V3 capabilities (using direction instead of a2b, string amounts)
@@ -209,6 +212,28 @@ export type RouterDataV3 = {
   totalDeepFee?: number
   error?: RouterError
   overlayFee?: number
+}
+
+export type RebalanceQuote = {
+  domain: string
+  coinIn: string
+  coinOut: string
+  amountIn: string
+  amountOut: string
+  issuedAtMs: string
+  expiryMs: string
+  signerVersion: string
+}
+
+/**
+ * A successful response from the dedicated PQF rebalance quote endpoint.
+ * The signed fields are optional so API error responses can use the same
+ * RouterDataV3 error shape as ordinary route requests.
+ */
+export type RebalanceRouterData = RouterDataV3 & {
+  rebalanceQuoteBcs?: string
+  rebalanceQuoteSignature?: string
+  rebalanceQuote?: RebalanceQuote
 }
 
 export type MergeRoute = {

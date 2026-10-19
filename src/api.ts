@@ -17,9 +17,10 @@ import {
   MergeSwapParams,
   MergeSwapRouterData,
   MergeRoute,
+  RebalanceRouterData,
 } from "./types/shared"
 
-const SDK_VERSION = 1010608
+const SDK_VERSION = 1010609
 
 function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
   // Parse packages map from API response
@@ -220,6 +221,112 @@ export async function getRouterResult(
   }
 }
 
+export async function getRebalanceRouterResult(
+  endpoint: string,
+  apiKey: string,
+  params: FindRouterParams
+): Promise<RebalanceRouterData | null> {
+  if (!apiKey) {
+    throw new Error("PQF rebalance route requires an API key")
+  }
+  if (!params.byAmountIn) {
+    throw new Error("PQF rebalance route only supports byAmountIn=true")
+  }
+  if (!params.providers || params.providers.length === 0) {
+    throw new Error("PQF rebalance route requires explicit providers")
+  }
+  const forbiddenProvider = params.providers.find(provider =>
+    ["CETUS_TIDE", "PQF_ORDERBOOK", "PQF_ORDERBOOK_V2"].includes(
+      provider.trim().toUpperCase()
+    )
+  )
+  if (forbiddenProvider) {
+    throw new Error(
+      `PQF rebalance route must exclude provider ${forbiddenProvider}`
+    )
+  }
+
+  const baseEndpoint = endpoint.replace(/\/+$/, "")
+  const rebalanceEndpoint = baseEndpoint.endsWith("/rebalance")
+    ? baseEndpoint
+    : `${baseEndpoint}/rebalance`
+  const response = await getRouter(rebalanceEndpoint, apiKey, params)
+
+  if (!response) {
+    return null
+  }
+  if (!response.ok) {
+    let errorCode = AggregatorServerErrorCode.BadRequest
+    if (response.status === 429) {
+      errorCode = AggregatorServerErrorCode.RateLimitExceeded
+    }
+    return {
+      quoteID: "",
+      amountIn: ZERO,
+      amountOut: ZERO,
+      paths: [],
+      byAmountIn: true,
+      insufficientLiquidity: false,
+      deviationRatio: 0,
+      error: {
+        code: errorCode,
+        msg: getAggregatorServerErrorMessage(errorCode),
+      },
+    }
+  }
+
+  const body = JSONbig.parse(await response.text())
+  if (body.data == null) {
+    const code = processErrorStatusCode(body.code)
+    const msg = getAggregatorServerErrorMessage(code, body.msg)
+    return {
+      quoteID: "",
+      amountIn: ZERO,
+      amountOut: ZERO,
+      paths: [],
+      byAmountIn: true,
+      insufficientLiquidity: msg.includes("Insufficient liquidity"),
+      deviationRatio: 0,
+      error: { code, msg },
+    }
+  }
+
+  const data = body.data
+  if (
+    !data.rebalance_quote_bcs ||
+    !data.rebalance_quote_signature ||
+    !data.rebalance_quote
+  ) {
+    throw new Error("PQF rebalance route response is missing signed quote fields")
+  }
+  const quote = data.rebalance_quote
+  const result: RebalanceRouterData = {
+    ...parseRouterResponse(data, true),
+    rebalanceQuoteBcs: data.rebalance_quote_bcs,
+    rebalanceQuoteSignature: data.rebalance_quote_signature,
+    rebalanceQuote: {
+      domain: quote.domain,
+      coinIn: quote.coin_in,
+      coinOut: quote.coin_out,
+      amountIn: quote.amount_in.toString(),
+      amountOut: quote.amount_out.toString(),
+      issuedAtMs: quote.issued_at_ms.toString(),
+      expiryMs: quote.expiry_ms.toString(),
+      signerVersion: quote.signer_version.toString(),
+    },
+  }
+  if (!result.packages) {
+    result.packages = new Map<string, string>()
+  }
+  if (!result.packages.has("aggregator_v3")) {
+    result.packages.set(
+      "aggregator_v3",
+      "0x3864c7c59a4889fec05d1aae4bc9dba5a0e0940594b424fbed44cb3f6ac4c032"
+    )
+  }
+  return result
+}
+
 async function getRouter(
   endpoint: string,
   apiKey: string,
@@ -265,7 +372,7 @@ async function getRouter(
     }
 
     if (apiKey.length > 0) {
-      url += `&apiKey=${apiKey}`
+      url += `&apikey=${encodeURIComponent(apiKey)}`
     }
 
     // set newest sdk version

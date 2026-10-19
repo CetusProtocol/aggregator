@@ -14,9 +14,11 @@ import {
   MergeSwapInputCoin,
   MergeSwapRouterData,
   DeepbookV3ConfigResponse,
+  RebalanceRouterData,
 } from "./types/shared"
 import {
   getRouterResult,
+  getRebalanceRouterResult,
   processFlattenRoutes,
   getMergeSwapResult,
   getDeepbookV3Config,
@@ -62,6 +64,7 @@ import {
 import { completionCoin, compareCoins } from "./utils/coin"
 import { coinWithBalance } from "@mysten/sui/transactions"
 import { SuiGrpcClient } from "@mysten/sui/grpc"
+import { fromHex, SUI_CLOCK_OBJECT_ID } from "@mysten/sui/utils"
 import {
   PythAdapter,
   PythServiceProtocol,
@@ -173,6 +176,29 @@ function slippageToContractValue(slippage: number): number {
   return Math.floor(slippage * 1_000_000)
 }
 
+function decodeRebalanceHex(
+  label: string,
+  value: string,
+  expectedLength?: number
+): number[] {
+  let bytes: number[]
+  try {
+    bytes = Array.from(fromHex(value))
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error)
+    throw new Error(`PQF rebalance: invalid ${label} hex: ${reason}`)
+  }
+  if (bytes.length === 0) {
+    throw new Error(`PQF rebalance: ${label} must not be empty`)
+  }
+  if (expectedLength != null && bytes.length !== expectedLength) {
+    throw new Error(
+      `PQF rebalance: ${label} must be ${expectedLength} bytes, got ${bytes.length}`
+    )
+  }
+  return bytes
+}
+
 export type BuildRouterSwapParamsV3 = {
   router: RouterDataV3
   inputCoin: TransactionObjectArgument
@@ -200,6 +226,21 @@ export type BuildFastRouterSwapParamsV3 = {
   // (which belongs to the sponsor). SUI input is taken from the sender's own coins and
   // SUI output is delivered to the sender instead of being merged into the gas coin.
   sponsored?: boolean
+}
+
+export type BuildRebalanceSwapParams = {
+  router: RebalanceRouterData
+  slippage: number
+  txb: Transaction
+  pqfPublishedAt: string
+  versionedObjectId: string
+  globalConfigObjectId: string
+  marketMakerObjectId: string
+  poolObjectId: string
+  baseCoinType: string
+  quoteCoinType: string
+  partner?: string
+  cetusDlmmPartner?: string
 }
 
 // Parameters for assembling a Sui sponsored transaction from a pre-built transaction
@@ -555,6 +596,25 @@ export class AggregatorClient {
       routerParams,
       this.overlayFeeRate,
       this.overlayFeeReceiver
+    )
+  }
+
+  async findRebalanceRouters(
+    params: FindRouterParams
+  ): Promise<RebalanceRouterData | null> {
+    const {
+      params: routerParams,
+      providersExhausted,
+    } = await this.filterProvidersByPythAvailability(params)
+
+    if (providersExhausted) {
+      return emptyRouterResult(routerParams.byAmountIn)
+    }
+
+    return getRebalanceRouterResult(
+      this.endpoint,
+      this.apiKey,
+      routerParams
     )
   }
 
@@ -1155,6 +1215,155 @@ export class AggregatorClient {
     )
 
     return outputCoin
+  }
+
+  async rebalanceSwap(params: BuildRebalanceSwapParams): Promise<void> {
+    const {
+      router,
+      slippage,
+      txb,
+      pqfPublishedAt,
+      versionedObjectId,
+      globalConfigObjectId,
+      marketMakerObjectId,
+      poolObjectId,
+      baseCoinType,
+      quoteCoinType,
+      partner,
+      cetusDlmmPartner,
+    } = params
+
+    slippageToContractValue(slippage)
+    if (this.overlayFeeRate !== 0) {
+      throw new Error("PQF rebalance does not support an aggregator overlay fee")
+    }
+    if (router.error) {
+      throw new Error(`PQF rebalance route error: ${router.error.msg}`)
+    }
+    if (!router.byAmountIn) {
+      throw new Error("PQF rebalance route only supports byAmountIn=true")
+    }
+    if (router.paths.length === 0) {
+      throw new Error("PQF rebalance route has no paths")
+    }
+    if (
+      !router.rebalanceQuoteBcs ||
+      !router.rebalanceQuoteSignature ||
+      !router.rebalanceQuote
+    ) {
+      throw new Error("PQF rebalance route is missing signed quote fields")
+    }
+    for (const [label, value] of Object.entries({
+      pqfPublishedAt,
+      versionedObjectId,
+      globalConfigObjectId,
+      marketMakerObjectId,
+      poolObjectId,
+      baseCoinType,
+      quoteCoinType,
+    })) {
+      if (!value) {
+        throw new Error(`PQF rebalance: ${label} is required`)
+      }
+    }
+
+    const quote = router.rebalanceQuote
+    if (!router.amountIn.eq(new BN(quote.amountIn))) {
+      throw new Error(
+        "PQF rebalance: route amountIn does not match the signed quote"
+      )
+    }
+    if (!router.amountOut.eq(new BN(quote.amountOut))) {
+      throw new Error(
+        "PQF rebalance: route amountOut does not match the signed quote"
+      )
+    }
+
+    const processed = processFlattenRoutes(router)
+    const routeCoinIn = completionCoin(processed.fromCoinType)
+    const routeCoinOut = completionCoin(processed.targetCoinType)
+    const signedCoinIn = completionCoin(quote.coinIn)
+    const signedCoinOut = completionCoin(quote.coinOut)
+    if (routeCoinIn !== signedCoinIn || routeCoinOut !== signedCoinOut) {
+      throw new Error(
+        "PQF rebalance: route coin types do not match the signed quote"
+      )
+    }
+
+    const base = completionCoin(baseCoinType)
+    const quoteType = completionCoin(quoteCoinType)
+    let baseToQuote: boolean
+    if (signedCoinIn === base && signedCoinOut === quoteType) {
+      baseToQuote = true
+    } else if (signedCoinIn === quoteType && signedCoinOut === base) {
+      baseToQuote = false
+    } else {
+      throw new Error(
+        "PQF rebalance: signed quote coin types do not match the pool pair"
+      )
+    }
+
+    const rebalanceQuoteBytes = decodeRebalanceHex(
+      "rebalance_quote_bcs",
+      router.rebalanceQuoteBcs
+    )
+    const rebalanceQuoteSignature = decodeRebalanceHex(
+      "rebalance_quote_signature",
+      router.rebalanceQuoteSignature,
+      96
+    )
+    const beginFunction = baseToQuote
+      ? "begin_rebalance_base_to_quote"
+      : "begin_rebalance_quote_to_base"
+    const finishFunction = baseToQuote
+      ? "finish_rebalance_base_to_quote"
+      : "finish_rebalance_quote_to_base"
+
+    const [borrowedBalance, receipt] = txb.moveCall({
+      target: `${pqfPublishedAt}::orderbook_v2::${beginFunction}`,
+      typeArguments: [baseCoinType, quoteCoinType],
+      arguments: [
+        txb.object(versionedObjectId),
+        txb.object(globalConfigObjectId),
+        txb.object(marketMakerObjectId),
+        txb.object(poolObjectId),
+        txb.pure.u64(router.amountIn.toString()),
+        txb.pure.vector("u8", rebalanceQuoteBytes),
+        txb.pure.vector("u8", rebalanceQuoteSignature),
+        txb.object(SUI_CLOCK_OBJECT_ID),
+      ],
+    })
+    const borrowedCoin = txb.moveCall({
+      target: "0x2::coin::from_balance",
+      typeArguments: [signedCoinIn],
+      arguments: [borrowedBalance],
+    }) as TransactionObjectArgument
+
+    const repayCoin = await this.routerSwap({
+      router,
+      inputCoin: borrowedCoin,
+      slippage,
+      txb,
+      partner: partner ?? this.partner,
+      cetusDlmmPartner: cetusDlmmPartner ?? this.cetusDlmmPartner,
+    })
+    const repayBalance = txb.moveCall({
+      target: "0x2::coin::into_balance",
+      typeArguments: [signedCoinOut],
+      arguments: [repayCoin],
+    })
+
+    txb.moveCall({
+      target: `${pqfPublishedAt}::orderbook_v2::${finishFunction}`,
+      typeArguments: [baseCoinType, quoteCoinType],
+      arguments: [
+        txb.object(versionedObjectId),
+        txb.object(marketMakerObjectId),
+        txb.object(poolObjectId),
+        repayBalance,
+        receipt,
+      ],
+    })
   }
 
   async routerSwap(

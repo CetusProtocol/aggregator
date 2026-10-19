@@ -37,13 +37,13 @@ export function buildTestAccount(): Ed25519Keypair {
 }
 
 export async function setupTestClient(
-  _fromCoin: string = testData.M_SUI
+  _fromCoin: string = testData.M_SUI,
+  endpoint: string =
+    process.env.CETUS_AGGREGATOR_V3 || "https://api-sui.cetus.zone/router_v3"
 ): Promise<{
   client: AggregatorClient
   keypair: Ed25519Keypair | null
 }> {
-  const aggregatorURL =
-    process.env.CETUS_AGGREGATOR_V3 || "https://api-sui.cetus.zone/router_v3"
   const secret = process.env.SUI_WALLET_SECRET
 
   let keypair: Ed25519Keypair | null = null
@@ -53,27 +53,41 @@ export async function setupTestClient(
     keypair = buildTestAccount()
   }
 
-  // Use a known mainnet holder for simulation (no private key needed)
-  const fallbackWallet =
-    "0xf7b8d77dd06a6bb51c37ad3ce69e0a44c6f1064f52ac54606ef47763c8a71be6"
-  const signerFromKey = keypair?.toSuiAddress() ?? fallbackWallet
-//   const signer = keypair
-//     ? signerFromKey
-//     : await WalletUtils.getOptimalWalletForTesting(_fromCoin, fallbackWallet)
-  // Use the wallet from SUI_WALLET_SECRET in .env as the signer instead of a hardcoded fallback.
-  const signer = signerFromKey
-
-
   const env = Env.Mainnet
-  const network = 'mainnet'
-  const grpcUrl = 'https://fullnode.mainnet.sui.io:443'
+  const network = "mainnet"
+  const grpcUrl = "https://fullnode.mainnet.sui.io:443"
 
   const suiClient = process.env.SUI_RPC
     ? new SuiGrpcClient({ network, baseUrl: process.env.SUI_RPC })
     : new SuiGrpcClient({ network, baseUrl: grpcUrl })
 
+  // Simulation only needs an address that owns the input coin; it does not need
+  // the private key. Keep this separate from `keypair`, which is returned for
+  // tests that explicitly sign and execute a transaction.
+  const fallbackWallet =
+    process.env.SUI_SIMULATION_SENDER ??
+    "0x935029ca5219502a47ac9b69f556ccf6e2198b5e7815cf50f68846f723739cbd"
+  let signer = fallbackWallet
+  try {
+    const fallbackBalance = await suiClient.getBalance({
+      owner: fallbackWallet,
+      coinType: _fromCoin,
+    })
+    if (BigInt(fallbackBalance.balance.balance) === 0n) {
+      signer = await WalletUtils.getOptimalWalletForTesting(
+        _fromCoin,
+        fallbackWallet
+      )
+    }
+  } catch {
+    signer = await WalletUtils.getOptimalWalletForTesting(
+      _fromCoin,
+      fallbackWallet
+    )
+  }
+
   const client = new AggregatorClient({
-    endpoint: aggregatorURL,
+    endpoint,
     signer,
     client: suiClient,
     env,
