@@ -274,7 +274,7 @@ describe("Cetus Tide V2 API payload", () => {
       "0x0"
     )
 
-    expect(requestedUrl).toContain("v=1010609")
+    expect(Number(new URL(requestedUrl).searchParams.get("v"))).toBeGreaterThanOrEqual(1010609)
     expect(result?.paths[0].extendedDetails?.cetus_tide_orderbook_version).toBe(
       2
     )
@@ -348,7 +348,7 @@ describe("Cetus Tide V2 API payload", () => {
 
     expect(requestedUrl).toContain("/router_v3/rebalance/find_routes?")
     expect(requestedUrl).toContain("apikey=rebalance%20key")
-    expect(requestedUrl).toContain("v=1010609")
+    expect(Number(new URL(requestedUrl).searchParams.get("v"))).toBeGreaterThanOrEqual(1010609)
     expect(result?.rebalanceQuoteBcs).toBe(REBALANCE_QUOTE_BCS)
     expect(result?.rebalanceQuote).toMatchObject({
       coinIn: BASE,

@@ -40,6 +40,7 @@ import { TurbosRouter } from "./movecall/turbos"
 import { BluefinRouter } from "./movecall/bluefin"
 import { MomentumRouter } from "./movecall/momentum"
 import { MagmaRouter } from "./movecall/magma"
+import { DipcoinRouter } from "./movecall/dipcoin"
 import { KriyaV2Router } from "./movecall/kriya_v2"
 import { FlowxV2Router } from "./movecall/flowx_v2"
 import { BluemoveRouter } from "./movecall/bluemove"
@@ -89,6 +90,7 @@ import { CetusTideRouter } from "./movecall/cetus_tide"
 
 export const CETUS = "CETUS"
 export const DEEPBOOKV2 = "DEEPBOOK"
+export const DIPCOIN = "DIPCOIN"
 export const KRIYA = "KRIYA"
 export const FLOWXV2 = "FLOWX"
 export const FLOWXV3 = "FLOWXV3"
@@ -130,6 +132,7 @@ export const DEFAULT_ENDPOINT = "https://api-sui.cetus.zone/router_v3"
 export const ALL_DEXES = [
   CETUS,
   KRIYA,
+  DIPCOIN,
   FLOWXV2,
   FLOWXV3,
   KRIYAV3,
@@ -807,6 +810,8 @@ export class AggregatorClient {
         return new MomentumRouter(this.env)
       case MAGMA:
         return new MagmaRouter(this.env)
+      case DIPCOIN:
+        return new DipcoinRouter(this.env)
       case KRIYA:
         return new KriyaV2Router(this.env)
       case FLOWXV2:
@@ -891,6 +896,9 @@ export class AggregatorClient {
     if (routerData.quoteID == null) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
     }
+    if (!routerData.byAmountIn && routerData.paths.some(path => path.provider === DIPCOIN)) {
+      throw new Error("DipCoin only supports exact input")
+    }
     // Step 1: Flatten and sort routes for V3 execution
     const processedData = processFlattenRoutes(routerData)
 
@@ -959,6 +967,9 @@ export class AggregatorClient {
     if (routerData.quoteID == null) {
       throw new Error(Constants.CLIENT_CONFIG.ERRORS.QUOTE_ID_REQUIRED)
     }
+    if (!routerData.byAmountIn && routerData.paths.some(path => path.provider === DIPCOIN)) {
+      throw new Error("DipCoin only supports exact input")
+    }
     // Step 1: Flatten and sort routes for V3 execution
     const processedData = processFlattenRoutes(routerData)
 
@@ -1020,6 +1031,9 @@ export class AggregatorClient {
     slippage: number,
     partner?: string
   ): TransactionObjectArgument {
+    if (routerData.paths.some(path => path.provider === DIPCOIN)) {
+      throw new Error("DipCoin only supports exact input")
+    }
     const receipts: TransactionObjectArgument[] = []
     const dex = new CetusRouter(this.env, partner)
     const processedData = processFlattenRoutes(routerData)
@@ -1158,6 +1172,9 @@ export class AggregatorClient {
     slippage: number,
     partner?: string
   ): TransactionObjectArgument {
+    if (routerData.paths.some(path => path.provider === DIPCOIN)) {
+      throw new Error("DipCoin only supports exact input")
+    }
     const receipts: TransactionObjectArgument[] = []
     const dex = new CetusRouter(this.env, partner)
     const processedData = processFlattenRoutes(routerData)
