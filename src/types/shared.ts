@@ -16,6 +16,10 @@ export interface FindRouterParams {
   splitFactor?: number
   splitCount?: number
   providers?: string[]
+  /** Pool IDs to exclude from this quote (all hops/directions); at most 50. */
+  excludePools?: string[]
+  /** Only these pools may be used at every hop; empty means unrestricted. */
+  includePools?: string[]
   pythAvailabilityCheckInterval?: number
   liquidityChanges?: PreSwapLpChangeParams[]
   /**
@@ -38,6 +42,10 @@ export interface MergeSwapParams {
   byAmountIn: boolean
   depth?: number
   providers?: string[]
+  /** Pool IDs to exclude from this quote (all hops/directions); at most 50. */
+  excludePools?: string[]
+  /** Only these pools may be used at every hop; empty means unrestricted. */
+  includePools?: string[]
   pythAvailabilityCheckInterval?: number
   froms: MergeSwapFromCoin[]
   /**

@@ -20,7 +20,7 @@ import {
   RebalanceRouterData,
 } from "./types/shared"
 
-const SDK_VERSION = 1010704
+const SDK_VERSION = 1010705
 
 function parseRouterResponse(data: any, byAmountIn: boolean): RouterDataV3 {
   // Parse packages map from API response
@@ -343,6 +343,8 @@ async function getRouter(
       splitFactor,
       splitCount,
       providers,
+      includePools,
+      excludePools,
     } = params
     const fromCoin = completionCoin(from)
     const targetCoin = completionCoin(target)
@@ -369,6 +371,13 @@ async function getRouter(
       if (providers.length > 0) {
         url += `&providers=${providers.join(",")}`
       }
+    }
+
+    if (excludePools?.length) {
+      url += `&exclude_pools=${encodeURIComponent(excludePools.join(","))}`
+    }
+    if (includePools?.length) {
+      url += `&include_pools=${encodeURIComponent(includePools.join(","))}`
     }
 
     if (apiKey.length > 0) {
@@ -402,6 +411,8 @@ async function postRouterWithLiquidityChanges(
     splitFactor,
     splitCount,
     providers,
+    includePools,
+    excludePools,
     liquidityChanges,
   } = params
 
@@ -419,6 +430,8 @@ async function postRouterWithLiquidityChanges(
     split_factor: splitFactor,
     split_count: splitCount,
     providers: providersStr,
+    exclude_pools: excludePools?.length ? excludePools.join(",") : undefined,
+    include_pools: includePools?.length ? includePools.join(",") : undefined,
     liquidity_changes: liquidityChanges!.map(change => ({
       pool: change.poolID,
       tick_lower: change.ticklower,
@@ -450,7 +463,7 @@ async function getMergeSwapRouter(
   params: MergeSwapParams
 ) {
   try {
-    const { target, byAmountIn, depth, providers, froms } = params
+    const { target, byAmountIn, depth, providers, froms, includePools, excludePools } = params
     const targetCoin = completionCoin(target)
 
     let url = `${endpoint}/multi_find_routes?target=${targetCoin}&by_amount_in=${byAmountIn}`
@@ -461,6 +474,13 @@ async function getMergeSwapRouter(
 
     if (providers && providers.length > 0) {
       url += `&providers=${providers.join(",")}`
+    }
+
+    if (excludePools?.length) {
+      url += `&exclude_pools=${encodeURIComponent(excludePools.join(","))}`
+    }
+    if (includePools?.length) {
+      url += `&include_pools=${encodeURIComponent(includePools.join(","))}`
     }
 
     if (apiKey.length > 0) {

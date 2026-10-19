@@ -286,6 +286,48 @@ const routerRes = await client.findRouters({
 The `slippage` parameter is optional and is not sent to the router API; when
 omitted, behavior is unchanged.
 
+### 8. Filtering pools for a quote
+
+Use `includePools` to allow only the listed pool IDs, and `excludePools` to exclude
+specific IDs. Both apply to every hop, direction and split of this request.
+Exclusions win when an ID appears in both lists. Use the `id` returned in a quote's
+`paths`; Sui object IDs are normalized, while logical pool IDs are case-sensitive.
+
+```typescript
+const routerRes = await client.findRouters({
+  from,
+  target,
+  amount,
+  byAmountIn: true,
+  includePools: [poolA, poolB],
+  excludePools: [poolB], // Only poolA remains eligible.
+})
+```
+
+A nonempty include list restricts the entire route, including intermediate pools
+in multi-hop routes. It does not require every listed pool to be used. A valid
+unknown excluded ID has no effect; an include list with no matching available
+pools leaves no route. Neither filter overrides `providers` or service-side bans.
+
+The optional `includePools?: string[]` and `excludePools?: string[]` fields are also
+supported by `findMergeSwapRouters`, `findRebalanceRouters`, and the liquidity-change
+POST quote path. Omitting either field or passing an empty array leaves that filter
+inactive. The SDK sends `include_pools` and `exclude_pools` as comma-separated
+strings, with URL encoding for GET. Calls without these options stay unchanged.
+
+The SDK only joins each array into a CSV string and forwards it. The server owns
+ID validation, normalization, limits (50 entries and 4096 UTF-8 bytes per list),
+include/exclude precedence and route filtering. Server errors follow the existing
+SDK error handling. The SDK does not inspect returned pool IDs or retry quotes
+without filters.
+
+Use an Aggregator deployment that supports these fields before enabling them in
+callers; older endpoints may ignore unknown parameters.
+
+Pool filters only affect the current quote. If no route remains, the server returns
+its no-route error (`5010`). After changing either list, request a new quote and
+build the swap from that result.
+
 # Aggregator Contract Interface
 
 ## Tags corresponding to different networks
