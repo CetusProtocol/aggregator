@@ -2,10 +2,10 @@
 module test::swap {
     use bluefin_spot::config::GlobalConfig as BluefinGlobalConfig;
     use bluefin_spot::pool::Pool as BluefinPool;
-    use cetusclmm::config::GlobalConfig;
-    use cetusclmm::partner::Partner;
-    use cetusclmm::pool::{Self, Pool, FlashSwapReceipt};
-    use cetusclmm::tick_math;
+    use cetus_clmm::config::GlobalConfig;
+    use cetus_clmm::partner::Partner;
+    use cetus_clmm::pool::{Self, Pool, FlashSwapReceipt};
+    use cetus_clmm::tick_math;
     use flowx_clmm::pool_manager::{PoolRegistry, borrow_mut_pool};
     use flowx_clmm::versioned::Versioned;
     use haedal_pmm::oracle_driven_pool::Pool as HMM_POOL;

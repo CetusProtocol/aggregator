@@ -330,38 +330,38 @@ build the swap from that result.
 
 # Aggregator Contract Interface
 
-## Tags corresponding to different networks
+## Mainnet packages
 
-| Contract                  | Tag of Repo | Latest published at address                                        |
-| ------------------------- | ----------- | ------------------------------------------------------------------ |
-| CetusAggregatorV2         | mainnet     | 0x550ee36ade22b4193242ad6fb52c09b4b7185a3f678b1c074d5714040af0bf63 |
-| CetusAggregatorV2ExtendV1 | mainnet     | 0x2edc22bf96c85482b2208624fa9339255d5055113c92fd6c33add48ce971b774 |
-| CetusAggregatorV2ExtendV2 | mainnet     | 0x2e227a3cbc6715518b18ed339d2f967153674b7b257da114ca62c72b2011258a |
+| Contract                  | Published at                                                       |
+| ------------------------- | ------------------------------------------------------------------ |
+| CetusAggregatorV2         | 0x550ee36ade22b4193242ad6fb52c09b4b7185a3f678b1c074d5714040af0bf63 |
+| CetusAggregatorV2ExtendV1 | 0x4feea4993a75bf90a9d3eb4fe81e7ff0475214d486ca0643d14869fcaf9f497d |
+| CetusAggregatorV2ExtendV2 | 0x2e227a3cbc6715518b18ed339d2f967153674b7b257da114ca62c72b2011258a |
 
-## Example
+The V2 extension above is version 26 and links to DeepBook Spot v9. On V3, the quote API supplies `published_at` for each path. The mainnet DeepBook router is version 5 at `0xadd1c55001c6db12b8b508a1366078756ddefaefd1c7098b6a3ca5ca54da26aa`.
+
+## Example using the mainnet release tag
 
 ```
-CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/mainnet", rev = "mainnet-v1.64.0", override = true }
+CetusAggregatorV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/mainnet", rev = "mainnet-v1.66.0", override = true }
 
-CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v1", rev = "mainnet-v1.64.0", override = true }
+CetusAggregatorV2ExtendV1 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extended-v1", rev = "mainnet-v1.66.0", override = true }
 
-CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extend-v2", rev = "mainnet-v1.64.0", override = true }
+CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2-extended-v2", rev = "mainnet-v1.66.0", override = true }
 ```
 
 # Simple Aggregator Contract Interface
 
 - include: cetus, flowxv3, turbos, bluefin, haedalhmm, momentum, obric, deepbookv3
 
-## Tags corresponding to different networks
+## Mainnet package
 
-| Contract              | Tag of Repo | Latest published at address                                        |
-| --------------------- | ----------- | ------------------------------------------------------------------ |
-| CetusAggregatorSimple | mainnet-v1.65.0 | 0x7a1621f6dad0de46fb3b5b665896e46b310ad8264d8aab304c1e554f844e02a5 |
+CetusAggregatorSimple v21 is published at `0x031c0bc724bd0a8670e41824e087f44ea1d0ac4fc1db61ba8c68973c4364eb82` and links to DeepBook Spot v9 and Vault V2 v4.
 
-## Example
+## Example using the mainnet release tag
 
 ```
-CetusAggregatorSimple = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/simple-mainnet", rev = "mainnet-v1.65.0", override = true }
+CetusAggregatorSimple = { git = "https://github.com/CetusProtocol/aggregator.git", subdir = "packages/cetus-aggregator-v2/simple-mainnet", rev = "mainnet-v1.66.0", override = true }
 ```
 
 ## Usage
@@ -371,6 +371,8 @@ Cetus clmm interface is not complete(just have function definition), so it will 
 ```
 sui move build --dependencies-are-root && sui client publish --dependencies-are-root
 ```
+
+To build the existing consumer test package with the dependencies in your checkout, run `sui move build --path packages/test --build-env mainnet` from the repository root.
 
 # More About Cetus
 

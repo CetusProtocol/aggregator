@@ -12,7 +12,7 @@ export class AggregatorConfig {
   ])
 
   private static publishedAtV2ExtendMap: Map<Env, string> = new Map([
-    [Env.Mainnet, "0x8a2f7a5b20665eeccc79de3aa37c3b6c473eca233ada1e1cd4678ec07d4d4073"], // version 17
+    [Env.Mainnet, "0x4feea4993a75bf90a9d3eb4fe81e7ff0475214d486ca0643d14869fcaf9f497d"], // version 26
     [Env.Testnet, "0xabb6a81c8a216828e317719e06125de5bb2cb0fe8f9916ff8c023ca5be224c78"],
   ])
 

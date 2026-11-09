@@ -2,11 +2,10 @@
 [package]
 name = "Deepbookv3Vaults"
 version = "0.1.1"
-published-at = "0x9caccba6a5e9570a7cd712fc849daff8a0290874d4e4bcc046391b9620a253c9"
+published-at = "0x339e5f1b3cb6c14ece8a900179effab506f5522d4879265e8467b41632402dc0"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
 
 [dependencies]
-Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.23.1", override = true }
 deepbookv3 = { local = "../../externals/deepbookv3/deepbook", override = true}
 token = { local = "../../externals/deepbookv3/token", override = true }
 

@@ -9,14 +9,6 @@ subdir = "target_chains/sui/contracts"
 rev = "sui-contract-mainnet"
 override = true
 
-[dependencies.Wormhole]
-git = "https://github.com/wormhole-foundation/wormhole.git"
-subdir = "sui/wormhole"
-rev = "sui-upgrade-mainnet"
-override = true
-
-# Pyth is locked into this specific `rev` because the package depends on Wormhole and is pinned to this version.
- 
 [dependencies.Sui]
 git = "https://github.com/MystenLabs/sui.git"
 subdir = "crates/sui-framework/packages/sui-framework"
