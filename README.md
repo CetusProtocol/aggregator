@@ -354,9 +354,11 @@ CetusAggregatorV2ExtendV2 = { git = "https://github.com/CetusProtocol/aggregator
 
 - include: cetus, flowxv3, turbos, bluefin, haedalhmm, momentum, obric, deepbookv3
 
-## Mainnet package
+## Tags corresponding to different networks
 
-CetusAggregatorSimple v21 is published at `0x031c0bc724bd0a8670e41824e087f44ea1d0ac4fc1db61ba8c68973c4364eb82` and links to DeepBook Spot v9 and Vault V2 v4.
+| Contract              | Tag of Repo     | Latest published at address                                        |
+| --------------------- | --------------- | ------------------------------------------------------------------ |
+| CetusAggregatorSimple | mainnet-v1.66.0 | 0x031c0bc724bd0a8670e41824e087f44ea1d0ac4fc1db61ba8c68973c4364eb82 |
 
 ## Example using the mainnet release tag
 
