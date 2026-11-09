@@ -11,9 +11,7 @@ rev = "framework/mainnet"
 override = true
 
 [dependencies.liquid_staking]
-git = "https://github.com/solendprotocol/liquid-staking.git"
-subdir = "contracts"
-rev = "main"
+local = "../suilend/liquid-staking"
 override = true
 
 [dependencies.suilend]

@@ -1,0 +1,8 @@
+[package]
+name = "liquid_staking"
+edition = "2024.beta"
+published-at = "0x47c4b62aed92c5ae308ecd00253b64b3568ad97e6fb11e54b3d1ac5ed7be19ab"
+
+[addresses]
+liquid_staking = "0xb0575765166030556a6eafd3b1b970eba8183ff748860680245b9edd41c716e7"
+sui_system = "0x3"

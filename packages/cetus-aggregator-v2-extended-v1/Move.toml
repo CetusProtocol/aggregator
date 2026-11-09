@@ -6,13 +6,16 @@ edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
 published-at = "0x4feea4993a75bf90a9d3eb4fe81e7ff0475214d486ca0643d14869fcaf9f497d"
 
 [dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "mainnet-v1.72.2", override = true }
+MoveStdlib = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/move-stdlib", rev = "mainnet-v1.72.2", override = true }
+SuiSystem = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-system", rev = "mainnet-v1.72.2", override = true }
 deepbookv3 = { local = "../externals/deepbookv3/deepbook", override = true}
 token = { local = "../externals/deepbookv3/token", override = true }
 Deepbookv3Vaults = { local = "../internals/deepbookv3-vaults", override = true }
 Deepbookv3VaultsV2 = { local = "../internals/deepbookv3-vaults-v2", override = true }
-ScallopProtocol = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "mainnet-v1.6", override = true }
+ScallopProtocol = { git = "https://github.com/scallop-io/sui-lending-protocol.git", subdir = "contracts/protocol", rev = "334e93a1232a1d9417466080ae24491be3f7b27c", override = true }
 ScallopScoin = { local = "../externals/scallop/scallop_scoin", override = true }
-liquid_staking = { git = "https://github.com/solendprotocol/liquid-staking.git", subdir = "contracts", rev = "main", override = true }
+liquid_staking = { local = "../externals/suilend/liquid-staking", override = true }
 BluefinSpot = { local = "../externals/bluefin", override = true }
 haedal_pmm = { local = "../externals/haedal-pmm", override = true }
 Pyth = { git = "https://github.com/pyth-network/pyth-crosschain.git", subdir = "target_chains/sui/contracts", rev = "sui-contract-mainnet", override = true }
